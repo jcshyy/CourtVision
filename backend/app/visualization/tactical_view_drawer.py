@@ -2,11 +2,17 @@ import cv2
 
 
 class TacticalViewDrawer:
-    def __init__(self, team_1_color=(255, 245, 238), team_2_color=(128, 0, 0)):
+    def __init__(
+        self,
+        team_1_color=(255, 245, 238),
+        team_2_color=(128, 0, 0),
+        unknown_color=(128, 128, 128),
+    ):
         self.start_x = 20
         self.start_y = 40
         self.team_1_color = team_1_color
         self.team_2_color = team_2_color
+        self.unknown_color = unknown_color
 
     def draw(
         self,
@@ -67,8 +73,11 @@ class TacticalViewDrawer:
                 )
 
                 for player_id, position in frame_positions.items():
-                    team_id = frame_assignments.get(player_id, 1)
-                    color = self.team_1_color if team_id == 1 else self.team_2_color
+                    team_id = frame_assignments.get(player_id)
+                    color = {
+                        1: self.team_1_color,
+                        2: self.team_2_color,
+                    }.get(team_id, self.unknown_color)
                     x = int(position[0]) + self.start_x
                     y = int(position[1]) + self.start_y
                     player_radius = 8

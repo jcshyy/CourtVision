@@ -1,6 +1,7 @@
 import argparse
-from pathlib import Path
+import json
 
+from backend.app.cache_paths import cache_path, default_job_output_path, video_cache_dir
 from backend.app.analytics import (
     BallAcquisitionDetector,
     PassInterceptionDetector,
@@ -8,11 +9,11 @@ from backend.app.analytics import (
     TacticalViewConverter,
     events_from_arrays,
 )
-from backend.app.config import STUBS_DIR
+from backend.app.config import OUTPUT_DIR, STUBS_DIR
 from backend.app.detection import CourtKeypointDetector
-from backend.app.team_assignment import TeamAssigner
+from backend.app.team_assignment import NeedsTeamColorsError, TeamAssigner
 from backend.app.tracking import BallTracker, PlayerTracker
-from backend.app.utils import read_video, save_video
+from backend.app.utils import probe_video, read_video, save_video
 from backend.app.visualization import (
     BallTracksDrawer,
     CourtKeypointDrawer,
@@ -23,6 +24,11 @@ from backend.app.visualization import (
     TacticalViewDrawer,
     TeamBallControlDrawer,
 )
+
+TEAM_DISPLAY_COLORS = {
+    1: (255, 80, 0),   # Bright blue in OpenCV BGR order.
+    2: (0, 215, 255),  # Bright yellow in OpenCV BGR order.
+}
 
 
 def parse_args():
@@ -45,24 +51,75 @@ def parse_args():
         default=str(STUBS_DIR),
         help="Path to stub directory.",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--team-1-color",
+        default=None,
+        help="Team 1 primary jersey color in #RRGGBB format.",
+    )
+    parser.add_argument(
+        "--team-2-color",
+        default=None,
+        help="Team 2 primary jersey color in #RRGGBB format.",
+    )
+    parser.add_argument("--start-seconds", type=float, default=0.0)
+    parser.add_argument("--duration-seconds", type=float, default=None)
+    parser.add_argument("--target-fps", type=float, default=None)
+    parser.add_argument("--max-width", type=int, default=None)
+    args = parser.parse_args()
+    if (args.team_1_color is None) != (args.team_2_color is None):
+        parser.error("--team-1-color and --team-2-color must be provided together")
+    if args.start_seconds < 0:
+        parser.error("--start-seconds must be non-negative")
+    if args.duration_seconds is not None and args.duration_seconds <= 0:
+        parser.error("--duration-seconds must be positive")
+    if args.target_fps is not None and args.target_fps <= 0:
+        parser.error("--target-fps must be positive")
+    if args.max_width is not None and args.max_width <= 0:
+        parser.error("--max-width must be positive")
+    return args
 
 
 def default_output_path(input_video):
-    return Path("output_videos") / "output_video.avi"
-
-
-def stub_path(args, name):
-    return Path(args.stub_path) / name
+    return default_job_output_path(OUTPUT_DIR, input_video)
 
 
 def main():
     args = parse_args()
     video_path = args.input_video
     output_path = args.output_video or default_output_path(video_path)
+    try:
+        team_assigner = TeamAssigner(
+            team_1_color=args.team_1_color,
+            team_2_color=args.team_2_color,
+        )
+    except ValueError as error:
+        raise SystemExit(f"Invalid team-color configuration: {error}") from error
 
-    video_frames = read_video(video_path)
+    video_metadata = probe_video(video_path)
+    output_fps = min(args.target_fps or video_metadata["fps"], video_metadata["fps"])
+    processing_options = {
+        "start_seconds": args.start_seconds,
+        "duration_seconds": args.duration_seconds,
+        "target_fps": output_fps,
+        "max_width": args.max_width,
+    }
+    processing_identity = json.dumps(processing_options, sort_keys=True)
+    try:
+        video_frames = read_video(
+            video_path,
+            start_seconds=args.start_seconds,
+            duration_seconds=args.duration_seconds,
+            target_fps=output_fps,
+            max_width=args.max_width,
+            max_decoded_bytes=2 * 1024**3,
+        )
+    except MemoryError as error:
+        raise SystemExit(f"Video selection is too large: {error}") from error
     print(f"Loaded {len(video_frames)} frames from {video_path}")
+    cache_dir = video_cache_dir(args.stub_path, video_path, processing_identity)
+    print(f"Using per-video cache directory: {cache_dir.resolve()}")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    assignment_metadata_path = cache_dir / team_assigner.metadata_filename
 
     player_tracker = PlayerTracker()
     ball_tracker = BallTracker()
@@ -71,28 +128,39 @@ def main():
     player_tracks = player_tracker.get_object_tracks(
         video_frames,
         read_from_cache=True,
-        cache_path=stub_path(args, "player_track_stubs.pkl"),
+        cache_path=cache_path(cache_dir, "player_track_stubs.pkl"),
     )
     ball_tracks = ball_tracker.get_object_tracks(
         video_frames,
         read_from_cache=True,
-        cache_path=stub_path(args, "ball_track_stubs.pkl"),
+        cache_path=cache_path(cache_dir, "ball_track_stubs.pkl"),
     )
     court_keypoints_per_frame = court_keypoint_detector.get_court_keypoints(
         video_frames,
         read_from_cache=True,
-        cache_path=stub_path(args, "court_key_points_stub.pkl"),
+        cache_path=cache_path(cache_dir, "court_key_points_stub.pkl"),
     )
 
     ball_tracks = ball_tracker.remove_wrong_detections(ball_tracks)
     ball_tracks = ball_tracker.interpolate_positions(ball_tracks)
 
-    team_assigner = TeamAssigner()
-    player_assignment = team_assigner.get_player_teams_across_frames(
-        video_frames,
-        player_tracks,
-        read_from_cache=True,
-        cache_path=stub_path(args, "player_assignment_stub.pkl"),
+    try:
+        player_assignment = team_assigner.get_player_teams_across_frames(
+            video_frames,
+            player_tracks,
+            read_from_cache=True,
+            cache_path=cache_path(cache_dir, team_assigner.cache_filename),
+        )
+    except NeedsTeamColorsError as error:
+        assignment_metadata_path.write_text(
+            json.dumps(team_assigner.assignment_metadata, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(json.dumps(error.result, sort_keys=True))
+        raise SystemExit(2) from error
+    assignment_metadata_path.write_text(
+        json.dumps(team_assigner.assignment_metadata, indent=2) + "\n",
+        encoding="utf-8",
     )
 
     ball_acquisition_detector = BallAcquisitionDetector()
@@ -150,14 +218,17 @@ def main():
     team_ball_control_drawer = TeamBallControlDrawer()
     frame_number_drawer = FrameNumberDrawer()
     pass_interception_drawer = PassInterceptionDrawer()
-    tactical_view_drawer = TacticalViewDrawer()
+    tactical_view_drawer = TacticalViewDrawer(
+        team_1_color=TEAM_DISPLAY_COLORS[1],
+        team_2_color=TEAM_DISPLAY_COLORS[2],
+    )
     speed_and_distance_drawer = SpeedAndDistanceDrawer()
 
     output_video_frames = player_tracks_drawer.draw(
         video_frames,
         player_tracks,
         team_assignments=player_assignment,
-        team_colors=team_assigner.team_colors,
+        team_colors=TEAM_DISPLAY_COLORS,
         ball_acquisitions=ball_acquisition,
     )
     output_video_frames = ball_tracks_drawer.draw(output_video_frames, ball_tracks)
@@ -193,7 +264,7 @@ def main():
         ball_acquisition,
     )
 
-    save_video(output_video_frames, output_path)
+    save_video(output_video_frames, output_path, fps=output_fps)
     print(f"Saved annotated video to {output_path}")
 
 

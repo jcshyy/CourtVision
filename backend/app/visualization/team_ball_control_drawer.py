@@ -19,11 +19,12 @@ class TeamBallControlDrawer:
                 team_ball_control.append(-1)
                 continue
 
-            if acquisition_frame not in assignment_frame:
+            team_id = assignment_frame.get(acquisition_frame)
+            if team_id not in (1, 2):
                 team_ball_control.append(-1)
                 continue
 
-            team_ball_control.append(1 if assignment_frame[acquisition_frame] == 1 else 2)
+            team_ball_control.append(team_id)
 
         return np.array(team_ball_control)
 

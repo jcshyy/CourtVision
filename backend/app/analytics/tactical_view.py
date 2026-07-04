@@ -1,10 +1,14 @@
 from copy import deepcopy
+import logging
 
 import cv2
 import numpy as np
 
 from backend.app.analytics.homography import Homography
 from backend.app.utils.geometry import euclidean_distance
+
+
+logger = logging.getLogger(__name__)
 
 
 class TacticalViewConverter:
@@ -169,12 +173,22 @@ class TacticalViewConverter:
         tactical_player_positions = []
         last_good_homography = None
         fallback_frames = 0
+        diagnostic_frames = {
+            "missing_keypoints": [],
+            "insufficient_keypoints": [],
+            "rejected_homography": [],
+            "fallback_used": [],
+            "homography_unavailable": [],
+        }
 
-        for frame_keypoints, frame_tracks in zip(keypoints_list, player_tracks):
+        for frame_index, (frame_keypoints, frame_tracks) in enumerate(
+            zip(keypoints_list, player_tracks)
+        ):
             tactical_positions = {}
             frame_keypoints = _keypoint_points(frame_keypoints)
 
             if frame_keypoints is None or len(frame_keypoints) == 0:
+                diagnostic_frames["missing_keypoints"].append(frame_index)
                 tactical_player_positions.append(tactical_positions)
                 continue
 
@@ -185,6 +199,7 @@ class TacticalViewConverter:
             ]
 
             if len(valid_indices) < 4:
+                diagnostic_frames["insufficient_keypoints"].append(frame_index)
                 homography = None
             else:
                 source_points = np.array(
@@ -209,8 +224,10 @@ class TacticalViewConverter:
                         target_points,
                         self.max_reprojection_error,
                     ):
+                        diagnostic_frames["rejected_homography"].append(frame_index)
                         homography = None
                 except (ValueError, cv2.error):
+                    diagnostic_frames["rejected_homography"].append(frame_index)
                     homography = None
 
             if homography is not None:
@@ -222,7 +239,9 @@ class TacticalViewConverter:
             ):
                 homography = last_good_homography
                 fallback_frames += 1
+                diagnostic_frames["fallback_used"].append(frame_index)
             else:
+                diagnostic_frames["homography_unavailable"].append(frame_index)
                 tactical_player_positions.append(tactical_positions)
                 continue
 
@@ -246,6 +265,7 @@ class TacticalViewConverter:
 
             tactical_player_positions.append(tactical_positions)
 
+        _log_homography_diagnostics(diagnostic_frames)
         return tactical_player_positions
 
 
@@ -295,6 +315,22 @@ def _homography_is_consistent(homography, source_points, target_points, max_erro
     projected_points = homography.transform_points(source_points)
     errors = np.linalg.norm(projected_points - target_points, axis=1)
     return np.median(errors) <= max_error and np.max(errors) <= max_error * 2
+
+
+def _log_homography_diagnostics(diagnostic_frames):
+    failures = {
+        name: frames
+        for name, frames in diagnostic_frames.items()
+        if frames
+    }
+    if not failures:
+        return
+
+    details = ", ".join(
+        f"{name}={len(frames)} (sample frames: {frames[:5]})"
+        for name, frames in failures.items()
+    )
+    logger.warning("Tactical-view homography diagnostics: %s", details)
 
 
 def _foot_position(bbox):
