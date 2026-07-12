@@ -16,13 +16,19 @@ def diagnose_team_track(
     cache_root,
     track_id,
     assignment_cache_name=None,
+    track_cache_name="player_track_stubs.pkl",
+    cache_dir_override=None,
     cache_only=False,
     team_1_color=None,
     team_2_color=None,
 ):
     video_path = Path(video_path)
-    cache_dir = video_cache_dir(cache_root, video_path)
-    track_cache = cache_path(cache_dir, "player_track_stubs.pkl")
+    cache_dir = (
+        Path(cache_dir_override)
+        if cache_dir_override is not None
+        else video_cache_dir(cache_root, video_path)
+    )
+    track_cache = cache_path(cache_dir, track_cache_name)
     assignment_cache = cache_path(
         cache_dir,
         assignment_cache_name or DEFAULT_ASSIGNMENT_CACHE_NAME,
@@ -50,9 +56,9 @@ def diagnose_team_track(
         _discover_team_colors_result,
         _confident_nearest_team,
         _jersey_observation,
-        _median_color,
         _nearest_team,
         _team_distances,
+        _track_team_decision,
     )
 
     frames = _read_video(video_path)
@@ -95,7 +101,6 @@ def diagnose_team_track(
         assigner.team_colors = {1: discovered_colors[0], 2: discovered_colors[1]}
 
     observations = []
-    bootstrap_features = []
     for frame_index, (frame, frame_tracks) in enumerate(zip(frames, player_tracks)):
         track = frame_tracks.get(track_id)
         if track is None:
@@ -103,13 +108,6 @@ def diagnose_team_track(
 
         observation = _jersey_observation(frame, track["bbox"])
         feature = observation["feature"]
-        bootstrap_selected = (
-            feature is not None
-            and len(bootstrap_features) < assigner.initial_observations
-        )
-        if bootstrap_selected:
-            bootstrap_features.append(feature)
-
         distances = _team_distances(feature, assigner.team_colors)
         numeric_distances = [
             distance for distance in distances.values() if distance is not None
@@ -135,7 +133,7 @@ def diagnose_team_track(
                 "nearest_team": nearest_team,
                 "assignment_accepted": assignment_team is not None,
                 "assignment_team": assignment_team,
-                "bootstrap_selected": bootstrap_selected,
+                "bootstrap_selected": False,
                 "cached_team": _cached_team(
                     cached_assignments,
                     frame_index,
@@ -147,27 +145,21 @@ def diagnose_team_track(
     if not observations:
         raise ValueError(f"Track {track_id} does not appear in the cached tracks")
 
-    bootstrap_team = None
-    bootstrap_feature = None
-    if bootstrap_features:
-        bootstrap_feature = _median_color(bootstrap_features)
-        bootstrap_team = _nearest_team(bootstrap_feature, assigner.team_colors)
-        assigner.player_team_dict[track_id] = bootstrap_team
-        assigner.player_team_votes[track_id] = [bootstrap_team]
+    track_decision = _track_team_decision(observations, assigner.team_colors)
+    selected_frames = set(track_decision["selected_evidence_frames"])
+    bootstrap_team = track_decision["team_id"]
+    for observation in observations:
+        observation["bootstrap_selected"] = observation["frame"] in selected_frames
+    assigner.player_team_dict[track_id] = (
+        bootstrap_team if bootstrap_team is not None else -1
+    )
+    assigner.player_team_votes[track_id] = (
+        [bootstrap_team] if bootstrap_team is not None else []
+    )
 
     for observation in observations:
-        frame_index = observation["frame"]
-        refresh = frame_index > 0 and frame_index % 50 == 0
-        if track_id not in assigner.player_team_dict or refresh:
-            computed_team = assigner.get_player_team(
-                frames[frame_index],
-                observation["bbox"],
-                track_id,
-                refresh=refresh,
-            )
-        else:
-            computed_team = assigner.player_team_dict[track_id]
-        observation["refresh_frame"] = refresh
+        computed_team = assigner.player_team_dict[track_id]
+        observation["refresh_frame"] = False
         observation["votes"] = list(assigner.player_team_votes.get(track_id, []))
         observation["computed_team"] = computed_team
 
@@ -181,8 +173,9 @@ def diagnose_team_track(
         "normalized_team_colors": assigner.normalized_team_colors,
         "discovery_result": discovery,
         "team_prototypes": assigner.team_colors,
-        "bootstrap_feature": bootstrap_feature,
+        "bootstrap_feature": None,
         "bootstrap_team": bootstrap_team,
+        "track_decision": track_decision,
         "visible_frame_count": len(observations),
         "visible_frame_range": [
             observations[0]["frame"],

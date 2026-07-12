@@ -12,10 +12,15 @@ from backend.app.utils import load_cache, save_cache
 
 
 logger = logging.getLogger(__name__)
-ASSIGNMENT_ALGORITHM_VERSION = "v11"
+ASSIGNMENT_ALGORITHM_VERSION = "v14"
 MINIMUM_PROTOTYPE_MARGIN_RATIO = 0.1
+MAXIMUM_PROTOTYPE_DISTANCE_RATIO = 0.75
 MINIMUM_TORSO_AREA_FRACTION = 900 / (1280 * 720)
 MINIMUM_TRACK_OBSERVATION_AGREEMENT = 0.8
+MINIMUM_TRACK_CONFIDENT_OBSERVATIONS = 3
+MINIMUM_TRACK_TEAM_AGREEMENT = 0.8
+MINIMUM_TRACK_WEIGHT_SHARE = 0.8
+MAXIMUM_TRACK_EVIDENCE_SAMPLES = 24
 
 
 class NeedsTeamColorsError(RuntimeError):
@@ -102,7 +107,9 @@ class TeamAssigner:
         }
         self.assignment_metadata = dict(cache_identity)
         self.assignment_metadata["discovery_confidence"] = None
+        self.assignment_metadata["track_assignments"] = {}
         self.discovery_result = None
+        self._last_jersey_observation = None
         identity = json.dumps(
             cache_identity,
             sort_keys=True,
@@ -152,7 +159,22 @@ class TeamAssigner:
         return classes[probabilities.argmax(dim=1)[0]]
 
     def get_player_jersey_color(self, frame, bbox):
-        return _jersey_color(frame, bbox)
+        self._last_jersey_observation = _jersey_observation(frame, bbox)
+        return self._last_jersey_observation["feature"]
+
+    def get_player_jersey_observation(self, frame, bbox):
+        """Return detailed evidence while preserving the color-only public method."""
+        self._last_jersey_observation = None
+        feature = self.get_player_jersey_color(frame, bbox)
+        observation = self._last_jersey_observation
+        if observation is None or observation.get("feature") != feature:
+            return {
+                "feature": feature,
+                "accepted": feature is not None,
+                "rejection_reason": None if feature is not None else "no_feature",
+                "quality_score": 1.0 if feature is not None else 0.0,
+            }
+        return observation
 
     def get_player_team(self, frame, player_bbox, player_id, refresh=False):
         if player_id in self.player_team_dict and not refresh:
@@ -204,6 +226,9 @@ class TeamAssigner:
                     )
                     self.assignment_metadata["discovery_confidence"] = (
                         cached_metadata.get("discovery_confidence")
+                    )
+                    self.assignment_metadata["track_assignments"] = (
+                        cached_metadata.get("track_assignments", {})
                     )
                 except (OSError, json.JSONDecodeError):
                     logger.warning(
@@ -266,23 +291,40 @@ class TeamAssigner:
             return
 
         observations = {}
-        for frame, frame_tracks in zip(video_frames, player_tracks):
+        for frame_index, (frame, frame_tracks) in enumerate(
+            zip(video_frames, player_tracks)
+        ):
             for player_id, track in frame_tracks.items():
                 player_observations = observations.setdefault(player_id, [])
-                color = self.get_player_jersey_color(frame, track["bbox"])
-                if _confident_nearest_team(color, self.team_colors) is not None:
-                    player_observations.append(color)
+                observation = self.get_player_jersey_observation(
+                    frame,
+                    track["bbox"],
+                )
+                player_observations.append(
+                    {
+                        **observation,
+                        "frame": frame_index,
+                    }
+                )
 
-        for player_id, colors in observations.items():
-            if not colors:
-                continue
-
-            representative_color = _median_color(colors)
-            team_id = _confident_nearest_team(representative_color, self.team_colors)
+        track_metadata = {}
+        for player_id, player_observations in observations.items():
+            decision = _track_team_decision(
+                player_observations,
+                self.team_colors,
+            )
+            team_id = decision["team_id"]
+            self.player_team_dict[player_id] = team_id if team_id is not None else -1
+            self.player_team_votes[player_id] = [team_id] if team_id is not None else []
+            track_metadata[str(int(player_id))] = decision
             if team_id is None:
-                continue
-            self.player_team_dict[player_id] = team_id
-            self.player_team_votes[player_id] = [team_id]
+                logger.info(
+                    "Player %s remains unknown: %s",
+                    player_id,
+                    decision["reason"],
+                )
+
+        self.assignment_metadata["track_assignments"] = track_metadata
 
     def assign_teams_across_frames(
         self,
@@ -494,19 +536,48 @@ def _jersey_observation(frame, bbox):
         "blur_variance": _blur_variance(jersey),
     }
     observation.update(feature_details)
+    observation["quality_score"] = _observation_quality_score(observation)
     if edge_clipped:
         observation.update(
             feature=None,
             accepted=False,
             rejection_reason="edge_clipped",
+            quality_score=0.0,
         )
     elif actual_torso_area < minimum_torso_area:
         observation.update(
             feature=None,
             accepted=False,
             rejection_reason="torso_too_small",
+            quality_score=0.0,
+        )
+    elif observation.get("used_visible_fallback"):
+        observation.update(
+            feature=None,
+            accepted=False,
+            rejection_reason="insufficient_jersey_pixels",
+            quality_score=0.0,
         )
     return observation
+
+
+def _observation_quality_score(observation):
+    """Score usable crop evidence without treating texture as jersey identity."""
+    if observation.get("feature") is None:
+        return 0.0
+    torso_area = observation.get("torso_area", 0)
+    minimum_area = max(1, observation.get("minimum_torso_area", 1))
+    area_score = min(1.0, torso_area / (minimum_area * 2))
+    visible_score = min(1.0, observation.get("visible_fraction", 0.0) / 0.5)
+    filtered_score = min(1.0, observation.get("filtered_fraction", 0.0) / 0.5)
+    blur_score = min(1.0, observation.get("blur_variance", 0.0) / 100.0)
+    return round(
+        0.45 * area_score
+        + 0.25 * filtered_score
+        + 0.20 * visible_score
+        + 0.10 * blur_score,
+        4,
+    )
 
 
 def _jersey_feature(pixels):
@@ -608,8 +679,9 @@ def _confident_nearest_team(
     color,
     team_colors,
     minimum_margin_ratio=MINIMUM_PROTOTYPE_MARGIN_RATIO,
+    maximum_distance_ratio=MAXIMUM_PROTOTYPE_DISTANCE_RATIO,
 ):
-    """Return a team only when the observation clearly favors one prototype."""
+    """Return a team only when evidence is both close and clearly separated."""
     distances = _team_distances(color, team_colors)
     if len(distances) != 2 or any(value is None for value in distances.values()):
         return None
@@ -622,10 +694,175 @@ def _confident_nearest_team(
     if prototype_separation <= 0:
         return None
 
+    nearest_distance = min(distances.values())
+    if nearest_distance / prototype_separation > maximum_distance_ratio:
+        return None
+
     margin = abs(distances[team_ids[0]] - distances[team_ids[1]])
     if margin / prototype_separation < minimum_margin_ratio:
         return None
     return min(distances, key=distances.get)
+
+
+def _track_team_decision(observations, team_colors):
+    """Aggregate temporally distributed, confidence-weighted track evidence."""
+    if len(team_colors) != 2:
+        return _empty_track_decision(
+            observations,
+            "missing_team_prototypes",
+        )
+
+    team_ids = list(team_colors)
+    prototype_separation = _color_distance(
+        team_colors[team_ids[0]],
+        team_colors[team_ids[1]],
+    )
+    evidence = []
+    for observation in observations:
+        feature = observation.get("feature")
+        team_id = _confident_nearest_team(feature, team_colors)
+        distances = _team_distances(feature, team_colors)
+        if team_id is None or prototype_separation <= 0:
+            continue
+        margin_ratio = (
+            abs(distances[team_ids[0]] - distances[team_ids[1]])
+            / prototype_separation
+        )
+        nearest_distance_ratio = min(distances.values()) / prototype_separation
+        quality_score = float(observation.get("quality_score", 1.0))
+        weight = quality_score * min(1.0, margin_ratio)
+        evidence.append(
+            {
+                "frame": int(observation.get("frame", len(evidence))),
+                "team_id": int(team_id),
+                "quality_score": round(quality_score, 4),
+                "margin_ratio": round(margin_ratio, 4),
+                "nearest_distance_ratio": round(nearest_distance_ratio, 4),
+                "weight": round(weight, 4),
+            }
+        )
+
+    selected = _temporally_diverse_evidence(
+        evidence,
+        MAXIMUM_TRACK_EVIDENCE_SAMPLES,
+    )
+    if len(selected) < MINIMUM_TRACK_CONFIDENT_OBSERVATIONS:
+        return _track_decision_result(
+            observations,
+            selected,
+            None,
+            "insufficient_confident_observations",
+        )
+
+    counts = {
+        team_id: sum(item["team_id"] == team_id for item in selected)
+        for team_id in team_ids
+    }
+    weights = {
+        team_id: sum(
+            item["weight"] for item in selected if item["team_id"] == team_id
+        )
+        for team_id in team_ids
+    }
+    highest_weight = max(weights.values())
+    leaders = [team_id for team_id, weight in weights.items() if weight == highest_weight]
+    if len(leaders) != 1:
+        return _track_decision_result(
+            observations,
+            selected,
+            None,
+            "tied_track_evidence",
+        )
+
+    team_id = leaders[0]
+    agreement = counts[team_id] / len(selected)
+    total_weight = sum(weights.values())
+    weight_share = weights[team_id] / total_weight if total_weight > 0 else 0.0
+    if counts[team_id] < MINIMUM_TRACK_CONFIDENT_OBSERVATIONS:
+        reason = "insufficient_winning_observations"
+        team_id = None
+    elif agreement < MINIMUM_TRACK_TEAM_AGREEMENT:
+        reason = "inconsistent_track_observations"
+        team_id = None
+    elif weight_share < MINIMUM_TRACK_WEIGHT_SHARE:
+        reason = "insufficient_weighted_support"
+        team_id = None
+    else:
+        reason = None
+
+    return _track_decision_result(
+        observations,
+        selected,
+        team_id,
+        reason,
+        counts=counts,
+        weights=weights,
+        agreement=agreement,
+        weight_share=weight_share,
+    )
+
+
+def _temporally_diverse_evidence(evidence, maximum_samples):
+    if len(evidence) <= maximum_samples:
+        return list(evidence)
+
+    selected = []
+    for sample_index in range(maximum_samples):
+        start = sample_index * len(evidence) // maximum_samples
+        end = (sample_index + 1) * len(evidence) // maximum_samples
+        selected.append(
+            max(
+                evidence[start:end],
+                key=lambda item: (item["weight"], -item["frame"]),
+            )
+        )
+    return selected
+
+
+def _empty_track_decision(observations, reason):
+    return _track_decision_result(observations, [], None, reason)
+
+
+def _track_decision_result(
+    observations,
+    evidence,
+    team_id,
+    reason,
+    *,
+    counts=None,
+    weights=None,
+    agreement=None,
+    weight_share=None,
+):
+    rejection_counts = {}
+    for observation in observations:
+        if observation.get("accepted", observation.get("feature") is not None):
+            continue
+        rejection_reason = observation.get("rejection_reason") or "unspecified"
+        rejection_counts[rejection_reason] = (
+            rejection_counts.get(rejection_reason, 0) + 1
+        )
+    return {
+        "team_id": int(team_id) if team_id is not None else None,
+        "status": "assigned" if team_id is not None else "unknown",
+        "reason": reason,
+        "observation_count": len(observations),
+        "accepted_observation_count": sum(
+            observation.get("accepted", observation.get("feature") is not None)
+            for observation in observations
+        ),
+        "confident_observation_count": len(evidence),
+        "selected_evidence_frames": [item["frame"] for item in evidence],
+        "team_vote_counts": {
+            str(int(key)): int(value) for key, value in (counts or {}).items()
+        },
+        "team_vote_weights": {
+            str(int(key)): round(value, 4) for key, value in (weights or {}).items()
+        },
+        "agreement": round(agreement, 4) if agreement is not None else None,
+        "weight_share": round(weight_share, 4) if weight_share is not None else None,
+        "rejection_counts": rejection_counts,
+    }
 
 
 def _blur_variance(image):
