@@ -1,11 +1,18 @@
 import argparse
 import logging
+import sys
+from pathlib import Path
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.app.config import STUBS_DIR
 from backend.app.team_assignment.diagnostics import (
     diagnose_team_track,
     write_diagnostic,
 )
+from backend.app.team_assignment import TeamAssigner
+from backend.app.tracking.player_tracker import PLAYER_TRACKING_ALGORITHM_VERSION
 
 
 def parse_args():
@@ -23,6 +30,16 @@ def parse_args():
         "--assignment-cache-name",
         default=None,
         help="Optional assignment cache filename to compare against.",
+    )
+    parser.add_argument(
+        "--track-cache-name",
+        default=f"player_track_{PLAYER_TRACKING_ALGORITHM_VERSION}.pkl",
+        help="Player-track cache filename inside the selected cache directory.",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help="Exact processing cache directory; bypasses video hash lookup.",
     )
     parser.add_argument(
         "--output",
@@ -62,7 +79,15 @@ def main():
         args.video,
         args.cache_root,
         args.track_id,
-        assignment_cache_name=args.assignment_cache_name,
+        assignment_cache_name=(
+            args.assignment_cache_name
+            or TeamAssigner(
+                team_1_color=args.team_1_color,
+                team_2_color=args.team_2_color,
+            ).cache_filename
+        ),
+        track_cache_name=args.track_cache_name,
+        cache_dir_override=args.cache_dir,
         cache_only=args.cache_only,
         team_1_color=args.team_1_color,
         team_2_color=args.team_2_color,

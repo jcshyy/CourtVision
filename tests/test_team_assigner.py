@@ -110,8 +110,10 @@ class TeamDiscoveryTests(unittest.TestCase):
 
     def test_default_assignment_discovers_colors_without_loading_clip(self):
         assigner = team_assigner.TeamAssigner()
-        frames = [object()]
-        tracks = [{10: {"bbox": [0, 0, 10, 20]}, 20: {"bbox": [0, 0, 10, 20]}}]
+        frames = [object()] * 3
+        tracks = [
+            {10: {"bbox": [0, 0, 10, 20]}, 20: {"bbox": [0, 0, 10, 20]}}
+        ] * 3
 
         with patch.object(
             team_assigner,
@@ -120,11 +122,18 @@ class TeamDiscoveryTests(unittest.TestCase):
         ), patch.object(assigner, "load_model") as load_model, patch.object(
             assigner,
             "get_player_jersey_color",
-            side_effect=[(12, 22, 32), (205, 215, 225)],
+            side_effect=[
+                (12, 22, 32),
+                (205, 215, 225),
+                (11, 21, 31),
+                (206, 216, 226),
+                (13, 23, 33),
+                (204, 214, 224),
+            ],
         ):
             assignments = assigner.get_player_teams_across_frames(frames, tracks)
 
-        self.assertEqual(assignments, [{10: 1, 20: 2}])
+        self.assertEqual(assignments, [{10: 1, 20: 2}] * 3)
         self.assertEqual(assigner.team_colors, {1: (10, 20, 30), 2: (210, 220, 230)})
         self.assertEqual(
             assigner.assignment_metadata["discovery_confidence"],
@@ -190,14 +199,14 @@ class TeamDiscoveryTests(unittest.TestCase):
         self.assertTrue(all(frame[7] == 2 for frame in assignments))
         self.assertEqual(assigner.assignment_mode, "user_colors")
         self.assertEqual(assigner.normalized_team_colors, ("#FFFFFF", "#C8102E"))
+        self.assertEqual(assigner.assignment_metadata["algorithm_version"], "v14")
         self.assertEqual(
-            assigner.assignment_metadata,
-            {
-                "algorithm_version": "v11",
-                "assignment_mode": "user_colors",
-                "team_colors": ["#FFFFFF", "#C8102E"],
-                "discovery_confidence": None,
-            },
+            assigner.assignment_metadata["team_colors"],
+            ["#FFFFFF", "#C8102E"],
+        )
+        self.assertEqual(
+            assigner.assignment_metadata["track_assignments"]["7"]["team_id"],
+            2,
         )
         discover.assert_not_called()
 
@@ -495,6 +504,51 @@ class TeamDiscoveryTests(unittest.TestCase):
         self.assertEqual(assigned_team, -1)
         self.assertEqual(assigner.player_team_votes[7], [])
 
+    def test_color_far_from_both_prototypes_stays_unknown(self):
+        prototypes = {1: (0, 0, 0), 2: (100, 0, 0)}
+
+        self.assertIsNone(
+            team_assigner._confident_nearest_team((50, 100, 100), prototypes)
+        )
+
+    def test_offline_track_requires_multiple_confident_observations(self):
+        assigner = team_assigner.TeamAssigner()
+        with patch.object(
+            team_assigner,
+            "_discover_team_colors_result",
+            return_value=_discovery_result(),
+        ), patch.object(
+            assigner,
+            "get_player_jersey_color",
+            return_value=(210, 220, 230),
+        ):
+            assignments = assigner.get_player_teams_across_frames(
+                [object()],
+                [{7: {"bbox": [0, 0, 10, 20]}}],
+            )
+
+        self.assertEqual(assignments, [{7: -1}])
+        self.assertEqual(
+            assigner.assignment_metadata["track_assignments"]["7"]["reason"],
+            "insufficient_confident_observations",
+        )
+
+    def test_inconsistent_offline_track_stays_unknown(self):
+        observations = [
+            {"feature": (0, 0, 0), "accepted": True, "quality_score": 1.0, "frame": 0},
+            {"feature": (100, 0, 0), "accepted": True, "quality_score": 1.0, "frame": 1},
+            {"feature": (0, 0, 0), "accepted": True, "quality_score": 1.0, "frame": 2},
+            {"feature": (100, 0, 0), "accepted": True, "quality_score": 1.0, "frame": 3},
+        ]
+
+        decision = team_assigner._track_team_decision(
+            observations,
+            {1: (0, 0, 0), 2: (100, 0, 0)},
+        )
+
+        self.assertIsNone(decision["team_id"])
+        self.assertEqual(decision["reason"], "tied_track_evidence")
+
     def test_prototype_margin_boundary_and_team_order_are_equivalent(self):
         color = (55, 0, 0)
         forward = {1: (0, 0, 0), 2: (100, 0, 0)}
@@ -514,8 +568,8 @@ class TeamDiscoveryTests(unittest.TestCase):
 
     def test_offline_track_ignores_ambiguous_observations(self):
         assigner = team_assigner.TeamAssigner()
-        frames = [object()] * 5
-        tracks = [{7: {"bbox": [0, 0, 10, 20]}}] * 5
+        frames = [object()] * 6
+        tracks = [{7: {"bbox": [0, 0, 10, 20]}}] * 6
 
         with patch.object(
             team_assigner,
@@ -530,6 +584,7 @@ class TeamDiscoveryTests(unittest.TestCase):
                 (52, 0, 0),
                 (90, 0, 0),
                 (95, 0, 0),
+                (92, 0, 0),
             ],
         ):
             assignments = assigner.get_player_teams_across_frames(frames, tracks)
@@ -559,8 +614,8 @@ class TeamDiscoveryTests(unittest.TestCase):
 
     def test_initial_assignment_uses_multiple_views_before_first_frame(self):
         assigner = team_assigner.TeamAssigner(initial_observations=3)
-        frames = [object()] * 4
-        tracks = [{22: {"bbox": [0, 0, 10, 20]}}] * 4
+        frames = [object()] * 6
+        tracks = [{22: {"bbox": [0, 0, 10, 20]}}] * 6
 
         with patch.object(
             team_assigner,
@@ -574,6 +629,8 @@ class TeamDiscoveryTests(unittest.TestCase):
                 (210, 220, 230),    # Clearer views identify team 2.
                 (205, 215, 225),
                 (215, 225, 235),
+                (208, 218, 228),
+                (212, 222, 232),
             ],
         ):
             assignments = assigner.get_player_teams_across_frames(frames, tracks)
