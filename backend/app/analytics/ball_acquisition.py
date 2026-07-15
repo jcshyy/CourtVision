@@ -1,12 +1,18 @@
+import math
+
+from backend.app.analytics.ball_holder_state import BallHolderStateModel
 from backend.app.utils.geometry import bbox_center, euclidean_distance
 
 
 class BallAquisitionDetector:
     """Detects ball possession using the reference repo's bbox heuristics."""
 
-    def __init__(self):
+    def __init__(self, fps=30, minimum_possession_seconds=11 / 30):
+        if fps <= 0 or minimum_possession_seconds <= 0:
+            raise ValueError("FPS and possession duration must be positive")
         self.possession_threshold = 50
-        self.min_frames = 11
+        self.min_frames = max(1, math.ceil(fps * minimum_possession_seconds))
+        self.state_confirmation_frames = max(2, round(fps * 0.1))
         self.containment_threshold = 0.8
 
     def get_key_basketball_player_assignment_points(self, player_bbox, ball_center):
@@ -92,7 +98,7 @@ class BallAquisitionDetector:
                 regular_distance_players.append((player_id, min_distance))
 
         if high_containment_players:
-            best_candidate = max(high_containment_players, key=lambda item: item[1])
+            best_candidate = min(high_containment_players, key=lambda item: item[1])
             return best_candidate[0]
 
         if regular_distance_players:
@@ -103,11 +109,22 @@ class BallAquisitionDetector:
         return -1
 
     def detect_ball_possession(self, player_tracks, ball_tracks):
-        num_frames = len(ball_tracks)
-        possession_list = [-1] * num_frames
-        consecutive_possession_count = {}
+        states = self.detect_holder_states(player_tracks, ball_tracks)
+        return [state["holder_id"] if state["holder_id"] is not None else -1 for state in states]
 
-        for frame_num in range(num_frames):
+    def detect_holder_states(self, player_tracks, ball_tracks):
+        model = BallHolderStateModel(
+            confirmation_frames=self.state_confirmation_frames,
+            max_missing_frames=max(1, round(self.state_confirmation_frames)),
+            maximum_distance=self.possession_threshold,
+        )
+        return model.process(player_tracks, ball_tracks)
+
+    def detect_candidates(self, player_tracks, ball_tracks):
+        """Return the unconfirmed closest-player candidate for diagnostics."""
+        candidates = [-1] * len(ball_tracks)
+
+        for frame_num in range(len(ball_tracks)):
             ball_info = ball_tracks[frame_num].get(1, {})
             if not ball_info:
                 continue
@@ -122,21 +139,9 @@ class BallAquisitionDetector:
                 player_tracks[frame_num],
                 ball_bbox,
             )
+            candidates[frame_num] = best_player_id
 
-            if best_player_id != -1:
-                number_of_consecutive_frames = (
-                    consecutive_possession_count.get(best_player_id, 0) + 1
-                )
-                consecutive_possession_count = {
-                    best_player_id: number_of_consecutive_frames
-                }
-
-                if consecutive_possession_count[best_player_id] >= self.min_frames:
-                    possession_list[frame_num] = best_player_id
-            else:
-                consecutive_possession_count = {}
-
-        return possession_list
+        return candidates
 
     def detect_acquisitions(self, player_tracks, ball_tracks):
         return self.detect_ball_possession(player_tracks, ball_tracks)

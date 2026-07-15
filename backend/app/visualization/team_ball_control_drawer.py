@@ -3,7 +3,7 @@ import numpy as np
 
 
 class TeamBallControlDrawer:
-    """Draws cumulative team ball-control statistics using the reference repo logic."""
+    """Draw cumulative control over frames with a known holder and known team."""
 
     def __init__(self, *_, **__):
         pass
@@ -39,9 +39,6 @@ class TeamBallControlDrawer:
 
         output_video_frames = []
         for frame_num, frame in enumerate(video_frames):
-            if frame_num == 0:
-                continue
-
             output_video_frames.append(
                 self.draw_frame(frame, frame_num, team_ball_control)
             )
@@ -65,15 +62,9 @@ class TeamBallControlDrawer:
         cv2.addWeighted(overlay, 0.8, frame, 0.2, 0, frame)
 
         team_ball_control_till_frame = team_ball_control[: frame_num + 1]
-        team_1_num_frames = team_ball_control_till_frame[
-            team_ball_control_till_frame == 1
-        ].shape[0]
-        team_2_num_frames = team_ball_control_till_frame[
-            team_ball_control_till_frame == 2
-        ].shape[0]
-        total_frames = team_ball_control_till_frame.shape[0]
-        team_1 = team_1_num_frames / total_frames
-        team_2 = team_2_num_frames / total_frames
+        team_1, team_2 = self.get_control_percentages(
+            team_ball_control_till_frame
+        )
 
         cv2.putText(
             frame,
@@ -95,6 +86,18 @@ class TeamBallControlDrawer:
         )
 
         return frame
+
+    def get_control_percentages(self, team_ball_control):
+        """Exclude no-holder/unknown frames so the two displayed shares sum to 1."""
+        team_1_num_frames = team_ball_control[team_ball_control == 1].shape[0]
+        team_2_num_frames = team_ball_control[team_ball_control == 2].shape[0]
+        known_possession_frames = team_1_num_frames + team_2_num_frames
+        if known_possession_frames == 0:
+            return 0.0, 0.0
+        return (
+            team_1_num_frames / known_possession_frames,
+            team_2_num_frames / known_possession_frames,
+        )
 
 
 def build_team_ball_control(ball_acquisitions, team_assignments, max_carry_frames=None):

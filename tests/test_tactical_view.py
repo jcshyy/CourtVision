@@ -153,6 +153,30 @@ class TacticalViewHomographyTests(unittest.TestCase):
         self.assertIn(f"fallback_used={fallback_count}", logs.output[0])
         self.assertIn("homography_unavailable=1", logs.output[0])
 
+    def test_collective_court_flip_is_a_temporal_discontinuity(self):
+        self.assertTrue(
+            tactical_view._tactical_view_discontinuity(
+                {1: [10, 50], 2: [20, 100]},
+                {1: [290, 50], 2: [280, 100]},
+                300,
+                161,
+                28,
+                15,
+            )
+        )
+
+    def test_normal_collective_motion_is_continuous(self):
+        self.assertFalse(
+            tactical_view._tactical_view_discontinuity(
+                {1: [10, 50], 2: [20, 100]},
+                {1: [13, 50], 2: [24, 101]},
+                300,
+                161,
+                28,
+                15,
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

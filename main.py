@@ -13,6 +13,7 @@ from backend.app.config import OUTPUT_DIR, STUBS_DIR
 from backend.app.detection import CourtKeypointDetector
 from backend.app.team_assignment import NeedsTeamColorsError, TeamAssigner
 from backend.app.tracking import BallTracker, PlayerTracker
+from backend.app.tracking.ball_tracker import BALL_TRACKING_CACHE_VERSION
 from backend.app.utils import probe_video, read_video, save_video
 from backend.app.visualization import (
     BallTracksDrawer,
@@ -128,12 +129,15 @@ def main():
     player_tracks = player_tracker.get_object_tracks(
         video_frames,
         read_from_cache=True,
-        cache_path=cache_path(cache_dir, "player_track_stubs.pkl"),
+        cache_path=cache_path(cache_dir, player_tracker.cache_filename),
     )
     ball_tracks = ball_tracker.get_object_tracks(
         video_frames,
         read_from_cache=True,
-        cache_path=cache_path(cache_dir, "ball_track_stubs.pkl"),
+        cache_path=cache_path(
+            cache_dir, f"ball_track_stubs_{BALL_TRACKING_CACHE_VERSION}.pkl"
+        ),
+        player_tracks=player_tracks,
     )
     court_keypoints_per_frame = court_keypoint_detector.get_court_keypoints(
         video_frames,
@@ -141,7 +145,10 @@ def main():
         cache_path=cache_path(cache_dir, "court_key_points_stub.pkl"),
     )
 
-    ball_tracks = ball_tracker.remove_wrong_detections(ball_tracks)
+    ball_tracks = ball_tracker.remove_wrong_detections(
+        ball_tracks,
+        player_tracks=player_tracks,
+    )
     ball_tracks = ball_tracker.interpolate_positions(ball_tracks)
 
     try:
@@ -163,13 +170,24 @@ def main():
         encoding="utf-8",
     )
 
-    ball_acquisition_detector = BallAcquisitionDetector()
-    ball_acquisition = ball_acquisition_detector.detect_acquisitions(
+    ball_acquisition_detector = BallAcquisitionDetector(fps=output_fps)
+    holder_states = ball_acquisition_detector.detect_holder_states(
         player_tracks,
         ball_tracks,
     )
+    ball_acquisition = [
+        state["holder_id"] if state["holder_id"] is not None else -1
+        for state in holder_states
+    ]
 
-    pass_interception_detector = PassInterceptionDetector()
+    pass_interception_detector = PassInterceptionDetector(
+        max_holder_gap_frames=max(1, round(output_fps)),
+    )
+    ball_acquisition = pass_interception_detector.clean_transient_control_chains(
+        ball_acquisition,
+        player_assignment,
+        holder_states=holder_states,
+    )
     passes = pass_interception_detector.detect_passes(
         ball_acquisition,
         player_assignment,
@@ -177,8 +195,14 @@ def main():
     interceptions = pass_interception_detector.detect_interceptions(
         ball_acquisition,
         player_assignment,
+        holder_states=holder_states,
     )
-    events = events_from_arrays(passes, interceptions, ball_acquisition)
+    events = events_from_arrays(
+        passes,
+        interceptions,
+        ball_acquisition,
+        player_assignment,
+    )
 
     print(
         "Detected events: "
@@ -205,11 +229,23 @@ def main():
         tactical_view_converter.actual_width_in_meters,
         tactical_view_converter.actual_height_in_meters,
     )
+    discontinuity_frames = tactical_view_converter.last_diagnostics.get(
+        "temporal_discontinuity",
+        [],
+    )
+    tactical_player_positions = speed_and_distance_calculator.smooth_positions(
+        tactical_player_positions,
+        discontinuity_frames=discontinuity_frames,
+        window_radius=max(1, round(output_fps * 0.1)),
+    )
     player_distances_per_frame = speed_and_distance_calculator.calculate_distance(
-        tactical_player_positions
+        tactical_player_positions,
+        discontinuity_frames=discontinuity_frames,
     )
     player_speed_per_frame = speed_and_distance_calculator.calculate_speed(
-        player_distances_per_frame
+        player_distances_per_frame,
+        fps=output_fps,
+        tactical_player_positions=tactical_player_positions,
     )
 
     player_tracks_drawer = PlayerTracksDrawer()

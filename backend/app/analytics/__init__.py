@@ -3,6 +3,7 @@ from .ball_acquisition import (
     clean_acquisition_timeline,
     summarize_acquisition_segments,
 )
+from .ball_holder_state import BallHolderStateModel, HolderFrameState
 from .pass_interception import (
     PassAndInterceptionDetector,
     PassInterceptionDetector,
@@ -14,6 +15,8 @@ from .tactical_view import TacticalViewConverter
 
 __all__ = [
     "BallAcquisitionDetector",
+    "BallHolderStateModel",
+    "HolderFrameState",
     "PassAndInterceptionDetector",
     "PassInterceptionDetector",
     "SpeedAndDistanceCalculator",

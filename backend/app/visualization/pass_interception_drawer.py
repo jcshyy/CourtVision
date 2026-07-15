@@ -4,6 +4,9 @@ import cv2
 class PassInterceptionDrawer:
     """Draws cumulative pass and interception totals using repo-style arrays."""
 
+    def __init__(self, event_display_frames=15):
+        self.event_display_frames = max(1, int(event_display_frames))
+
     def get_stats(self, passes, interceptions):
         team1_passes = []
         team2_passes = []
@@ -34,9 +37,6 @@ class PassInterceptionDrawer:
         output_video_frames = []
 
         for frame_num, frame in enumerate(video_frames):
-            if frame_num == 0:
-                continue
-
             output_video_frames.append(
                 self.draw_frame(frame, frame_num, passes, interceptions)
             )
@@ -53,7 +53,8 @@ class PassInterceptionDrawer:
         rect_x2 = int(frame_width * 0.55)
         rect_y2 = int(frame_height * 0.90)
         text_x = int(frame_width * 0.19)
-        text_y1 = int(frame_height * 0.80)
+        heading_y = int(frame_height * 0.785)
+        text_y1 = int(frame_height * 0.83)
         text_y2 = int(frame_height * 0.88)
 
         cv2.rectangle(overlay, (rect_x1, rect_y1), (rect_x2, rect_y2), (255, 255, 255), -1)
@@ -65,6 +66,20 @@ class PassInterceptionDrawer:
             team1_interceptions,
             team2_interceptions,
         ) = self.get_stats(passes[: frame_num + 1], interceptions[: frame_num + 1])
+
+        recent_event = self.get_recent_event(frame_num, passes, interceptions)
+        heading = "Cumulative events"
+        if recent_event is not None:
+            heading += f" | {recent_event['type'].upper()} - Team {recent_event['team_id']}"
+        cv2.putText(
+            frame,
+            heading,
+            (text_x, heading_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (0, 0, 0),
+            font_thickness,
+        )
 
         cv2.putText(
             frame,
@@ -86,3 +101,20 @@ class PassInterceptionDrawer:
         )
 
         return frame
+
+    def get_recent_event(self, frame_num, passes, interceptions):
+        start = max(0, frame_num - self.event_display_frames + 1)
+        for event_frame in range(frame_num, start - 1, -1):
+            if passes[event_frame] in (1, 2):
+                return {
+                    "type": "pass",
+                    "team_id": passes[event_frame],
+                    "frame_index": event_frame,
+                }
+            if interceptions[event_frame] in (1, 2):
+                return {
+                    "type": "interception",
+                    "team_id": interceptions[event_frame],
+                    "frame_index": event_frame,
+                }
+        return None

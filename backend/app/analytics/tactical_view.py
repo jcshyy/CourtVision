@@ -1,5 +1,7 @@
 from copy import deepcopy
 import logging
+import math
+import statistics
 
 import cv2
 import numpy as np
@@ -24,6 +26,7 @@ class TacticalViewConverter:
         self.ransac_reprojection_threshold = 12
         self.max_reprojection_error = 20
         self.max_homography_fallback_frames = 12
+        self.last_diagnostics = {}
         self.key_points = [
             (0, 0),
             (0, int((0.91 / self.actual_height_in_meters) * self.height)),
@@ -173,12 +176,14 @@ class TacticalViewConverter:
         tactical_player_positions = []
         last_good_homography = None
         fallback_frames = 0
+        previous_tactical_positions = {}
         diagnostic_frames = {
             "missing_keypoints": [],
             "insufficient_keypoints": [],
             "rejected_homography": [],
             "fallback_used": [],
             "homography_unavailable": [],
+            "temporal_discontinuity": [],
         }
 
         for frame_index, (frame_keypoints, frame_tracks) in enumerate(
@@ -263,8 +268,21 @@ class TacticalViewConverter:
             except (ValueError, cv2.error):
                 pass
 
+            if _tactical_view_discontinuity(
+                previous_tactical_positions,
+                tactical_positions,
+                self.width,
+                self.height,
+                self.actual_width_in_meters,
+                self.actual_height_in_meters,
+            ):
+                diagnostic_frames["temporal_discontinuity"].append(frame_index)
+
+            previous_tactical_positions = tactical_positions
+
             tactical_player_positions.append(tactical_positions)
 
+        self.last_diagnostics = diagnostic_frames
         _log_homography_diagnostics(diagnostic_frames)
         return tactical_player_positions
 
@@ -336,3 +354,35 @@ def _log_homography_diagnostics(diagnostic_frames):
 def _foot_position(bbox):
     x1, _, x2, y2 = bbox
     return int((x1 + x2) / 2), int(y2)
+
+
+def _tactical_view_discontinuity(
+    previous_positions,
+    current_positions,
+    width_pixels,
+    height_pixels,
+    width_meters,
+    height_meters,
+    minimum_common_tracks=2,
+    maximum_median_court_fraction=0.25,
+):
+    common_tracks = previous_positions.keys() & current_positions.keys()
+    if len(common_tracks) < minimum_common_tracks:
+        return False
+
+    displacements = []
+    for player_id in common_tracks:
+        previous_x, previous_y = previous_positions[player_id]
+        current_x, current_y = current_positions[player_id]
+        displacements.append(
+            math.hypot(
+                (current_x - previous_x) * width_meters / width_pixels,
+                (current_y - previous_y) * height_meters / height_pixels,
+            )
+        )
+
+    court_diagonal = math.hypot(width_meters, height_meters)
+    return (
+        statistics.median(displacements)
+        > court_diagonal * maximum_median_court_fraction
+    )
