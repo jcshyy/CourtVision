@@ -1,0 +1,130 @@
+{
+  "schema_version": "0.1.0-draft",
+  "benchmark_id": "courtvision_nba_holdout_v1",
+  "annotation_batch": "calibration_v1",
+  "annotation_source": "raw_video_visual_review_only",
+  "courtvision_predictions_used": false,
+  "sampling_interval_frames": 15,
+  "review_status": "draft",
+  "clips": [
+    {
+      "id": "nba_015",
+      "video_path": "holdout_videos/nba_sealed_v1/nba_015.mp4",
+      "width": 1280,
+      "height": 720,
+      "frame_count": 603,
+      "fps": 60.0,
+      "scenes": [
+        {
+          "id": "nba_015_s01",
+          "start_frame": 0,
+          "end_frame": 477,
+          "teams": {
+            "nba_015_s01_team_a": {"name": "New York Knicks", "jersey": "blue"},
+            "nba_015_s01_team_b": {"name": "Cleveland Cavaliers", "jersey": "wine"}
+          }
+        },
+        {
+          "id": "nba_015_s02",
+          "start_frame": 478,
+          "end_frame": 602,
+          "teams": {
+            "nba_015_s02_team_a": {"name": "New York Knicks", "jersey": "blue"},
+            "nba_015_s02_team_b": {"name": "Cleveland Cavaliers", "jersey": "wine"}
+          }
+        }
+      ]
+    },
+    {
+      "id": "ncaa_m_001",
+      "video_path": "holdout_videos/nba_sealed_v1/ncaa_m_001.mp4",
+      "width": 704,
+      "height": 400,
+      "frame_count": 782,
+      "fps": 31.26,
+      "scenes": [
+        {
+          "id": "ncaa_m_001_s01",
+          "start_frame": 0,
+          "end_frame": 68,
+          "teams": {
+            "ncaa_m_001_s01_team_a": {"name": "Trinity Baptist", "jersey": "purple/gold"},
+            "ncaa_m_001_s01_team_b": {"name": "Georgia Southern", "jersey": "white"}
+          }
+        },
+        {
+          "id": "ncaa_m_001_s02",
+          "start_frame": 69,
+          "end_frame": 386,
+          "teams": {
+            "ncaa_m_001_s02_team_a": {"name": "Georgia Southern", "jersey": "white"},
+            "ncaa_m_001_s02_team_b": {"name": "Coastal Carolina", "jersey": "teal"}
+          }
+        },
+        {
+          "id": "ncaa_m_001_s03",
+          "start_frame": 387,
+          "end_frame": 425,
+          "teams": {
+            "ncaa_m_001_s03_team_a": {"name": "Georgia State", "jersey": "white"},
+            "ncaa_m_001_s03_team_b": {"name": "Georgia Southern", "jersey": "navy"}
+          }
+        },
+        {
+          "id": "ncaa_m_001_s04",
+          "start_frame": 426,
+          "end_frame": 611,
+          "teams": {
+            "ncaa_m_001_s04_team_a": {"name": "Georgia State", "jersey": "white"},
+            "ncaa_m_001_s04_team_b": {"name": "Georgia Southern", "jersey": "navy"}
+          }
+        },
+        {
+          "id": "ncaa_m_001_s05",
+          "start_frame": 612,
+          "end_frame": 692,
+          "teams": {
+            "ncaa_m_001_s05_team_a": {"name": "Georgia State", "jersey": "white"},
+            "ncaa_m_001_s05_team_b": {"name": "Georgia Southern", "jersey": "navy"}
+          }
+        },
+        {
+          "id": "ncaa_m_001_s06",
+          "start_frame": 693,
+          "end_frame": 781,
+          "teams": {
+            "ncaa_m_001_s06_team_a": {"name": "San Jose State", "jersey": "white"},
+            "ncaa_m_001_s06_team_b": {"name": "Georgia Southern", "jersey": "navy"}
+          }
+        }
+      ]
+    },
+    {
+      "id": "fixed_001",
+      "video_path": "holdout_videos/nba_sealed_v1/fixed_001.mp4",
+      "width": 1280,
+      "height": 720,
+      "frame_count": 236,
+      "fps": 19.98,
+      "scenes": [
+        {
+          "id": "fixed_001_s01",
+          "start_frame": 0,
+          "end_frame": 235,
+          "teams": {
+            "fixed_001_s01_team_a": {
+              "name": "team 1",
+              "jersey": "red/pink/blue",
+              "review_note": "Teammate grouping corrected by second reviewer."
+            },
+            "fixed_001_s01_team_b": {
+              "name": "team 2",
+              "jersey": "black/orange/neon yellow-green",
+              "review_note": "Teammate grouping corrected by second reviewer."
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

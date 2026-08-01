@@ -1,0 +1,322 @@
+{
+  "schema_version": "1.0.0",
+  "benchmark_id": "courtvision_nba_holdout_v1",
+  "selection_frozen_utc": "2026-07-25T00:00:00Z",
+  "selection_seed": "courtvision-nba-holdout-v1",
+  "selection_policy": {
+    "target_clip_count": 30,
+    "nba_clip_count": 24,
+    "non_nba_clip_count": 6,
+    "one_nba_clip_per_game": true,
+    "model_outputs_consulted": false,
+    "basket_window_seconds": 25,
+    "notes": "NBA clips were selected from source event labels for broad basketball-event coverage. BASKET paths and hash-derived window starts were fixed before download or CourtVision evaluation."
+  },
+  "sources": {
+    "bard": {
+      "homepage": "https://bodai.unibs.it/basketball-action-recognition/bard/",
+      "repository": "https://github.com/GabrieleGiudic/BARD",
+      "license": "CC-BY-4.0",
+      "local_root": "holdout_sources/BARD_repo"
+    },
+    "basket": {
+      "homepage": "https://huggingface.co/datasets/yulupan/BASKET",
+      "license": "Apache-2.0 plus gated repository access conditions",
+      "local_root": "holdout_sources/BASKET"
+    },
+    "trackid3x3": {
+      "repository": "https://github.com/open-starlab/TrackID3x3",
+      "drive_folder": "https://drive.google.com/drive/folders/1aWqMwQKr5xKMjqms7-raYluSlxPsGvwX",
+      "license": "CC-BY-4.0",
+      "local_root": "holdout_sources/TrackID3x3"
+    }
+  },
+  "known_seen_source_games": [
+    "bkn-vs-hou-0022300469",
+    "bos-vs-ind-0022300493",
+    "det-vs-gsw-0022300490",
+    "mia-vs-phx-0022300489"
+  ],
+  "clips": [
+    {
+      "id": "nba_001",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/atl-vs-dal-0022401109_27.mp4",
+      "game_id": "atl-vs-dal-0022401109",
+      "coverage_tags": ["block", "rebound", "paint-traffic"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_002",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/atl-vs-orl-0022401149_29.mp4",
+      "game_id": "atl-vs-orl-0022401149",
+      "coverage_tags": ["turnover", "steal", "transition"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_003",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/cha-vs-ind-0022401104_5.mp4",
+      "game_id": "cha-vs-ind-0022401104",
+      "coverage_tags": ["turnover", "steal", "transition", "three-point-shot"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_004",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/den-vs-gsw-0022401125_5.mp4",
+      "game_id": "den-vs-gsw-0022401125",
+      "coverage_tags": ["rebound", "second-chance", "foul", "paint-traffic"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_005",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/det-vs-okc-0022401108_24.mp4",
+      "game_id": "det-vs-okc-0022401108",
+      "coverage_tags": ["block", "multiple-rebounds", "second-chance"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_006",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/gsw-vs-lal-0022401117_19.mp4",
+      "game_id": "gsw-vs-lal-0022401117",
+      "coverage_tags": ["three-point-shot", "multiple-rebounds", "second-chance"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_007",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/gsw-vs-phx-0022401154_19.mp4",
+      "game_id": "gsw-vs-phx-0022401154",
+      "coverage_tags": ["turnover", "steal", "transition"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_008",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/mem-vs-det-0022401129_25.mp4",
+      "game_id": "mem-vs-det-0022401129",
+      "coverage_tags": ["block", "rebound", "foul", "paint-traffic"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_009",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/mem-vs-mia-0022401114_26.mp4",
+      "game_id": "mem-vs-mia-0022401114",
+      "coverage_tags": ["rebound", "turnover", "steal", "transition"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_010",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/mia-vs-bos-0022401106_24.mp4",
+      "game_id": "mia-vs-bos-0022401106",
+      "coverage_tags": ["assisted-shot", "pass", "three-point-shot"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_011",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/mil-vs-phi-0022401115_10.mp4",
+      "game_id": "mil-vs-phi-0022401115",
+      "coverage_tags": ["turnover", "steal", "transition", "three-point-shot"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_012",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/min-vs-bkn-0022401113_29.mp4",
+      "game_id": "min-vs-bkn-0022401113",
+      "coverage_tags": ["rebound", "second-chance", "paint-traffic"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_013",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/min-vs-den-0022401102_3.mp4",
+      "game_id": "min-vs-den-0022401102",
+      "coverage_tags": ["turnover", "steal", "transition", "three-point-shot"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_014",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/nop-vs-lac-0022401111_12.mp4",
+      "game_id": "nop-vs-lac-0022401111",
+      "coverage_tags": ["rebound", "turnover", "steal", "transition", "paint-traffic"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_015",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/nyk-vs-cle-0022401103_30.mp4",
+      "game_id": "nyk-vs-cle-0022401103",
+      "coverage_tags": ["assisted-shot", "pass", "three-point-shot"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_016",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/orl-vs-sas-0022400988_17.mp4",
+      "game_id": "orl-vs-sas-0022400988",
+      "coverage_tags": ["turnover", "steal", "transition"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_017",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/phi-vs-nyk-0022401098_4.mp4",
+      "game_id": "phi-vs-nyk-0022401098",
+      "coverage_tags": ["turnover", "steal", "transition"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_018",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/phx-vs-mil-0022401101_16.mp4",
+      "game_id": "phx-vs-mil-0022401101",
+      "coverage_tags": ["turnover", "steal", "transition"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_019",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/por-vs-atl-0022401097_9.mp4",
+      "game_id": "por-vs-atl-0022401097",
+      "coverage_tags": ["three-point-shot", "rebound", "half-court"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_020",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/por-vs-tor-0022401116_25.mp4",
+      "game_id": "por-vs-tor-0022401116",
+      "coverage_tags": ["multiple-rebounds", "second-chance", "foul"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_021",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/sac-vs-cha-0022401118_3.mp4",
+      "game_id": "sac-vs-cha-0022401118",
+      "coverage_tags": ["three-point-shot", "rebound", "second-chance"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_022",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/sac-vs-was-0022401105_8.mp4",
+      "game_id": "sac-vs-was-0022401105",
+      "coverage_tags": ["block", "rebound", "paint-traffic"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_023",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/tor-vs-chi-0022401099_2.mp4",
+      "game_id": "tor-vs-chi-0022401099",
+      "coverage_tags": ["assisted-shot", "pass", "three-point-shot"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "nba_024",
+      "cohort": "nba",
+      "source": "bard",
+      "source_path": "validation/2025/multi/uta-vs-hou-0022401107_11.mp4",
+      "game_id": "uta-vs-hou-0022401107",
+      "coverage_tags": ["multiple-rebounds", "second-chance", "paint-traffic"],
+      "copy_mode": "full"
+    },
+    {
+      "id": "ncaa_m_001",
+      "cohort": "ncaa_mens",
+      "source": "basket",
+      "source_path": "22-23/6_NCAA Division I/10645_22_23.mp4",
+      "source_size_bytes": 56655245,
+      "coverage_tags": ["ncaa", "mens", "broadcast-domain-shift"],
+      "copy_mode": "window",
+      "start_seconds": 59,
+      "duration_seconds": 25
+    },
+    {
+      "id": "ncaa_w_001",
+      "cohort": "ncaa_womens",
+      "source": "basket",
+      "source_path": "22-23/156_NCAA Division I (W)/100885_22_23.mp4",
+      "source_size_bytes": 55374480,
+      "coverage_tags": ["ncaa", "womens", "broadcast-domain-shift"],
+      "copy_mode": "window",
+      "start_seconds": 153,
+      "duration_seconds": 25
+    },
+    {
+      "id": "gleague_001",
+      "cohort": "nba_g_league",
+      "source": "basket",
+      "source_path": "22-23/137_United States. NBA G-League/1007_22_23.mp4",
+      "source_size_bytes": 63157236,
+      "coverage_tags": ["g-league", "broadcast-domain-shift"],
+      "copy_mode": "window",
+      "start_seconds": 128,
+      "duration_seconds": 25
+    },
+    {
+      "id": "fiba_001",
+      "cohort": "fiba",
+      "source": "basket",
+      "source_path": "22-23/39_FIBA Europe Cup/10273_22_23.mp4",
+      "source_size_bytes": 56727923,
+      "coverage_tags": ["fiba", "international", "broadcast-domain-shift"],
+      "copy_mode": "window",
+      "start_seconds": 151,
+      "duration_seconds": 25
+    },
+    {
+      "id": "women_pro_001",
+      "cohort": "womens_pro",
+      "source": "basket",
+      "source_path": "22-23/288_Italy. LegA Basket Femminile/112256_22_23.mp4",
+      "source_size_bytes": 49148194,
+      "coverage_tags": ["womens", "international", "broadcast-domain-shift"],
+      "copy_mode": "window",
+      "start_seconds": 46,
+      "duration_seconds": 25
+    },
+    {
+      "id": "fixed_001",
+      "cohort": "fixed_camera",
+      "source": "trackid3x3",
+      "source_path": "basket_S1T5_pre.mp4",
+      "source_file_id": "1e3lKO4JRssfj5KO9cuI1ODnnU7qyqO8-",
+      "coverage_tags": ["fixed-camera", "wide-view", "small-ball", "3x3"],
+      "copy_mode": "full"
+    }
+  ]
+}

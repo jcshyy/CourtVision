@@ -32,12 +32,14 @@ class BallHolderStateModel:
         maximum_distance=50.0,
         minimum_score=0.42,
         ambiguity_margin=0.08,
+        minimum_gap_ball_confidence=0.65,
     ):
         self.confirmation_frames = max(1, int(confirmation_frames))
         self.max_missing_frames = max(0, int(max_missing_frames))
         self.maximum_distance = float(maximum_distance)
         self.minimum_score = float(minimum_score)
         self.ambiguity_margin = float(ambiguity_margin)
+        self.minimum_gap_ball_confidence = float(minimum_gap_ball_confidence)
 
     def process(self, player_tracks, ball_tracks):
         if len(player_tracks) != len(ball_tracks):
@@ -49,9 +51,11 @@ class BallHolderStateModel:
         pending_id = None
         pending_frames = 0
         pending_gap_frames = 0
+        pending_relative_positions = []
         missing_frames = 0
         frames_since_confirmed = 0
         previous_ball_center = None
+        last_observed_ball_confidence = None
 
         for players, frame_ball in zip(player_tracks, ball_tracks):
             ball = frame_ball.get(1, {})
@@ -73,7 +77,14 @@ class BallHolderStateModel:
                             frames_since_confirmed,
                         ).to_dict()
                     )
-                elif holder_id is not None and missing_frames <= self.max_missing_frames:
+                elif (
+                    holder_id is not None
+                    and missing_frames <= self.max_missing_frames
+                    and frames_since_confirmed <= self.max_missing_frames
+                    and last_observed_ball_confidence is not None
+                    and last_observed_ball_confidence
+                    >= self.minimum_gap_ball_confidence
+                ):
                     frames_since_confirmed += 1
                     decay = max(0.35, 1.0 - missing_frames / (self.max_missing_frames + 1))
                     states.append(HolderFrameState(
@@ -98,6 +109,8 @@ class BallHolderStateModel:
             ranked = self._rank_candidates(
                 players, bbox, ball_center, ball_confidence, holder_id,
                 previous_ball_center, interpolated,
+                hand_pose_player_id=ball.get("hand_pose_player_id"),
+                hand_pose_supported=bool(ball.get("hand_pose_supported", False)),
             )
             previous_ball_center = ball_center
 
@@ -111,13 +124,18 @@ class BallHolderStateModel:
                         pending_id, pending_frames, pending_gap_frames = None, 0, 0
                     frames_since_confirmed += 1
                     states.append(HolderFrameState(
-                        None, "loose", round(candidate_score, 4), pending_id or candidate_id,
+                        None, "loose", round(candidate_score, 4),
+                        pending_id or candidate_id,
                         "interpolated_ball_not_confirmable", ball_confidence, None,
                         frames_since_confirmed,
                     ).to_dict())
                 elif (
                     holder_id is not None
                     and missing_frames <= self.max_missing_frames
+                    and frames_since_confirmed <= self.max_missing_frames
+                    and last_observed_ball_confidence is not None
+                    and last_observed_ball_confidence
+                    >= self.minimum_gap_ball_confidence
                     and ranked
                     and ranked[0][0] == holder_id
                     and ranked[0][1] >= self.minimum_score
@@ -142,6 +160,7 @@ class BallHolderStateModel:
 
             missing_frames = 0
             pending_gap_frames = 0
+            last_observed_ball_confidence = ball_confidence
 
             if not ranked or ranked[0][1] < self.minimum_score:
                 pending_id, pending_frames, pending_gap_frames = None, 0, 0
@@ -179,8 +198,37 @@ class BallHolderStateModel:
                 pending_frames += 1
             else:
                 pending_id, pending_frames = candidate_id, 1
+                pending_relative_positions = []
+            relative_position = _player_relative_position(
+                ball_center,
+                players.get(candidate_id, {}).get("bbox"),
+            )
+            if relative_position is not None:
+                pending_relative_positions.append((
+                    relative_position,
+                    bool(
+                        ball.get("hand_pose_supported", False)
+                        and ball.get("hand_pose_player_id") == candidate_id
+                    ),
+                ))
 
             required = self.confirmation_frames
+            if (
+                pending_frames >= required
+                and _looks_like_unsupported_flythrough(
+                    pending_relative_positions
+                )
+            ):
+                holder_id = None
+                holder_confidence = 0.0
+                pending_id, pending_frames, pending_gap_frames = None, 0, 0
+                frames_since_confirmed += 1
+                states.append(HolderFrameState(
+                    None, "loose", round(candidate_score, 4), candidate_id,
+                    "airborne_candidate_not_confirmed", ball_confidence,
+                    None, frames_since_confirmed,
+                ).to_dict())
+                continue
             if holder_id is None and pending_frames >= required:
                 holder_id = candidate_id
                 holder_confidence = candidate_score
@@ -193,7 +241,12 @@ class BallHolderStateModel:
                 pending_id, pending_frames, pending_gap_frames = None, 0, 0
                 frames_since_confirmed = 0
                 reason = "holder_switch_confirmed"
-            elif holder_id is not None and pending_frames == 1:
+            elif (
+                holder_id is not None
+                and pending_frames == 1
+                and ball_confidence is not None
+                and ball_confidence >= self.minimum_gap_ball_confidence
+            ):
                 frames_since_confirmed += 1
                 states.append(HolderFrameState(
                     holder_id, "confirmed", round(holder_confidence * 0.85, 4),
@@ -228,7 +281,8 @@ class BallHolderStateModel:
 
     def _rank_candidates(
         self, players, ball_bbox, ball_center, ball_confidence, holder_id,
-        previous_ball_center, interpolated,
+        previous_ball_center, interpolated, *, hand_pose_player_id=None,
+        hand_pose_supported=False,
     ):
         ranked = []
         motion = (
@@ -255,6 +309,13 @@ class BallHolderStateModel:
                 + 0.13 * max(0.0, min(1.0, detection_quality))
                 + 0.10 * motion_quality
             )
+            # Pose is deliberately a relative tie-breaker rather than a
+            # requirement. A confident ball-to-hand association can resolve
+            # overlapping player boxes; missing/weak pose data changes no
+            # score. Penalizing only the competing candidates also avoids the
+            # score-cap saturation that occurs when the ball is inside both.
+            if hand_pose_supported:
+                score += 0.04 if player_id == hand_pose_player_id else -0.10
             if player_id == holder_id:
                 score += 0.10
             ranked.append((player_id, min(1.0, score), distance))
@@ -278,6 +339,39 @@ def _bbox_distance(point, bbox):
     x1, y1, x2, y2 = bbox
     closest = (min(max(x, x1), x2), min(max(y, y1), y2))
     return euclidean_distance(point, closest)
+
+
+def _player_relative_position(point, bbox):
+    if not bbox:
+        return None
+    width = float(bbox[2]) - float(bbox[0])
+    height = float(bbox[3]) - float(bbox[1])
+    if width <= 0 or height <= 0:
+        return None
+    return (
+        (float(point[0]) - float(bbox[0])) / width,
+        (float(point[1]) - float(bbox[1])) / height,
+    )
+
+
+def _looks_like_unsupported_flythrough(samples):
+    if len(samples) < 4 or any(hand_supported for _, hand_supported in samples):
+        return False
+    positions = [position for position, _ in samples]
+    net_x = positions[-1][0] - positions[0][0]
+    net_y = positions[-1][1] - positions[0][1]
+    net_distance = (net_x ** 2 + net_y ** 2) ** 0.5
+    if net_distance < 0.28:
+        return False
+    unit_x, unit_y = net_x / net_distance, net_y / net_distance
+    aligned = 0
+    for start, end in zip(positions, positions[1:]):
+        progress = (
+            (end[0] - start[0]) * unit_x
+            + (end[1] - start[1]) * unit_y
+        )
+        aligned += progress >= -0.02
+    return aligned / (len(positions) - 1) >= 0.75
 
 
 def _point_inside(point, bbox):

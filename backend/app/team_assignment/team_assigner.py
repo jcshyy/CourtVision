@@ -52,6 +52,7 @@ class TeamAssigner:
         model_name="patrickjohncyh/fashion-clip",
         vote_window_size=5,
         initial_observations=3,
+        tracking_algorithm_version=None,
     ):
         if (team_1_description is None) != (team_2_description is None):
             raise ValueError("Both team descriptions must be provided together")
@@ -105,6 +106,10 @@ class TeamAssigner:
             "assignment_mode": self.assignment_mode,
             "team_colors": list(normalized_colors) if normalized_colors else None,
         }
+        if tracking_algorithm_version is not None:
+            cache_identity["player_tracking_algorithm_version"] = str(
+                tracking_algorithm_version
+            )
         self.assignment_metadata = dict(cache_identity)
         self.assignment_metadata["discovery_confidence"] = None
         self.assignment_metadata["track_assignments"] = {}

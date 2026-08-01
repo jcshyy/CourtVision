@@ -5,7 +5,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from backend.app.utils.video import probe_video, read_video
+from backend.app.utils.video import (
+    detect_scene_discontinuities,
+    probe_video,
+    read_video,
+)
 
 
 class VideoReadTests(unittest.TestCase):
@@ -44,6 +48,20 @@ class VideoReadTests(unittest.TestCase):
 
             with self.assertRaisesRegex(MemoryError, "--duration-seconds"):
                 read_video(video, max_decoded_bytes=1)
+
+    def test_detects_persistent_cut_but_ignores_single_frame_flash(self):
+        green = np.full((60, 80, 3), (0, 180, 0), dtype=np.uint8)
+        red = np.full((60, 80, 3), (0, 0, 180), dtype=np.uint8)
+        white = np.full((60, 80, 3), 255, dtype=np.uint8)
+
+        self.assertEqual(
+            detect_scene_discontinuities([green, green, red, red]),
+            [2],
+        )
+        self.assertEqual(
+            detect_scene_discontinuities([green, white, green, green]),
+            [],
+        )
 
 
 if __name__ == "__main__":

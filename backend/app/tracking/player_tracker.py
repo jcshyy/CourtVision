@@ -1,3 +1,5 @@
+from collections import Counter
+
 import supervision as sv
 from ultralytics import YOLO
 
@@ -5,9 +7,10 @@ from backend.app.config import PLAYER_DETECTOR_PATH
 from backend.app.utils import load_cache, save_cache
 
 
-PLAYER_TRACKING_ALGORITHM_VERSION = "v3_referee_track_filter"
+PLAYER_TRACKING_ALGORITHM_VERSION = "v5_repeated_referee_filter"
 REFEREE_OVERLAP_IOU_THRESHOLD = 0.8
 REFEREE_CONFIDENCE_TOLERANCE = 0.1
+MINIMUM_REFEREE_OVERLAP_OBSERVATIONS = 3
 
 
 class PlayerTracker:
@@ -41,7 +44,8 @@ class PlayerTracker:
 
         detections = self.detect_frames(frames)
         tracks = []
-        referee_track_ids = set()
+        player_observation_counts = Counter()
+        referee_overlap_counts = Counter()
 
         for detection in detections:
             class_names_inv = {value: key for key, value in detection.names.items()}
@@ -69,15 +73,24 @@ class PlayerTracker:
 
                 if class_id == player_class_id:
                     frame_tracks[track_id] = {"bbox": bbox}
+                    player_observation_counts[track_id] += 1
                     if _is_duplicate_referee_detection(
                         bbox,
                         confidence,
                         referee_detections,
                     ):
-                        referee_track_ids.add(track_id)
+                        referee_overlap_counts[track_id] += 1
 
             tracks.append(frame_tracks)
 
+        referee_track_ids = {
+            track_id
+            for track_id, overlap_count in referee_overlap_counts.items()
+            if _is_persistent_referee_track(
+                overlap_count,
+                player_observation_counts[track_id],
+            )
+        }
         if referee_track_ids:
             tracks = [
                 {
@@ -110,6 +123,13 @@ def _is_duplicate_referee_detection(player_bbox, player_confidence, referee_dete
         ):
             return True
     return False
+
+
+def _is_persistent_referee_track(overlap_count, observation_count):
+    """Require repeated referee evidence before deleting an entire track."""
+    if observation_count <= 0:
+        return False
+    return overlap_count >= MINIMUM_REFEREE_OVERLAP_OBSERVATIONS
 
 
 def _bbox_iou(first, second):

@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+*.pyc
+backend/models/*.pt
+backend/stubs
+input_videos
+output_videos
+runs
+deploy
+docs
+tests

@@ -5,6 +5,7 @@ import numpy as np
 from backend.app.tracking.player_tracker import (
     _bbox_iou,
     _is_duplicate_referee_detection,
+    _is_persistent_referee_track,
 )
 
 
@@ -53,6 +54,18 @@ class PlayerTrackerRefereeFilterTests(unittest.TestCase):
             _bbox_iou([0, 0, 10, 10], [0, 0, 8, 10]),
             _bbox_iou([0, 0, 100, 100], [0, 0, 80, 100]),
         )
+
+    def test_single_referee_overlap_does_not_delete_long_player_track(self):
+        self.assertFalse(_is_persistent_referee_track(1, 64))
+
+    def test_persistent_referee_overlap_deletes_track(self):
+        self.assertTrue(_is_persistent_referee_track(8, 10))
+
+    def test_three_referee_overlaps_delete_even_long_track(self):
+        self.assertTrue(_is_persistent_referee_track(3, 255))
+
+    def test_short_ambiguous_track_is_preserved(self):
+        self.assertFalse(_is_persistent_referee_track(2, 2))
 
 
 if __name__ == "__main__":

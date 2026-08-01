@@ -1,0 +1,152 @@
+{
+  "clips": {
+    "nba_001": {
+      "possession_segments": [
+        {"start_frame": 0, "end_frame": 208, "state": "controlled", "team_id": "nba_001_s01_team_a", "holder": "jersey_11", "notes": "Same Atlanta player retains the dribble; hidden-ball intervals near frames 68-78 and 119-134 are not passes."},
+        {"start_frame": 209, "end_frame": 299, "state": "shot"},
+        {"start_frame": 300, "end_frame": 314, "state": "loose"},
+        {"start_frame": 315, "end_frame": 336, "state": "controlled", "team_id": "nba_001_s01_team_b", "holder": "navy_rebounder"},
+        {"start_frame": 337, "end_frame": 353, "state": "in_flight"},
+        {"start_frame": 354, "end_frame": 380, "state": "controlled", "team_id": "nba_001_s01_team_b", "holder": "jersey_26"},
+        {"start_frame": 381, "end_frame": 399, "state": "in_flight"},
+        {"start_frame": 400, "end_frame": 480, "state": "controlled", "team_id": "nba_001_s01_team_b", "holder": "jersey_13"}
+      ],
+      "ball_overrides": {
+        "15": {"visibility": "visible", "center_px": [319, 304], "confidence": "medium"},
+        "180": {"visibility": "visible", "center_px": [579, 326], "confidence": "medium"},
+        "210": {"visibility": "visible", "center_px": [644, 198], "confidence": "high", "notes": "Ball is separable above the contested shooter at the block/release."},
+        "270": {"visibility": "visible", "center_px": [670, 151], "confidence": "high"},
+        "345": {"visibility": "visible", "center_px": [452, 332], "confidence": "high", "notes": "Ball is in flight on the Dallas outlet pass."},
+        "390": {"visibility": "visible", "center_px": [366, 362], "confidence": "high", "notes": "Ball is in flight on the second Dallas transition pass."},
+        "435": {"visibility": "visible", "center_px": [320, 466], "confidence": "medium"}
+      }
+    },
+    "nba_002": {
+      "possession_segments": [
+        {"start_frame": 0, "end_frame": 173, "state": "controlled", "team_id": "nba_002_s01_team_a", "holder": "jersey_11"},
+        {"start_frame": 174, "end_frame": 190, "state": "in_flight"},
+        {"start_frame": 191, "end_frame": 262, "state": "controlled", "team_id": "nba_002_s01_team_a", "holder": "white_receiver"},
+        {"start_frame": 263, "end_frame": 359, "state": "loose", "notes": "Atlanta's attempted pass is deflected before Orlando establishes control."},
+        {"start_frame": 360, "end_frame": 548, "state": "controlled", "team_id": "nba_002_s01_team_b", "holder": "jersey_5"}
+      ],
+      "ball_overrides": {
+        "0": {"visibility": "visible", "center_px": [769, 447], "confidence": "medium"},
+        "90": {"visibility": "visible", "center_px": [1023, 445], "confidence": "medium"},
+        "180": {"visibility": "visible", "center_px": [1065, 327], "confidence": "high", "notes": "Ball is clearly separated from both players during the pass."},
+        "330": {"visibility": "out_of_frame", "center_px": null, "confidence": "medium", "notes": "Live play reaches the right broadcast edge; no fabricated center is assigned."},
+        "360": {"visibility": "visible", "center_px": [659, 209], "confidence": "medium", "notes": "Orlando number 5 has secured the stolen ball."},
+        "420": {"visibility": "visible", "center_px": [575, 227], "confidence": "medium"},
+        "480": {"visibility": "out_of_frame", "center_px": null, "confidence": "medium"}
+      }
+    },
+    "nba_003": {
+      "possession_segments": [
+        {"start_frame": 0, "end_frame": 81, "state": "controlled", "team_id": "nba_003_s01_team_b", "holder": "jersey_5"},
+        {"start_frame": 82, "end_frame": 149, "state": "loose", "notes": "Indiana is still securing the ball at frame 118; definitive control begins near frame 150."},
+        {"start_frame": 150, "end_frame": 272, "state": "controlled", "team_id": "nba_003_s01_team_a", "holder": "white_fastbreak_guard"},
+        {"start_frame": 273, "end_frame": 290, "state": "in_flight"},
+        {"start_frame": 291, "end_frame": 317, "state": "controlled", "team_id": "nba_003_s01_team_a", "holder": "jersey_0"},
+        {"start_frame": 318, "end_frame": 340, "state": "in_flight"},
+        {"start_frame": 341, "end_frame": 419, "state": "controlled", "team_id": "nba_003_s01_team_a", "holder": "jersey_33"},
+        {"start_frame": 420, "end_frame": 524, "state": "shot"},
+        {"start_frame": 525, "end_frame": 584, "state": "dead"}
+      ],
+      "ball_overrides": {
+        "0": {"visibility": "visible", "center_px": [1194, 303], "confidence": "medium"},
+        "90": {"visibility": "visible", "center_px": [1110, 283], "confidence": "medium", "notes": "Ball is loose during the sideline turnover sequence."},
+        "120": {"visibility": "visible", "center_px": [865, 295], "confidence": "medium"},
+        "210": {"visibility": "visible", "center_px": [661, 264], "confidence": "medium"},
+        "270": {"visibility": "visible", "center_px": [558, 273], "confidence": "medium"},
+        "285": {"visibility": "visible", "center_px": [501, 296], "confidence": "high", "notes": "Ball is separated in flight on the first Indiana transition pass."},
+        "330": {"visibility": "visible", "center_px": [420, 300], "confidence": "high", "notes": "Ball is separated in flight on the pass to the shooter."},
+        "390": {"visibility": "visible", "center_px": [314, 268], "confidence": "medium"},
+        "420": {"visibility": "visible", "center_px": [323, 116], "confidence": "high"},
+        "450": {"visibility": "visible", "center_px": [555, 69], "confidence": "high"},
+        "480": {"visibility": "visible", "center_px": [680, 85], "confidence": "high"},
+        "510": {"visibility": "visible", "center_px": [837, 233], "confidence": "medium"},
+        "540": {"visibility": "visible", "center_px": [768, 310], "confidence": "medium", "notes": "Ball is with the inbounder after the made basket; play remains dead."}
+      }
+    },
+    "nba_004": {
+      "possession_segments": [
+        {"start_frame": 0, "end_frame": 173, "state": "controlled", "team_id": "nba_004_s01_team_a", "holder": "jersey_32"},
+        {"start_frame": 174, "end_frame": 209, "state": "in_flight", "notes": "Golden State deflects the attempted Denver pass or shot; the original Denver player recovers it."},
+        {"start_frame": 210, "end_frame": 239, "state": "controlled", "team_id": "nba_004_s01_team_a", "holder": "jersey_32"},
+        {"start_frame": 240, "end_frame": 269, "state": "in_flight"},
+        {"start_frame": 270, "end_frame": 340, "state": "controlled", "team_id": "nba_004_s01_team_a", "holder": "jersey_1"},
+        {"start_frame": 341, "end_frame": 429, "state": "shot"},
+        {"start_frame": 430, "end_frame": 437, "state": "loose"},
+        {"start_frame": 438, "end_frame": 453, "state": "controlled", "team_id": "nba_004_s01_team_a", "holder": "jersey_0"},
+        {"start_frame": 454, "end_frame": 524, "state": "shot"},
+        {"start_frame": 525, "end_frame": 830, "state": "dead"}
+      ],
+      "ball_overrides": {
+        "0": {"visibility": "visible", "center_px": [288, 322], "confidence": "medium"},
+        "90": {"visibility": "visible", "center_px": [334, 257], "confidence": "medium"},
+        "180": {"visibility": "visible", "center_px": [399, 143], "confidence": "high", "notes": "Ball is airborne after Golden State's deflection."},
+        "270": {"visibility": "visible", "center_px": [702, 326], "confidence": "medium", "notes": "Denver receiver completes the pass catch."},
+        "330": {"visibility": "visible", "center_px": [731, 317], "confidence": "medium"},
+        "345": {"visibility": "visible", "center_px": [712, 222], "confidence": "high"},
+        "390": {"visibility": "visible", "center_px": [719, 75], "confidence": "high"},
+        "450": {"visibility": "visible", "center_px": [706, 171], "confidence": "high", "notes": "Ball is controlled at the start of Denver's putback motion."},
+        "480": {"visibility": "visible", "center_px": [803, 120], "confidence": "high"},
+        "540": {"visibility": "visible", "center_px": [709, 268], "confidence": "medium", "notes": "Ball is held under the basket after the make; the game is not yet live."},
+        "750": {"visibility": "out_of_frame", "center_px": null, "confidence": "high", "notes": "Hard cut to a player close-up; the ball is outside the shot."},
+        "765": {"visibility": "out_of_frame", "center_px": null, "confidence": "high"},
+        "780": {"visibility": "out_of_frame", "center_px": null, "confidence": "high"},
+        "795": {"visibility": "out_of_frame", "center_px": null, "confidence": "high"},
+        "810": {"visibility": "out_of_frame", "center_px": null, "confidence": "high"},
+        "825": {"visibility": "out_of_frame", "center_px": null, "confidence": "high"}
+      }
+    },
+    "nba_005": {
+      "possession_segments": [
+        {"start_frame": 0, "end_frame": 189, "state": "controlled", "team_id": "nba_005_s01_team_a", "holder": "jersey_0"},
+        {"start_frame": 190, "end_frame": 329, "state": "shot"},
+        {"start_frame": 330, "end_frame": 362, "state": "controlled", "team_id": "nba_005_s01_team_a", "holder": "jersey_0"},
+        {"start_frame": 363, "end_frame": 419, "state": "shot"},
+        {"start_frame": 420, "end_frame": 602, "state": "controlled", "team_id": "nba_005_s01_team_b", "holder": "jersey_2"}
+      ],
+      "ball_overrides": {
+        "285": {"visibility": "visible", "center_px": [675, 130], "confidence": "high", "notes": "The first missed attempt remains live above the paint; this is not a second release."},
+        "315": {"visibility": "visible", "center_px": [581, 236], "confidence": "medium", "notes": "Ball is contested while Detroit number 0 begins the rebound recovery."},
+        "330": {"visibility": "visible", "center_px": [580, 245], "confidence": "medium", "notes": "Detroit number 0 has secured the offensive rebound."},
+        "345": {"visibility": "visible", "center_px": [566, 321], "confidence": "medium"},
+        "360": {"visibility": "visible", "center_px": [590, 213], "confidence": "high", "notes": "Detroit number 0 begins the second shot attempt."},
+        "390": {"visibility": "visible", "center_px": [470, 397], "confidence": "medium", "notes": "The blocked ball drops into the lane."},
+        "405": {"visibility": "visible", "center_px": [485, 410], "confidence": "high", "notes": "Loose ball is visible on the floor after the block."},
+        "420": {"visibility": "visible", "center_px": [370, 368], "confidence": "high", "notes": "Oklahoma City number 2 has secured the defensive recovery."},
+        "435": {"visibility": "visible", "center_px": [439, 403], "confidence": "medium"},
+        "450": {"visibility": "visible", "center_px": [444, 481], "confidence": "high"}
+      }
+    }
+  },
+  "events": [
+    {"video_id":"nba_001","scene_id":"nba_001_s01","event_type":"shot","start_frame":188,"end_frame":314,"release_frame":209,"catch_frame":null,"from_team_id":"nba_001_s01_team_a","to_team_id":null,"from_holder":"jersey_11","to_holder":null,"outcome":"blocked_miss","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed the blocked miss near frame 209."},
+    {"video_id":"nba_001","scene_id":"nba_001_s01","event_type":"defensive_rebound","start_frame":300,"end_frame":323,"release_frame":null,"catch_frame":315,"from_team_id":null,"to_team_id":"nba_001_s01_team_b","from_holder":null,"to_holder":"navy_rebounder","outcome":"secured","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed Dallas secures the miss during frames 300-315."},
+    {"video_id":"nba_001","scene_id":"nba_001_s01","event_type":"pass","start_frame":329,"end_frame":360,"release_frame":337,"catch_frame":354,"from_team_id":"nba_001_s01_team_b","to_team_id":"nba_001_s01_team_b","from_holder":"navy_rebounder","to_holder":"jersey_26","outcome":"completed","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed the first Dallas transition pass."},
+    {"video_id":"nba_001","scene_id":"nba_001_s01","event_type":"pass","start_frame":375,"end_frame":405,"release_frame":381,"catch_frame":400,"from_team_id":"nba_001_s01_team_b","to_team_id":"nba_001_s01_team_b","from_holder":"jersey_26","to_holder":"jersey_13","outcome":"completed","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed the second Dallas transition pass."},
+
+    {"video_id":"nba_002","scene_id":"nba_002_s01","event_type":"pass","start_frame":166,"end_frame":198,"release_frame":174,"catch_frame":191,"from_team_id":"nba_002_s01_team_a","to_team_id":"nba_002_s01_team_a","from_holder":"jersey_11","to_holder":"white_receiver","outcome":"completed","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed Atlanta's completed pass."},
+    {"video_id":"nba_002","scene_id":"nba_002_s01","event_type":"deflection","start_frame":260,"end_frame":335,"release_frame":263,"catch_frame":null,"from_team_id":"nba_002_s01_team_a","to_team_id":null,"from_holder":"white_receiver","to_holder":null,"outcome":"pass_deflected","confidence":"high","review_status":"verified","notes":"Atlanta's attempted pass is deflected; this is not a completed pass."},
+    {"video_id":"nba_002","scene_id":"nba_002_s01","event_type":"steal","start_frame":335,"end_frame":365,"release_frame":null,"catch_frame":360,"from_team_id":"nba_002_s01_team_a","to_team_id":"nba_002_s01_team_b","from_holder":"white_receiver","to_holder":"jersey_5","outcome":"secured_after_deflection","confidence":"high","review_status":"verified","notes":"Orlando number 5 secures the deflected pass; one deflection flows into one steal."},
+
+    {"video_id":"nba_003","scene_id":"nba_003_s01","event_type":"steal","start_frame":82,"end_frame":158,"release_frame":null,"catch_frame":150,"from_team_id":"nba_003_s01_team_b","to_team_id":"nba_003_s01_team_a","from_holder":"jersey_5","to_holder":"white_fastbreak_guard","outcome":"secured","confidence":"high","review_status":"verified","notes":"Indiana is only beginning to secure the ball at frame 118; definitive control is near frame 150."},
+    {"video_id":"nba_003","scene_id":"nba_003_s01","event_type":"pass","start_frame":266,"end_frame":298,"release_frame":273,"catch_frame":291,"from_team_id":"nba_003_s01_team_a","to_team_id":"nba_003_s01_team_a","from_holder":"white_fastbreak_guard","to_holder":"jersey_0","outcome":"completed","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed the Indiana fast-break pass."},
+    {"video_id":"nba_003","scene_id":"nba_003_s01","event_type":"pass","start_frame":311,"end_frame":348,"release_frame":318,"catch_frame":341,"from_team_id":"nba_003_s01_team_a","to_team_id":"nba_003_s01_team_a","from_holder":"jersey_0","to_holder":"jersey_33","outcome":"completed","confidence":"high","review_status":"draft","notes":"Pass to Indiana number 33 for the perimeter attempt."},
+    {"video_id":"nba_003","scene_id":"nba_003_s01","event_type":"shot","start_frame":400,"end_frame":525,"release_frame":420,"catch_frame":null,"from_team_id":"nba_003_s01_team_a","to_team_id":null,"from_holder":"jersey_33","to_holder":null,"outcome":"made","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed Indiana number 33's made perimeter shot."},
+
+    {"video_id":"nba_004","scene_id":"nba_004_s01","event_type":"deflection","start_frame":174,"end_frame":210,"release_frame":174,"catch_frame":210,"from_team_id":"nba_004_s01_team_a","to_team_id":"nba_004_s01_team_a","from_holder":"jersey_32","to_holder":"jersey_32","outcome":"retained_by_offense","confidence":"medium","review_status":"verified","notes":"Golden State deflects a Denver pass or shot; the same Denver player recovers it near frame 210."},
+    {"video_id":"nba_004","scene_id":"nba_004_s01","event_type":"pass","start_frame":235,"end_frame":276,"release_frame":240,"catch_frame":270,"from_team_id":"nba_004_s01_team_a","to_team_id":"nba_004_s01_team_a","from_holder":"jersey_32","to_holder":"jersey_1","outcome":"completed","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed Denver's completed pass from frame 240 to frame 270."},
+    {"video_id":"nba_004","scene_id":"nba_004_s01","event_type":"shot","start_frame":320,"end_frame":437,"release_frame":341,"catch_frame":null,"from_team_id":"nba_004_s01_team_a","to_team_id":null,"from_holder":"jersey_1","to_holder":null,"outcome":"missed","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed the missed shot released near frame 341."},
+    {"video_id":"nba_004","scene_id":"nba_004_s01","event_type":"offensive_rebound","start_frame":430,"end_frame":450,"release_frame":null,"catch_frame":438,"from_team_id":null,"to_team_id":"nba_004_s01_team_a","from_holder":null,"to_holder":"jersey_0","outcome":"secured","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed Denver number 0's offensive rebound."},
+    {"video_id":"nba_004","scene_id":"nba_004_s01","event_type":"shot","start_frame":440,"end_frame":525,"release_frame":454,"catch_frame":null,"from_team_id":"nba_004_s01_team_a","to_team_id":null,"from_holder":"jersey_0","to_holder":null,"outcome":"made","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed the made putback released near frame 454."},
+    {"video_id":"nba_004","scene_id":"nba_004_s01","event_type":"dead_ball","start_frame":525,"end_frame":741,"release_frame":null,"catch_frame":null,"from_team_id":null,"to_team_id":null,"from_holder":null,"to_holder":null,"outcome":"awaiting_inbound","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed play is dead from roughly frame 525."},
+    {"video_id":"nba_004","scene_id":"nba_004_s02","event_type":"camera_cut","start_frame":742,"end_frame":742,"release_frame":null,"catch_frame":null,"from_team_id":null,"to_team_id":null,"from_holder":null,"to_holder":null,"outcome":"player_closeup","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed the hard cut at frame 742."},
+
+    {"video_id":"nba_005","scene_id":"nba_005_s01","event_type":"shot","start_frame":160,"end_frame":330,"release_frame":190,"catch_frame":null,"from_team_id":"nba_005_s01_team_a","to_team_id":null,"from_holder":"jersey_0","to_holder":null,"outcome":"missed","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed Detroit's first interior attempt released near frame 190; the later ball flight is part of the same miss and rebound sequence."},
+    {"video_id":"nba_005","scene_id":"nba_005_s01","event_type":"offensive_rebound","start_frame":315,"end_frame":345,"release_frame":null,"catch_frame":330,"from_team_id":null,"to_team_id":"nba_005_s01_team_a","from_holder":null,"to_holder":"jersey_0","outcome":"secured","confidence":"high","review_status":"verified","notes":"Detroit number 0 secures the rebound during frames 315-330."},
+    {"video_id":"nba_005","scene_id":"nba_005_s01","event_type":"shot","start_frame":350,"end_frame":420,"release_frame":363,"catch_frame":null,"from_team_id":"nba_005_s01_team_a","to_team_id":null,"from_holder":"jersey_0","to_holder":null,"outcome":"blocked_miss","confidence":"high","review_status":"verified","notes":"Detroit number 0's second attempt is blocked around frame 390."},
+    {"video_id":"nba_005","scene_id":"nba_005_s01","event_type":"defensive_rebound","start_frame":400,"end_frame":435,"release_frame":null,"catch_frame":420,"from_team_id":null,"to_team_id":"nba_005_s01_team_b","from_holder":null,"to_holder":"jersey_2","outcome":"secured","confidence":"high","review_status":"verified","notes":"Second reviewer confirmed Oklahoma City number 2 secures the defensive recovery near frame 420."}
+  ]
+}

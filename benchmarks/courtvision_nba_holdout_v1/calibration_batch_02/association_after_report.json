@@ -1,0 +1,258 @@
+{
+  "calibration": "C:\\Users\\15678\\projects\\CourtVision\\benchmarks\\courtvision_nba_holdout_v1\\calibration_batch_02",
+  "mode": "current",
+  "event_tolerance_frames": 15,
+  "scored_video_ids": [
+    "nba_001",
+    "nba_002"
+  ],
+  "skipped_video_ids": {
+    "nba_003": "No cache directory found for nba_003",
+    "nba_004": "No cache directory found for nba_004",
+    "nba_005": "No cache directory found for nba_005"
+  },
+  "supported_ground_truth_types": [
+    "interception",
+    "pass",
+    "steal"
+  ],
+  "unsupported_events_excluded": 3,
+  "aggregate": {
+    "true_positive": 0,
+    "false_positive": 2,
+    "false_negative": 4,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "truth_count": 4,
+    "prediction_count": 2,
+    "matches": [],
+    "unmatched_truth": [
+      {
+        "video_id": "nba_001",
+        "scene_id": "nba_001_s01",
+        "event_type": "pass",
+        "start_frame": 329,
+        "end_frame": 360,
+        "release_frame": 337,
+        "catch_frame": 354,
+        "from_team_id": "nba_001_s01_team_b",
+        "to_team_id": "nba_001_s01_team_b",
+        "from_holder": "navy_rebounder",
+        "to_holder": "jersey_26",
+        "outcome": "completed",
+        "confidence": "high",
+        "review_status": "verified",
+        "notes": "Second reviewer confirmed the first Dallas transition pass."
+      },
+      {
+        "video_id": "nba_001",
+        "scene_id": "nba_001_s01",
+        "event_type": "pass",
+        "start_frame": 375,
+        "end_frame": 405,
+        "release_frame": 381,
+        "catch_frame": 400,
+        "from_team_id": "nba_001_s01_team_b",
+        "to_team_id": "nba_001_s01_team_b",
+        "from_holder": "jersey_26",
+        "to_holder": "jersey_13",
+        "outcome": "completed",
+        "confidence": "high",
+        "review_status": "verified",
+        "notes": "Second reviewer confirmed the second Dallas transition pass."
+      },
+      {
+        "video_id": "nba_002",
+        "scene_id": "nba_002_s01",
+        "event_type": "pass",
+        "start_frame": 166,
+        "end_frame": 198,
+        "release_frame": 174,
+        "catch_frame": 191,
+        "from_team_id": "nba_002_s01_team_a",
+        "to_team_id": "nba_002_s01_team_a",
+        "from_holder": "jersey_11",
+        "to_holder": "white_receiver",
+        "outcome": "completed",
+        "confidence": "high",
+        "review_status": "verified",
+        "notes": "Second reviewer confirmed Atlanta's completed pass."
+      },
+      {
+        "video_id": "nba_002",
+        "scene_id": "nba_002_s01",
+        "event_type": "interception",
+        "start_frame": 335,
+        "end_frame": 365,
+        "release_frame": null,
+        "catch_frame": 360,
+        "from_team_id": "nba_002_s01_team_a",
+        "to_team_id": "nba_002_s01_team_b",
+        "from_holder": "white_receiver",
+        "to_holder": "jersey_5",
+        "outcome": "secured_after_deflection",
+        "confidence": "high",
+        "review_status": "verified",
+        "notes": "Orlando number 5 secures the deflected pass; one deflection flows into one steal."
+      }
+    ],
+    "unmatched_predictions": [
+      {
+        "type": "pass",
+        "frame_index": 509,
+        "from_player_id": 51,
+        "to_player_id": 60,
+        "from_team_id": 1,
+        "to_team_id": 1,
+        "release_frame": 495,
+        "catch_frame": 509,
+        "gap_frames": 13,
+        "transition_frame": 509,
+        "confirmation_frames": 1,
+        "video_id": "nba_002"
+      },
+      {
+        "type": "interception",
+        "frame_index": 534,
+        "from_player_id": 60,
+        "to_player_id": 59,
+        "from_team_id": 1,
+        "to_team_id": 2,
+        "release_frame": 517,
+        "catch_frame": 534,
+        "gap_frames": 16,
+        "transition_frame": 534,
+        "confirmation_frames": 1,
+        "video_id": "nba_002"
+      }
+    ]
+  },
+  "per_video": {
+    "nba_001": {
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 2,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "truth_count": 2,
+      "prediction_count": 0,
+      "matches": [],
+      "unmatched_truth": [
+        {
+          "video_id": "nba_001",
+          "scene_id": "nba_001_s01",
+          "event_type": "pass",
+          "start_frame": 329,
+          "end_frame": 360,
+          "release_frame": 337,
+          "catch_frame": 354,
+          "from_team_id": "nba_001_s01_team_b",
+          "to_team_id": "nba_001_s01_team_b",
+          "from_holder": "navy_rebounder",
+          "to_holder": "jersey_26",
+          "outcome": "completed",
+          "confidence": "high",
+          "review_status": "verified",
+          "notes": "Second reviewer confirmed the first Dallas transition pass."
+        },
+        {
+          "video_id": "nba_001",
+          "scene_id": "nba_001_s01",
+          "event_type": "pass",
+          "start_frame": 375,
+          "end_frame": 405,
+          "release_frame": 381,
+          "catch_frame": 400,
+          "from_team_id": "nba_001_s01_team_b",
+          "to_team_id": "nba_001_s01_team_b",
+          "from_holder": "jersey_26",
+          "to_holder": "jersey_13",
+          "outcome": "completed",
+          "confidence": "high",
+          "review_status": "verified",
+          "notes": "Second reviewer confirmed the second Dallas transition pass."
+        }
+      ],
+      "unmatched_predictions": []
+    },
+    "nba_002": {
+      "true_positive": 0,
+      "false_positive": 2,
+      "false_negative": 2,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "truth_count": 2,
+      "prediction_count": 2,
+      "matches": [],
+      "unmatched_truth": [
+        {
+          "video_id": "nba_002",
+          "scene_id": "nba_002_s01",
+          "event_type": "pass",
+          "start_frame": 166,
+          "end_frame": 198,
+          "release_frame": 174,
+          "catch_frame": 191,
+          "from_team_id": "nba_002_s01_team_a",
+          "to_team_id": "nba_002_s01_team_a",
+          "from_holder": "jersey_11",
+          "to_holder": "white_receiver",
+          "outcome": "completed",
+          "confidence": "high",
+          "review_status": "verified",
+          "notes": "Second reviewer confirmed Atlanta's completed pass."
+        },
+        {
+          "video_id": "nba_002",
+          "scene_id": "nba_002_s01",
+          "event_type": "interception",
+          "start_frame": 335,
+          "end_frame": 365,
+          "release_frame": null,
+          "catch_frame": 360,
+          "from_team_id": "nba_002_s01_team_a",
+          "to_team_id": "nba_002_s01_team_b",
+          "from_holder": "white_receiver",
+          "to_holder": "jersey_5",
+          "outcome": "secured_after_deflection",
+          "confidence": "high",
+          "review_status": "verified",
+          "notes": "Orlando number 5 secures the deflected pass; one deflection flows into one steal."
+        }
+      ],
+      "unmatched_predictions": [
+        {
+          "type": "pass",
+          "frame_index": 509,
+          "from_player_id": 51,
+          "to_player_id": 60,
+          "from_team_id": 1,
+          "to_team_id": 1,
+          "release_frame": 495,
+          "catch_frame": 509,
+          "gap_frames": 13,
+          "transition_frame": 509,
+          "confirmation_frames": 1,
+          "video_id": "nba_002"
+        },
+        {
+          "type": "interception",
+          "frame_index": 534,
+          "from_player_id": 60,
+          "to_player_id": 59,
+          "from_team_id": 1,
+          "to_team_id": 2,
+          "release_frame": 517,
+          "catch_frame": 534,
+          "gap_frames": 16,
+          "transition_frame": 534,
+          "confirmation_frames": 1,
+          "video_id": "nba_002"
+        }
+      ]
+    }
+  }
+}

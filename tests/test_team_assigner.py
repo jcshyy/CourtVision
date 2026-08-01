@@ -252,6 +252,20 @@ class TeamDiscoveryTests(unittest.TestCase):
         self.assertIn("user_colors", guided_a.cache_filename)
         self.assertNotEqual(guided_a.metadata_filename, guided_b.metadata_filename)
 
+    def test_assignment_cache_identity_includes_player_tracking_version(self):
+        previous = team_assigner.TeamAssigner(
+            tracking_algorithm_version="v3_referee_track_filter",
+        )
+        current = team_assigner.TeamAssigner(
+            tracking_algorithm_version="v5_repeated_referee_filter",
+        )
+
+        self.assertNotEqual(previous.cache_filename, current.cache_filename)
+        self.assertEqual(
+            current.assignment_metadata["player_tracking_algorithm_version"],
+            "v5_repeated_referee_filter",
+        )
+
     def test_assignment_cache_hit_restores_discovery_confidence(self):
         assigner = team_assigner.TeamAssigner()
         confidence = _discovery_result()["confidence"]

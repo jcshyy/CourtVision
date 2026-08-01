@@ -7,6 +7,8 @@ venv/
 
 backend/stubs/
 output_videos/
+holdout_sources/
+holdout_videos/
 runs/
 
 *.mp4
@@ -16,4 +18,3 @@ runs/
 
 *.pt
 !backend/models/.gitkeep
-

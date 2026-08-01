@@ -175,9 +175,12 @@ def _pipeline_predictions(video):
     from backend.app.analytics import (
         BallAcquisitionDetector,
         PassInterceptionDetector,
-        events_from_arrays,
     )
     from backend.app.team_assignment import TeamAssigner
+    from backend.app.detection.player_pose_detector import (
+        PLAYER_POSE_CACHE_VERSION,
+        attach_player_poses,
+    )
     from backend.app.tracking.ball_tracker import BallTracker, BALL_TRACKING_CACHE_VERSION
     from backend.app.tracking.player_tracker import PLAYER_TRACKING_ALGORITHM_VERSION
 
@@ -187,23 +190,32 @@ def _pipeline_predictions(video):
         f"player_track_{PLAYER_TRACKING_ALGORITHM_VERSION}.pkl",
         "player_track_stubs.pkl",
     )
+    pose_path = _first_existing(
+        cache_dir,
+        f"player_pose_{PLAYER_POSE_CACHE_VERSION}.pkl",
+        "player_pose_*.pkl",
+    )
     ball_path = _first_existing(
         cache_dir,
         f"ball_track_stubs_{BALL_TRACKING_CACHE_VERSION}.pkl",
         "ball_track_stubs.pkl",
     )
-    assigner = TeamAssigner()
+    assigner = TeamAssigner(
+        tracking_algorithm_version=PLAYER_TRACKING_ALGORITHM_VERSION,
+    )
     assignment_path = _first_existing(
         cache_dir,
         assigner.cache_filename,
-        "player_assignment_v14_automatic_*.pkl",
+        "player_assignment_v14_*.pkl",
     )
     player_tracks = _load_pickle(player_path)
+    player_poses = _load_pickle(pose_path)
     raw_ball_tracks = _load_pickle(ball_path)
     assignments = _load_pickle(assignment_path)
     expected = video["frame_count"]
     for name, values in (
         ("player tracks", player_tracks),
+        ("player poses", player_poses),
         ("ball tracks", raw_ball_tracks),
         ("assignments", assignments),
     ):
@@ -211,6 +223,8 @@ def _pipeline_predictions(video):
             raise ValueError(
                 f"{video['id']} {name} has {len(values)} frames; expected {expected}"
             )
+
+    player_tracks = attach_player_poses(player_tracks, player_poses)
 
     filtered_ball_tracks = BallTracker.remove_wrong_detections(
         None,
@@ -228,30 +242,28 @@ def _pipeline_predictions(video):
         for state in holder_states
     ]
     event_detector = PassInterceptionDetector(
-        max_holder_gap_frames=max(1, round(video["fps"])),
+        max_holder_gap_frames=max(1, round(video["fps"] * 0.9)),
+        minimum_catch_frames=max(2, round(video["fps"] * 0.1)),
+        catch_confirmation_frames=max(3, round(video["fps"])),
     )
     acquisitions = event_detector.clean_transient_control_chains(
         acquisitions,
         assignments,
         holder_states=holder_states,
     )
-    passes = event_detector.detect_passes(acquisitions, assignments)
-    interceptions = event_detector.detect_interceptions(
+    events = event_detector.detect_events(
         acquisitions,
         assignments,
         holder_states=holder_states,
-    )
-    events = events_from_arrays(
-        passes,
-        interceptions,
-        acquisitions,
-        assignments,
+        ball_tracks=ball_tracks,
+        player_tracks=player_tracks,
     )
     for event in events:
         event["video_id"] = video["id"]
     return {
         "cache_dir": str(cache_dir.relative_to(ROOT)),
         "ball_tracks": ball_tracks,
+        "player_tracks": player_tracks,
         "holder_states": holder_states,
         "acquisitions": acquisitions,
         "assignments": assignments,

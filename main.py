@@ -7,14 +7,23 @@ from backend.app.analytics import (
     PassInterceptionDetector,
     SpeedAndDistanceCalculator,
     TacticalViewConverter,
-    events_from_arrays,
 )
 from backend.app.config import OUTPUT_DIR, STUBS_DIR
-from backend.app.detection import CourtKeypointDetector
+from backend.app.detection import (
+    CourtKeypointDetector,
+    PlayerPoseDetector,
+    attach_player_poses,
+)
 from backend.app.team_assignment import NeedsTeamColorsError, TeamAssigner
 from backend.app.tracking import BallTracker, PlayerTracker
 from backend.app.tracking.ball_tracker import BALL_TRACKING_CACHE_VERSION
-from backend.app.utils import probe_video, read_video, save_video
+from backend.app.tracking.player_tracker import PLAYER_TRACKING_ALGORITHM_VERSION
+from backend.app.utils import (
+    detect_scene_discontinuities,
+    probe_video,
+    read_video,
+    save_video,
+)
 from backend.app.visualization import (
     BallTracksDrawer,
     CourtKeypointDrawer,
@@ -84,6 +93,39 @@ def default_output_path(input_video):
     return default_job_output_path(OUTPUT_DIR, input_video)
 
 
+def filter_ball_tracks_with_pose(
+    video_frames,
+    player_tracks,
+    raw_ball_tracks,
+    player_pose_detector,
+    ball_tracker,
+    *,
+    pose_cache_path=None,
+    discontinuity_frames=None,
+):
+    """Attach pose evidence before selecting and interpolating the ball path."""
+    player_poses = player_pose_detector.get_player_poses(
+        video_frames,
+        player_tracks,
+        ball_tracks=raw_ball_tracks,
+        read_from_cache=True,
+        cache_path=pose_cache_path,
+    )
+    enriched_player_tracks = attach_player_poses(player_tracks, player_poses)
+    filtered_ball_tracks = ball_tracker.remove_wrong_detections(
+        raw_ball_tracks,
+        player_tracks=enriched_player_tracks,
+        discontinuity_frames=discontinuity_frames,
+    )
+    return (
+        enriched_player_tracks,
+        ball_tracker.interpolate_positions(
+            filtered_ball_tracks,
+            discontinuity_frames=discontinuity_frames,
+        ),
+    )
+
+
 def main():
     args = parse_args()
     video_path = args.input_video
@@ -92,6 +134,7 @@ def main():
         team_assigner = TeamAssigner(
             team_1_color=args.team_1_color,
             team_2_color=args.team_2_color,
+            tracking_algorithm_version=PLAYER_TRACKING_ALGORITHM_VERSION,
         )
     except ValueError as error:
         raise SystemExit(f"Invalid team-color configuration: {error}") from error
@@ -117,12 +160,18 @@ def main():
     except MemoryError as error:
         raise SystemExit(f"Video selection is too large: {error}") from error
     print(f"Loaded {len(video_frames)} frames from {video_path}")
+    scene_discontinuity_frames = detect_scene_discontinuities(video_frames)
+    print(
+        "Detected persistent scene discontinuities: "
+        f"{len(scene_discontinuity_frames)}"
+    )
     cache_dir = video_cache_dir(args.stub_path, video_path, processing_identity)
     print(f"Using per-video cache directory: {cache_dir.resolve()}")
     cache_dir.mkdir(parents=True, exist_ok=True)
     assignment_metadata_path = cache_dir / team_assigner.metadata_filename
 
     player_tracker = PlayerTracker()
+    player_pose_detector = PlayerPoseDetector()
     ball_tracker = BallTracker()
     court_keypoint_detector = CourtKeypointDetector()
 
@@ -131,7 +180,7 @@ def main():
         read_from_cache=True,
         cache_path=cache_path(cache_dir, player_tracker.cache_filename),
     )
-    ball_tracks = ball_tracker.get_object_tracks(
+    raw_ball_tracks = ball_tracker.get_object_tracks(
         video_frames,
         read_from_cache=True,
         cache_path=cache_path(
@@ -145,11 +194,18 @@ def main():
         cache_path=cache_path(cache_dir, "court_key_points_stub.pkl"),
     )
 
-    ball_tracks = ball_tracker.remove_wrong_detections(
-        ball_tracks,
-        player_tracks=player_tracks,
+    player_tracks, ball_tracks = filter_ball_tracks_with_pose(
+        video_frames,
+        player_tracks,
+        raw_ball_tracks,
+        player_pose_detector,
+        ball_tracker,
+        pose_cache_path=cache_path(
+            cache_dir,
+            player_pose_detector.cache_filename,
+        ),
+        discontinuity_frames=scene_discontinuity_frames,
     )
-    ball_tracks = ball_tracker.interpolate_positions(ball_tracks)
 
     try:
         player_assignment = team_assigner.get_player_teams_across_frames(
@@ -181,28 +237,29 @@ def main():
     ]
 
     pass_interception_detector = PassInterceptionDetector(
-        max_holder_gap_frames=max(1, round(output_fps)),
+        max_holder_gap_frames=max(1, round(output_fps * 0.9)),
+        minimum_catch_frames=max(2, round(output_fps * 0.1)),
+        catch_confirmation_frames=max(3, round(output_fps)),
     )
     ball_acquisition = pass_interception_detector.clean_transient_control_chains(
         ball_acquisition,
         player_assignment,
         holder_states=holder_states,
+        discontinuity_frames=scene_discontinuity_frames,
     )
-    passes = pass_interception_detector.detect_passes(
-        ball_acquisition,
-        player_assignment,
-    )
-    interceptions = pass_interception_detector.detect_interceptions(
+    events = pass_interception_detector.detect_events(
         ball_acquisition,
         player_assignment,
         holder_states=holder_states,
+        ball_tracks=ball_tracks,
+        player_tracks=player_tracks,
+        discontinuity_frames=scene_discontinuity_frames,
     )
-    events = events_from_arrays(
-        passes,
-        interceptions,
-        ball_acquisition,
-        player_assignment,
-    )
+    passes = [-1] * len(ball_acquisition)
+    interceptions = [-1] * len(ball_acquisition)
+    for event in events:
+        target = passes if event["type"] == "pass" else interceptions
+        target[event["frame_index"]] = event["to_team_id"]
 
     print(
         "Detected events: "
@@ -229,18 +286,18 @@ def main():
         tactical_view_converter.actual_width_in_meters,
         tactical_view_converter.actual_height_in_meters,
     )
-    discontinuity_frames = tactical_view_converter.last_diagnostics.get(
+    tactical_discontinuity_frames = tactical_view_converter.last_diagnostics.get(
         "temporal_discontinuity",
         [],
     )
     tactical_player_positions = speed_and_distance_calculator.smooth_positions(
         tactical_player_positions,
-        discontinuity_frames=discontinuity_frames,
+        discontinuity_frames=tactical_discontinuity_frames,
         window_radius=max(1, round(output_fps * 0.1)),
     )
     player_distances_per_frame = speed_and_distance_calculator.calculate_distance(
         tactical_player_positions,
-        discontinuity_frames=discontinuity_frames,
+        discontinuity_frames=tactical_discontinuity_frames,
     )
     player_speed_per_frame = speed_and_distance_calculator.calculate_speed(
         player_distances_per_frame,

@@ -1,0 +1,115 @@
+{
+  "schema_version": "0.1.0-draft",
+  "benchmark_id": "courtvision_nba_holdout_v1",
+  "annotation_batch": "calibration_batch_02",
+  "annotation_source": "raw_video_visual_review_only",
+  "courtvision_predictions_used": false,
+  "sampling_interval_frames": 15,
+  "review_status": "draft",
+  "clips": [
+    {
+      "id": "nba_001",
+      "video_path": "holdout_videos/nba_sealed_v1/nba_001.mp4",
+      "width": 1280,
+      "height": 720,
+      "frame_count": 481,
+      "fps": 60.0,
+      "scenes": [
+        {
+          "id": "nba_001_s01",
+          "start_frame": 0,
+          "end_frame": 480,
+          "teams": {
+            "nba_001_s01_team_a": {"name": "Atlanta Hawks", "jersey": "white/gold"},
+            "nba_001_s01_team_b": {"name": "Dallas Mavericks", "jersey": "navy"}
+          }
+        }
+      ]
+    },
+    {
+      "id": "nba_002",
+      "video_path": "holdout_videos/nba_sealed_v1/nba_002.mp4",
+      "width": 1280,
+      "height": 720,
+      "frame_count": 549,
+      "fps": 60.0,
+      "scenes": [
+        {
+          "id": "nba_002_s01",
+          "start_frame": 0,
+          "end_frame": 548,
+          "teams": {
+            "nba_002_s01_team_a": {"name": "Atlanta Hawks", "jersey": "white"},
+            "nba_002_s01_team_b": {"name": "Orlando Magic", "jersey": "blue"}
+          }
+        }
+      ]
+    },
+    {
+      "id": "nba_003",
+      "video_path": "holdout_videos/nba_sealed_v1/nba_003.mp4",
+      "width": 1280,
+      "height": 720,
+      "frame_count": 585,
+      "fps": 60.0,
+      "scenes": [
+        {
+          "id": "nba_003_s01",
+          "start_frame": 0,
+          "end_frame": 584,
+          "teams": {
+            "nba_003_s01_team_a": {"name": "Indiana Pacers", "jersey": "white"},
+            "nba_003_s01_team_b": {"name": "Charlotte Hornets", "jersey": "purple"}
+          }
+        }
+      ]
+    },
+    {
+      "id": "nba_004",
+      "video_path": "holdout_videos/nba_sealed_v1/nba_004.mp4",
+      "width": 1280,
+      "height": 720,
+      "frame_count": 831,
+      "fps": 60.0,
+      "scenes": [
+        {
+          "id": "nba_004_s01",
+          "start_frame": 0,
+          "end_frame": 741,
+          "teams": {
+            "nba_004_s01_team_a": {"name": "Denver Nuggets", "jersey": "white"},
+            "nba_004_s01_team_b": {"name": "Golden State Warriors", "jersey": "navy"}
+          }
+        },
+        {
+          "id": "nba_004_s02",
+          "start_frame": 742,
+          "end_frame": 830,
+          "teams": {
+            "nba_004_s02_team_a": {"name": "Denver Nuggets", "jersey": "white"},
+            "nba_004_s02_team_b": {"name": "Golden State Warriors", "jersey": "navy"}
+          }
+        }
+      ]
+    },
+    {
+      "id": "nba_005",
+      "video_path": "holdout_videos/nba_sealed_v1/nba_005.mp4",
+      "width": 1280,
+      "height": 720,
+      "frame_count": 603,
+      "fps": 60.0,
+      "scenes": [
+        {
+          "id": "nba_005_s01",
+          "start_frame": 0,
+          "end_frame": 602,
+          "teams": {
+            "nba_005_s01_team_a": {"name": "Detroit Pistons", "jersey": "white"},
+            "nba_005_s01_team_b": {"name": "Oklahoma City Thunder", "jersey": "blue"}
+          }
+        }
+      ]
+    }
+  ]
+}

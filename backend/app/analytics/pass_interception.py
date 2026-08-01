@@ -1,3 +1,6 @@
+import statistics
+
+
 class PassInterceptionDetector:
     """Detects passes and interceptions using the reference repo's holder changes."""
 
@@ -5,53 +8,134 @@ class PassInterceptionDetector:
         self,
         max_holder_gap_frames=None,
         team_lookup_frames=30,
-        transient_control_frames=8,
+        transient_control_frames=12,
+        minimum_loose_ball_confidence=0.5,
+        minimum_catch_ball_confidence=0.45,
+        minimum_catch_frames=3,
+        catch_confirmation_frames=30,
+        reject_preexisting_competing_takeovers=True,
     ):
         self.max_holder_gap_frames = max_holder_gap_frames
         self.team_lookup_frames = max(1, int(team_lookup_frames))
         self.transient_control_frames = max(1, int(transient_control_frames))
+        self.minimum_loose_ball_confidence = float(
+            minimum_loose_ball_confidence
+        )
+        self.minimum_catch_ball_confidence = float(
+            minimum_catch_ball_confidence
+        )
+        self.minimum_catch_frames = max(1, int(minimum_catch_frames))
+        self.catch_confirmation_frames = max(
+            self.minimum_catch_frames,
+            int(catch_confirmation_frames),
+        )
+        self.reject_preexisting_competing_takeovers = bool(
+            reject_preexisting_competing_takeovers
+        )
 
     def clean_transient_control_chains(
         self,
         ball_acquisition,
         player_assignment,
         holder_states=None,
+        discontinuity_frames=None,
     ):
-        """Remove implausibly brief control between a turnover and same-team catch."""
+        """Remove brief holder islands before interpreting player changes.
+
+        Unknown frames do not establish control. A short middle episode is
+        treated as contested tracking noise when possession returns to the
+        same player/team, or as the transient first touch when the next stable
+        holder is on the middle player's team.
+        """
         cleaned = list(ball_acquisition)
-        passes = self.detect_passes(cleaned, player_assignment)
-        interceptions = self.detect_interceptions(
-            cleaned,
-            player_assignment,
-            holder_states=holder_states,
+        discontinuities = _normalize_discontinuities(
+            discontinuity_frames,
+            len(cleaned),
         )
-        for interception_frame, receiving_team in enumerate(interceptions):
-            if receiving_team not in (1, 2):
-                continue
-            intermediate_holder = cleaned[interception_frame]
-            end = min(
-                len(cleaned),
-                interception_frame + self.transient_control_frames + 1,
-            )
-            for catch_frame in range(interception_frame + 1, end):
-                if passes[catch_frame] != receiving_team:
+        while True:
+            episodes = _holder_episodes(cleaned, discontinuities)
+            changed = False
+            for previous, middle, following in zip(
+                episodes,
+                episodes[1:],
+                episodes[2:],
+            ):
+                if not (
+                    previous["segment"]
+                    == middle["segment"]
+                    == following["segment"]
+                ):
                     continue
-                previous_holder, _ = _previous_holder_info(cleaned, catch_frame)
-                if previous_holder != intermediate_holder:
+                if (
+                    following["start_frame"] - middle["start_frame"]
+                    > self.transient_control_frames
+                ):
                     continue
-                for frame in range(interception_frame, catch_frame):
-                    if cleaned[frame] == intermediate_holder:
-                        cleaned[frame] = -1
+
+                previous_team = self._holder_team(
+                    player_assignment,
+                    previous["holder_id"],
+                    previous["last_frame"],
+                    minimum_frame=previous["segment_start"],
+                )
+                middle_team = self._holder_team(
+                    player_assignment,
+                    middle["holder_id"],
+                    middle["last_frame"],
+                    minimum_frame=middle["segment_start"],
+                )
+                following_team = self._holder_team(
+                    player_assignment,
+                    following["holder_id"],
+                    following["start_frame"],
+                    minimum_frame=following["segment_start"],
+                )
+                returned_to_source = (
+                    previous["holder_id"] == following["holder_id"]
+                    or (
+                        previous_team in (1, 2)
+                        and previous_team == following_team
+                        and middle_team != previous_team
+                    )
+                )
+                transient_first_touch = (
+                    previous_team in (1, 2)
+                    and middle_team in (1, 2)
+                    and previous_team != middle_team
+                    and middle_team == following_team
+                )
+                if not (returned_to_source or transient_first_touch):
+                    continue
+
+                for frame in middle["frames"]:
+                    cleaned[frame] = -1
+                changed = True
+                break
+            if not changed:
                 break
         return cleaned
 
-    def detect_passes(self, ball_acquisition, player_assignment):
+    def detect_passes(
+        self,
+        ball_acquisition,
+        player_assignment,
+        discontinuity_frames=None,
+    ):
         passes = [-1] * len(ball_acquisition)
         previous_holder = -1
         previous_frame = -1
+        discontinuities = _normalize_discontinuities(
+            discontinuity_frames,
+            len(ball_acquisition),
+        )
+        segment_start = 0
 
         for frame in range(1, len(ball_acquisition)):
-            if ball_acquisition[frame - 1] != -1:
+            if frame in discontinuities:
+                previous_holder = -1
+                previous_frame = -1
+                segment_start = frame
+            elif ball_acquisition[frame - 1] != -1:
                 previous_holder = ball_acquisition[frame - 1]
                 previous_frame = frame - 1
 
@@ -65,9 +149,11 @@ class PassInterceptionDetector:
             ):
                 previous_team = self._holder_team(
                     player_assignment, previous_holder, previous_frame,
+                    minimum_frame=segment_start,
                 )
                 current_team = self._holder_team(
                     player_assignment, current_holder, frame,
+                    minimum_frame=segment_start,
                 )
 
                 if previous_team == current_team and previous_team != -1:
@@ -80,13 +166,23 @@ class PassInterceptionDetector:
         ball_acquisition,
         player_assignment,
         holder_states=None,
+        discontinuity_frames=None,
     ):
         interceptions = [-1] * len(ball_acquisition)
         previous_holder = -1
         previous_frame = -1
+        discontinuities = _normalize_discontinuities(
+            discontinuity_frames,
+            len(ball_acquisition),
+        )
+        segment_start = 0
 
         for frame in range(1, len(ball_acquisition)):
-            if ball_acquisition[frame - 1] != -1:
+            if frame in discontinuities:
+                previous_holder = -1
+                previous_frame = -1
+                segment_start = frame
+            elif ball_acquisition[frame - 1] != -1:
                 previous_holder = ball_acquisition[frame - 1]
                 previous_frame = frame - 1
 
@@ -105,9 +201,11 @@ class PassInterceptionDetector:
             ):
                 previous_team = self._holder_team(
                     player_assignment, previous_holder, previous_frame,
+                    minimum_frame=segment_start,
                 )
                 current_team = self._holder_team(
                     player_assignment, current_holder, frame,
+                    minimum_frame=segment_start,
                 )
 
                 if previous_team != current_team and previous_team != -1 and current_team != -1:
@@ -121,16 +219,23 @@ class PassInterceptionDetector:
             or current_frame - previous_frame - 1 <= self.max_holder_gap_frames
         )
 
-    def _holder_team(self, player_assignment, holder_id, frame):
-        start = max(0, frame - self.team_lookup_frames + 1)
+    def _holder_team(
+        self,
+        player_assignment,
+        holder_id,
+        frame,
+        *,
+        minimum_frame=0,
+    ):
+        start = max(minimum_frame, frame - self.team_lookup_frames + 1)
         for lookup_frame in range(frame, start - 1, -1):
             team_id = player_assignment[lookup_frame].get(holder_id)
             if team_id in (1, 2):
                 return team_id
         return -1
 
-    @staticmethod
     def _interception_evidence_is_valid(
+        self,
         holder_states,
         previous_frame,
         current_frame,
@@ -140,6 +245,8 @@ class PassInterceptionDetector:
         return any(
             state.get("state") == "loose"
             and state.get("ball_confidence") is not None
+            and float(state["ball_confidence"])
+            >= self.minimum_loose_ball_confidence
             for state in holder_states[previous_frame + 1 : current_frame]
         )
 
@@ -148,16 +255,160 @@ class PassInterceptionDetector:
         ball_acquisition,
         player_assignment,
         holder_states=None,
+        ball_tracks=None,
+        player_tracks=None,
+        discontinuity_frames=None,
     ):
-        return events_from_arrays(
-            self.detect_passes(ball_acquisition, player_assignment),
-            self.detect_interceptions(
+        """Interpret stable holder transitions as passes or interceptions."""
+        events = []
+        previous_holder = -1
+        previous_frame = -1
+        discontinuities = _normalize_discontinuities(
+            discontinuity_frames,
+            len(ball_acquisition),
+        )
+        segment_start = 0
+
+        for frame in range(1, len(ball_acquisition)):
+            if frame in discontinuities:
+                previous_holder = -1
+                previous_frame = -1
+                segment_start = frame
+            elif ball_acquisition[frame - 1] != -1:
+                previous_holder = ball_acquisition[frame - 1]
+                previous_frame = frame - 1
+
+            current_holder = ball_acquisition[frame]
+            if (
+                previous_holder == -1
+                or current_holder == -1
+                or previous_holder == current_holder
+                or not self._gap_is_valid(frame, previous_frame)
+            ):
+                continue
+            if (
+                segment_start > 0
+                and previous_frame - segment_start + 1
+                < self.minimum_catch_frames
+            ):
+                continue
+
+            catch_frame = self._stable_catch_frame(
                 ball_acquisition,
+                frame,
+                current_holder,
+                discontinuities=discontinuities,
+            )
+            if catch_frame is None:
+                continue
+            if (
+                self.reject_preexisting_competing_takeovers
+                and not _ball_track_transition_is_credible(
+                    ball_tracks,
+                    player_tracks,
+                    current_holder,
+                    previous_frame,
+                    catch_frame,
+                )
+            ):
+                continue
+
+            previous_team = self._holder_team(
                 player_assignment,
-                holder_states=holder_states,
-            ),
-            ball_acquisition,
-            player_assignment,
+                previous_holder,
+                previous_frame,
+                minimum_frame=segment_start,
+            )
+            current_team = self._holder_team(
+                player_assignment,
+                current_holder,
+                catch_frame,
+                minimum_frame=segment_start,
+            )
+            if previous_team not in (1, 2) or current_team not in (1, 2):
+                continue
+
+            event_type = None
+            if previous_team == current_team:
+                if not _is_rising_flythrough(
+                    ball_tracks,
+                    player_tracks,
+                    previous_holder,
+                    previous_frame,
+                    catch_frame,
+                    self.minimum_catch_frames,
+                ):
+                    event_type = "pass"
+            elif (
+                self._interception_evidence_is_valid(
+                    holder_states,
+                    previous_frame,
+                    frame,
+                )
+                and self._catch_evidence_is_valid(holder_states, catch_frame)
+            ):
+                event_type = "interception"
+            if event_type is None:
+                continue
+
+            events.append({
+                "type": event_type,
+                "frame_index": catch_frame,
+                "from_player_id": previous_holder,
+                "to_player_id": current_holder,
+                "from_team_id": previous_team,
+                "to_team_id": current_team,
+                "release_frame": previous_frame,
+                "catch_frame": catch_frame,
+                "gap_frames": catch_frame - previous_frame - 1,
+                "transition_frame": frame,
+                "confirmation_frames": catch_frame - frame + 1,
+            })
+
+        return events
+
+    def _stable_catch_frame(
+        self,
+        ball_acquisition,
+        frame,
+        holder_id,
+        *,
+        discontinuities=None,
+    ):
+        end = min(
+            len(ball_acquisition),
+            frame + self.catch_confirmation_frames + 1,
+        )
+        run_start = None
+        run_frames = 0
+        for candidate_frame in range(frame, end):
+            if candidate_frame != frame and candidate_frame in (discontinuities or set()):
+                return None
+            candidate_holder = ball_acquisition[candidate_frame]
+            if candidate_holder == holder_id:
+                if run_start is None:
+                    run_start = candidate_frame
+                run_frames += 1
+                if run_frames >= self.minimum_catch_frames:
+                    return run_start
+            elif candidate_holder == -1:
+                run_start = None
+                run_frames = 0
+            else:
+                return None
+        return None
+
+    def _catch_evidence_is_valid(self, holder_states, catch_frame):
+        if holder_states is None:
+            return True
+        if not 0 <= catch_frame < len(holder_states):
+            return False
+        state = holder_states[catch_frame]
+        ball_confidence = state.get("ball_confidence")
+        return (
+            state.get("state") == "confirmed"
+            and ball_confidence is not None
+            and float(ball_confidence) >= self.minimum_catch_ball_confidence
         )
 
 
@@ -252,3 +503,245 @@ def _previous_holder_info(ball_acquisition, frame_index):
 
 
 PassAndInterceptionDetector = PassInterceptionDetector
+
+
+def _ball_track_transition_is_credible(
+    ball_tracks,
+    player_tracks,
+    receiver_id,
+    release_frame,
+    catch_frame,
+    *,
+    lookback_frames=8,
+    minimum_competing_observations=2,
+    maximum_relative_distance=0.12,
+):
+    """Reject a reset onto an object that demonstrably predated the pass.
+
+    A long observation gap is not enough to reject an event by itself. But if
+    the receiver-side object was already visible at a stable player-relative
+    location while a different ball candidate was selected, it cannot be the
+    same basketball that subsequently crossed the gap.
+    """
+    if ball_tracks is None or player_tracks is None:
+        return True
+    if not (
+        0 <= release_frame < len(ball_tracks)
+        and 0 <= catch_frame < len(ball_tracks)
+    ):
+        return False
+    release_segment = ball_tracks[release_frame].get(1, {}).get("track_segment_id")
+    catch_segment = ball_tracks[catch_frame].get(1, {}).get("track_segment_id")
+    if (
+        release_segment is None
+        or catch_segment is None
+        or release_segment == catch_segment
+    ):
+        return True
+    if any(
+        rejection.get("reason") == "persistent_competing_takeover_chain"
+        for frame in ball_tracks[release_frame + 1 : catch_frame + 1]
+        for rejection in frame.get(1, {}).get("candidate_rejections", [])
+    ):
+        return False
+
+    catch_ball_bbox = ball_tracks[catch_frame].get(1, {}).get("bbox")
+    catch_player_bbox = player_tracks[catch_frame].get(receiver_id, {}).get("bbox")
+    target_relative = _relative_bbox_center(catch_ball_bbox, catch_player_bbox)
+    if target_relative is None:
+        return True
+
+    competing_observations = 0
+    start = max(0, release_frame - max(0, int(lookback_frames)) + 1)
+    for frame in range(start, release_frame + 1):
+        info = ball_tracks[frame].get(1, {})
+        selected_bbox = info.get("bbox")
+        receiver_bbox = player_tracks[frame].get(receiver_id, {}).get("bbox")
+        if not selected_bbox or not receiver_bbox:
+            continue
+        for candidate in info.get(
+            "raw_candidates",
+            info.get("candidates", []),
+        ):
+            candidate_bbox = candidate.get("bbox")
+            if not candidate_bbox or candidate_bbox == selected_bbox:
+                continue
+            relative = _relative_bbox_center(candidate_bbox, receiver_bbox)
+            if relative is None:
+                continue
+            distance = (
+                (relative[0] - target_relative[0]) ** 2
+                + (relative[1] - target_relative[1]) ** 2
+            ) ** 0.5
+            if distance <= maximum_relative_distance:
+                competing_observations += 1
+                break
+        if competing_observations >= minimum_competing_observations:
+            return False
+    return True
+
+
+def _relative_bbox_center(ball_bbox, player_bbox):
+    if not ball_bbox or not player_bbox:
+        return None
+    width = float(player_bbox[2]) - float(player_bbox[0])
+    height = float(player_bbox[3]) - float(player_bbox[1])
+    if width <= 0 or height <= 0:
+        return None
+    center_x, center_y = _bbox_center(ball_bbox)
+    return (
+        (center_x - float(player_bbox[0])) / width,
+        (center_y - float(player_bbox[1])) / height,
+    )
+
+
+def _is_rising_flythrough(
+    ball_tracks,
+    player_tracks,
+    source_holder,
+    release_frame,
+    catch_frame,
+    confirmation_frames,
+):
+    """Identify an airborne ball merely crossing a background player box."""
+    if ball_tracks is None or player_tracks is None:
+        return False
+    if len(ball_tracks) != len(player_tracks):
+        return False
+
+    source_bbox = _nearby_player_bbox(
+        player_tracks,
+        source_holder,
+        release_frame,
+    )
+    if source_bbox is None:
+        return False
+    source_height = float(source_bbox[3] - source_bbox[1])
+    if source_height <= 0:
+        return False
+
+    end_frame = min(
+        len(ball_tracks) - 1,
+        catch_frame + max(confirmation_frames, 3),
+    )
+    observations = []
+    for frame in range(max(0, release_frame), end_frame + 1):
+        info = ball_tracks[frame].get(1, {})
+        bbox = info.get("bbox")
+        if not bbox or info.get("interpolated", False):
+            continue
+        observations.append((frame, _bbox_center(bbox)))
+    if len(observations) < 5:
+        return False
+
+    displacements = []
+    for (start_frame, start), (end_frame, end) in zip(
+        observations,
+        observations[1:],
+    ):
+        gap = end_frame - start_frame
+        if gap <= 0:
+            continue
+        camera_dx, camera_dy = _median_player_motion(
+            player_tracks,
+            start_frame,
+            end_frame,
+        )
+        displacements.append((
+            (end[0] - start[0] - camera_dx) / gap,
+            (end[1] - start[1] - camera_dy) / gap,
+        ))
+    if len(displacements) < 4:
+        return False
+
+    net_dx = sum(dx for dx, _ in displacements)
+    net_dy = sum(dy for _, dy in displacements)
+    upward_fraction = sum(dy < 0 for _, dy in displacements) / len(displacements)
+    recent_vertical_speed = statistics.median(
+        dy for _, dy in displacements[-3:]
+    )
+    return (
+        net_dy <= -0.75 * source_height
+        and abs(net_dy) >= 1.5 * abs(net_dx)
+        and upward_fraction >= 0.70
+        and recent_vertical_speed <= -0.01 * source_height
+    )
+
+
+def _nearby_player_bbox(player_tracks, player_id, frame, radius=5):
+    for offset in range(radius + 1):
+        indices = [frame - offset]
+        if offset:
+            indices.append(frame + offset)
+        for index in indices:
+            if not 0 <= index < len(player_tracks):
+                continue
+            bbox = player_tracks[index].get(player_id, {}).get("bbox")
+            if bbox:
+                return bbox
+    return None
+
+
+def _median_player_motion(player_tracks, start_frame, end_frame):
+    start_players = player_tracks[start_frame]
+    end_players = player_tracks[end_frame]
+    deltas = []
+    for player_id in start_players.keys() & end_players.keys():
+        start_bbox = start_players[player_id].get("bbox")
+        end_bbox = end_players[player_id].get("bbox")
+        if not start_bbox or not end_bbox:
+            continue
+        start = _bbox_center(start_bbox)
+        end = _bbox_center(end_bbox)
+        deltas.append((end[0] - start[0], end[1] - start[1]))
+    if not deltas:
+        return 0.0, 0.0
+    return (
+        statistics.median(dx for dx, _ in deltas),
+        statistics.median(dy for _, dy in deltas),
+    )
+
+
+def _bbox_center(bbox):
+    return (
+        (float(bbox[0]) + float(bbox[2])) / 2,
+        (float(bbox[1]) + float(bbox[3])) / 2,
+    )
+
+
+def _normalize_discontinuities(discontinuity_frames, frame_count):
+    return {
+        int(frame)
+        for frame in (discontinuity_frames or [])
+        if 0 < int(frame) < frame_count
+    }
+
+
+def _holder_episodes(ball_acquisition, discontinuities=None):
+    """Return known-holder episodes while leaving unknown frames as gaps."""
+    episodes = []
+    current = None
+    segment = 0
+    segment_start = 0
+    discontinuities = discontinuities or set()
+    for frame, holder_id in enumerate(ball_acquisition):
+        if frame in discontinuities:
+            current = None
+            segment += 1
+            segment_start = frame
+        if holder_id is None or holder_id == -1:
+            continue
+        if current is None or current["holder_id"] != holder_id:
+            current = {
+                "holder_id": holder_id,
+                "start_frame": frame,
+                "last_frame": frame,
+                "frames": [frame],
+                "segment": segment,
+                "segment_start": segment_start,
+            }
+            episodes.append(current)
+        else:
+            current["last_frame"] = frame
+            current["frames"].append(frame)
+    return episodes
