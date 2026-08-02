@@ -2,6 +2,24 @@
   "beta": true,
   "court": {
     "height": 161,
+    "mirrorXFrameRanges": [
+      [
+        38,
+        101
+      ],
+      [
+        103,
+        103
+      ],
+      [
+        110,
+        158
+      ],
+      [
+        160,
+        161
+      ]
+    ],
     "width": 300
   },
   "diagnostics": {
