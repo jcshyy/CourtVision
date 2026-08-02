@@ -943,12 +943,17 @@
     const width = analysis.court?.width || 300;
     const height = analysis.court?.height || 161;
     if (!frame?.players?.length) return '<span class="court-unavailable">Tactical positions unavailable at this moment</span>';
+    const frameIndex = Number(frame.frameIndex);
+    const mirrorX = (analysis.court?.mirrorXFrameRanges || []).some(
+      ([firstFrame, lastFrame]) => frameIndex >= Number(firstFrame) && frameIndex <= Number(lastFrame),
+    );
     return frame.players
       .map((player) => {
+        const displayX = mirrorX ? width - Number(player.x) : Number(player.x);
         const teamClass = player.teamId === 1 ? "team-1" : player.teamId === 2 ? "team-2" : "unknown";
         const holderClass = player.isHolder ? "holder" : "";
         const label = `Internal track ${player.id}, ${player.teamId ? `estimated display team ${player.teamId}` : "unknown team"}${player.isHolder ? ", possible holder estimate" : ""}`;
-        return `<span class="player-marker ${teamClass} ${holderClass}" style="left:${clamp((Number(player.x) / width) * 100, 1, 99)}%;top:${clamp((Number(player.y) / height) * 100, 2, 98)}%" title="${escapeHtml(label)}">T${escapeHtml(player.id)}</span>`;
+        return `<span class="player-marker ${teamClass} ${holderClass}" style="left:${clamp((displayX / width) * 100, 1, 99)}%;top:${clamp((Number(player.y) / height) * 100, 2, 98)}%" title="${escapeHtml(label)}">T${escapeHtml(player.id)}</span>`;
       })
       .join("");
   }
