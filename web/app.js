@@ -847,7 +847,7 @@
         ${topbar(true)}
         <main class="review-view view" aria-label="CourtVision beta review workspace">
           <div class="review-desk">
-            <section class="replay-column" aria-label="${permanentDemo ? "Annotated replay" : "Annotated replay and tactical court"}">
+            <section class="replay-column" aria-label="Annotated replay and tactical court">
               <div class="video-monitor">
                 ${
                   state.downloads?.playbackUrl
@@ -856,7 +856,7 @@
                 }
                 ${demoMode && !state.downloads?.playbackUrl ? '<div class="tracking-overlay" aria-hidden="true"><span class="tracking-mark mark-one"></span><span class="tracking-mark mark-two"></span></div>' : ""}
                 <span class="timecode-badge" id="current-timecode">${formatTime(state.currentTime)}</span>
-                ${permanentDemo ? "" : tacticalDockMarkup(analysis)}
+                ${tacticalDockMarkup(analysis)}
               </div>
               ${timelineMarkup(events, duration)}
               ${evidenceMarkup(selected, analysis)}
@@ -864,11 +864,7 @@
             <aside class="rundown-rail" aria-labelledby="rundown-title">
               <header class="rundown-header">
                 <h2 id="rundown-title"><span>Event rundown</span><span class="timecode">${formatTime(duration, true)}</span></h2>
-                <p>${
-                  permanentDemo
-                    ? "Select a cue to inspect the same moment in the annotated replay."
-                    : "Select a cue to inspect the same moment in the replay and tactical court."
-                }</p>
+                <p>Select a cue to inspect the same moment in the replay and tactical court.</p>
               </header>
               ${eventListMarkup(events, selected)}
               <footer class="rundown-footer">

@@ -47,16 +47,18 @@ class WebDemoTests(unittest.TestCase):
 
         self.assertIn("Sample CourtVision analysis", landing)
         self.assertIn("Preprocessed sample", landing)
+        self.assertIn("OKC vs. Timberwolves game sample", landing)
         self.assertNotIn("Preprocessed experimental output", landing)
         self.assertNotIn("Synthetic interface demo", landing)
         self.assertIn(
-            "demo.html?embedded=1&amp;v=video-2-tactical-fixed-2", landing
+            "demo.html?embedded=1&amp;v=video-2-tactical-fixed-3", landing
         )
-        self.assertIn("app.js?v=video-2-tactical-fixed-2", demo)
+        self.assertIn("app.js?v=video-2-tactical-fixed-3", demo)
         self.assertIn(
             'videoUrl: "assets/courtvision-demo-tactical-fixed.webm"', client
         )
-        self.assertIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
+        self.assertIn("${tacticalDockMarkup(analysis)}", client)
+        self.assertNotIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
         self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json"', client)
 
 
