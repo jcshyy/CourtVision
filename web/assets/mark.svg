@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title">
+  <title id="title">CourtVision</title>
+  <rect width="48" height="48" rx="8" fill="#111417"/>
+  <path d="M11 10h26v28H11z" fill="none" stroke="#e8ecef" stroke-width="2"/>
+  <path d="M24 10v28M11 24h26M17 10v8c0 3.3 3.1 6 7 6s7-2.7 7-6v-8M17 38v-8c0-3.3 3.1-6 7-6s7 2.7 7 6v8" fill="none" stroke="#2d6bff" stroke-width="2"/>
+  <circle cx="24" cy="24" r="2.8" fill="#f3b51b"/>
+</svg>
