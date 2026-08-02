@@ -1765,6 +1765,7 @@ dialog::backdrop {
   .topbar-actions .button {
     width: 2.75rem;
     padding-inline: 0;
+    overflow: hidden;
   }
 
   .workspace-view {
