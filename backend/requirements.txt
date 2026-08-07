@@ -1,3 +1,5 @@
+-r api-requirements.txt
+
 numpy==2.5.0
 opencv-python==5.0.0.93
 pandas==3.0.3
@@ -8,4 +10,3 @@ torch==2.12.1
 torchvision==0.27.1
 transformers==5.13.0
 ultralytics==8.4.87
-boto3==1.43.62

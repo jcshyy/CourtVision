@@ -17,6 +17,8 @@ import re
 import secrets
 import time
 import uuid
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -56,20 +58,39 @@ class ApiError(Exception):
         self.code = code
 
 
+@dataclass(frozen=True)
+class ApiRequest:
+    """Framework-neutral request consumed by the CourtVision API dispatcher."""
+
+    method: str
+    path: str
+    headers: Mapping[str, str] = field(default_factory=dict)
+    body: str | None = None
+    cookies: tuple[str, ...] = ()
+    is_base64_encoded: bool = False
+
+
 def lambda_handler(event, _context):
+    return handle_request(_request_from_lambda_event(event))
+
+
+def handle_request(request):
+    """Dispatch one normalized API request for Lambda, Flask, or tests."""
+
     try:
-        method, path = _request_target(event)
+        method = request.method.upper()
+        path = request.path or "/"
         if method == "OPTIONS":
             return _response(204, None)
 
         if method == "POST" and path == "/auth/request-code":
-            return _request_code(_json_body(event))
+            return _request_code(_json_body(request))
         if method == "POST" and path == "/auth/verify-code":
-            return _verify_code(_json_body(event))
+            return _verify_code(_json_body(request))
 
-        session = _require_session(event)
+        session = _require_session(request)
         if method not in {"GET", "HEAD", "OPTIONS"}:
-            _require_csrf(event, session)
+            _require_csrf(request, session)
 
         if method == "GET" and path == "/auth/session":
             return _response(
@@ -84,7 +105,7 @@ def lambda_handler(event, _context):
         if method == "POST" and path == "/auth/sign-out":
             return _response(200, {"signedOut": True}, cookies=[_expired_cookie()])
         if method == "POST" and path == "/jobs":
-            return _create_job(session, _json_body(event))
+            return _create_job(session, _json_body(request))
 
         job_match = re.fullmatch(r"/jobs/([0-9a-f-]+)(?:/(start|download|reports|team-colors))?", path)
         if job_match:
@@ -96,9 +117,9 @@ def lambda_handler(event, _context):
             if method == "GET" and action == "download":
                 return _get_downloads(session, job_id)
             if method == "POST" and action == "reports":
-                return _create_report(session, job_id, _json_body(event))
+                return _create_report(session, job_id, _json_body(request))
             if method == "POST" and action == "team-colors":
-                return _submit_team_colors(session, job_id, _json_body(event))
+                return _submit_team_colors(session, job_id, _json_body(request))
 
         raise ApiError(404, "The requested endpoint does not exist.", code="not_found")
     except ApiError as error:
@@ -117,6 +138,18 @@ def lambda_handler(event, _context):
                 }
             },
         )
+
+
+def _request_from_lambda_event(event):
+    method, path = _request_target(event)
+    return ApiRequest(
+        method=method,
+        path=path,
+        headers=event.get("headers") or {},
+        body=event.get("body"),
+        cookies=tuple(event.get("cookies") or ()),
+        is_base64_encoded=bool(event.get("isBase64Encoded")),
+    )
 
 
 def _request_code(body):
@@ -439,8 +472,8 @@ def _public_job(item):
     }
 
 
-def _require_session(event):
-    token = _cookie_value(event, "cv_session")
+def _require_session(request):
+    token = _cookie_value(request, "cv_session")
     if not token:
         raise ApiError(401, "Sign in to continue.", code="authentication_required")
     payload = _decode_session(token)
@@ -449,8 +482,8 @@ def _require_session(event):
     return payload
 
 
-def _require_csrf(event, session):
-    headers = {str(key).lower(): value for key, value in (event.get("headers") or {}).items()}
+def _require_csrf(request, session):
+    headers = {str(key).lower(): value for key, value in request.headers.items()}
     if not hmac.compare_digest(str(headers.get("x-courtvision-csrf", "")), session["csrf"]):
         raise ApiError(403, "Refresh the page and try again.", code="invalid_request_token")
 
@@ -524,9 +557,9 @@ def _request_target(event):
     return method, path
 
 
-def _json_body(event):
-    body = event.get("body") or "{}"
-    if event.get("isBase64Encoded"):
+def _json_body(request):
+    body = request.body or "{}"
+    if request.is_base64_encoded:
         body = base64.b64decode(body).decode("utf-8")
     try:
         value = json.loads(body)
@@ -537,9 +570,9 @@ def _json_body(event):
     return value
 
 
-def _cookie_value(event, name):
-    cookies = list(event.get("cookies") or [])
-    header = (event.get("headers") or {}).get("cookie") or (event.get("headers") or {}).get("Cookie")
+def _cookie_value(request, name):
+    cookies = list(request.cookies)
+    header = request.headers.get("cookie") or request.headers.get("Cookie")
     if header:
         cookies.extend(header.split(";"))
     for part in cookies:

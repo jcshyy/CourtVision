@@ -89,6 +89,10 @@ is available with `app.html?demo=signin`, `upload`, `processing`, `colors`,
 `error`, or `review`. Those local-only interface states use synthetic fixtures;
 authenticated review sessions use artifacts generated from the uploaded clip.
 
+The API contract also has a Flask control-plane adapter. It preserves the
+Lambda routes while keeping uploads in S3 and inference in AWS Batch; see
+[`deploy/flask`](deploy/flask/README.md) for local and container verification.
+
 ### Batch worker
 
 The included container is a batch-worker image. Model weights are excluded and

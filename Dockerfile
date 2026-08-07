@@ -9,7 +9,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY backend/requirements.txt /app/backend/requirements.txt
+COPY backend/requirements.txt backend/api-requirements.txt /app/backend/
 ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
 RUN python -m pip install --no-cache-dir \
         --index-url "$PYTORCH_INDEX_URL" \
