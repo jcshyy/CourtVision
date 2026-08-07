@@ -20,4 +20,6 @@ COPY . /app
 
 # Model weights are deliberately excluded from the image. Mount the three files
 # into /app/backend/models or provision them in the deployment platform.
-ENTRYPOINT ["python", "main.py"]
+# Keep the default useful for one-off CLI analysis while allowing AWS Batch to
+# replace the command with `python -m backend.app.batch_job`.
+CMD ["python", "main.py"]

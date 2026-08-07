@@ -172,9 +172,16 @@ class TacticalViewConverter:
         self,
         keypoints_list,
         player_tracks,
+        discontinuity_frames=None,
     ):
         tactical_player_positions = []
+        discontinuity_frames = {
+            int(frame)
+            for frame in (discontinuity_frames or [])
+            if 0 <= int(frame) < len(player_tracks)
+        }
         last_good_homography = None
+        last_good_reflect_x = False
         fallback_frames = 0
         previous_tactical_positions = {}
         diagnostic_frames = {
@@ -183,6 +190,8 @@ class TacticalViewConverter:
             "rejected_homography": [],
             "fallback_used": [],
             "homography_unavailable": [],
+            "empty_projection": [],
+            "orientation_correction": [],
             "temporal_discontinuity": [],
         }
 
@@ -190,6 +199,13 @@ class TacticalViewConverter:
             zip(keypoints_list, player_tracks)
         ):
             tactical_positions = {}
+
+            if frame_index in discontinuity_frames:
+                last_good_homography = None
+                last_good_reflect_x = False
+                fallback_frames = 0
+                previous_tactical_positions = {}
+
             frame_keypoints = _keypoint_points(frame_keypoints)
 
             if frame_keypoints is None or len(frame_keypoints) == 0:
@@ -235,50 +251,93 @@ class TacticalViewConverter:
                     diagnostic_frames["rejected_homography"].append(frame_index)
                     homography = None
 
-            if homography is not None:
+            candidate_positions = (
+                _transform_frame_players(
+                    homography,
+                    frame_tracks,
+                    self.width,
+                    self.height,
+                )
+                if homography is not None
+                else {}
+            )
+            if homography is not None and frame_tracks and not candidate_positions:
+                diagnostic_frames["empty_projection"].append(frame_index)
+                homography = None
+
+            candidate_is_discontinuous = (
+                homography is not None
+                and _tactical_view_discontinuity(
+                    previous_tactical_positions,
+                    candidate_positions,
+                    self.width,
+                    self.height,
+                    self.actual_width_in_meters,
+                    self.actual_height_in_meters,
+                )
+            )
+
+            if candidate_is_discontinuous:
+                reflected_positions = _reflect_tactical_positions(
+                    candidate_positions,
+                    self.width,
+                )
+                if not _tactical_view_discontinuity(
+                    previous_tactical_positions,
+                    reflected_positions,
+                    self.width,
+                    self.height,
+                    self.actual_width_in_meters,
+                    self.actual_height_in_meters,
+                ):
+                    tactical_positions = reflected_positions
+                    last_good_homography = homography
+                    last_good_reflect_x = True
+                    fallback_frames = 0
+                    diagnostic_frames["orientation_correction"].append(frame_index)
+                else:
+                    diagnostic_frames["temporal_discontinuity"].append(frame_index)
+                    homography = None
+            elif homography is not None:
+                tactical_positions = candidate_positions
                 last_good_homography = homography
+                last_good_reflect_x = False
                 fallback_frames = 0
-            elif (
-                last_good_homography is not None
-                and fallback_frames < self.max_homography_fallback_frames
-            ):
-                homography = last_good_homography
-                fallback_frames += 1
-                diagnostic_frames["fallback_used"].append(frame_index)
-            else:
-                diagnostic_frames["homography_unavailable"].append(frame_index)
-                tactical_player_positions.append(tactical_positions)
-                continue
 
-            try:
-                for player_id, player_data in frame_tracks.items():
-                    player_position = np.array([_foot_position(player_data["bbox"])])
-                    tactical_position = homography.transform_points(player_position)
-
-                    if (
-                        tactical_position[0][0] < 0
-                        or tactical_position[0][0] > self.width
-                        or tactical_position[0][1] < 0
-                        or tactical_position[0][1] > self.height
+            if homography is None:
+                if (
+                    last_good_homography is not None
+                    and fallback_frames < self.max_homography_fallback_frames
+                ):
+                    fallback_positions = _transform_frame_players(
+                        last_good_homography,
+                        frame_tracks,
+                        self.width,
+                        self.height,
+                    )
+                    if last_good_reflect_x:
+                        fallback_positions = _reflect_tactical_positions(
+                            fallback_positions,
+                            self.width,
+                        )
+                    if fallback_positions and not _tactical_view_discontinuity(
+                        previous_tactical_positions,
+                        fallback_positions,
+                        self.width,
+                        self.height,
+                        self.actual_width_in_meters,
+                        self.actual_height_in_meters,
                     ):
-                        continue
+                        tactical_positions = fallback_positions
+                        fallback_frames += 1
+                        diagnostic_frames["fallback_used"].append(frame_index)
+                    else:
+                        diagnostic_frames["homography_unavailable"].append(frame_index)
+                else:
+                    diagnostic_frames["homography_unavailable"].append(frame_index)
 
-                    tactical_positions[player_id] = tactical_position[0].tolist()
-
-            except (ValueError, cv2.error):
-                pass
-
-            if _tactical_view_discontinuity(
-                previous_tactical_positions,
-                tactical_positions,
-                self.width,
-                self.height,
-                self.actual_width_in_meters,
-                self.actual_height_in_meters,
-            ):
-                diagnostic_frames["temporal_discontinuity"].append(frame_index)
-
-            previous_tactical_positions = tactical_positions
+            if tactical_positions:
+                previous_tactical_positions = tactical_positions
 
             tactical_player_positions.append(tactical_positions)
 
@@ -354,6 +413,34 @@ def _log_homography_diagnostics(diagnostic_frames):
 def _foot_position(bbox):
     x1, _, x2, y2 = bbox
     return int((x1 + x2) / 2), int(y2)
+
+
+def _transform_frame_players(homography, frame_tracks, width, height):
+    tactical_positions = {}
+    try:
+        for player_id, player_data in frame_tracks.items():
+            player_position = np.array([_foot_position(player_data["bbox"])])
+            tactical_position = homography.transform_points(player_position)
+
+            if (
+                tactical_position[0][0] < 0
+                or tactical_position[0][0] > width
+                or tactical_position[0][1] < 0
+                or tactical_position[0][1] > height
+            ):
+                continue
+
+            tactical_positions[player_id] = tactical_position[0].tolist()
+    except (ValueError, cv2.error):
+        return {}
+    return tactical_positions
+
+
+def _reflect_tactical_positions(tactical_positions, width):
+    return {
+        player_id: [width - position[0], position[1]]
+        for player_id, position in tactical_positions.items()
+    }
 
 
 def _tactical_view_discontinuity(

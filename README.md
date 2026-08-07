@@ -1,9 +1,14 @@
 # CourtVision
 
 CourtVision is an offline basketball-video analysis pipeline. It detects and
-tracks players and the ball, assigns teams from jersey evidence, estimates
-possession and holder-change events, maps players to a tactical court, and
-renders an annotated video.
+tracks players and the ball, estimates teams and possession, maps player
+positions to a tactical court, identifies timecoded pass and interception
+candidates, and renders an annotated video.
+
+The repository also includes the private-beta web application: passwordless
+email access for known users, direct temporary uploads, managed batch jobs, and
+an evidence-first review room built around annotated video, tactical court
+context, and an event rundown.
 
 ## Current product status
 
@@ -61,6 +66,30 @@ For longer uploads, use bounded jobs with unique outputs:
 ```
 
 ## Deployment
+
+### Private beta web app
+
+The AWS reference stack is in [`deploy/aws`](deploy/aws/README.md). It keeps the
+initial limits (30 seconds, 15 FPS, 960px, 24-hour retention) in configuration,
+not application structure, so they can change later without redesigning the
+workflow. The deployment requires an AWS Batch queue and job definition with
+the CourtVision models, a verified SES sender, and an allowlist entry for each
+beta user.
+
+To inspect the UI locally without AWS credentials:
+
+```powershell
+python -m http.server 8765 -d web
+```
+
+Open `http://127.0.0.1:8765/` for the landing page or
+`http://127.0.0.1:8765/demo.html` for the permanent preprocessed sample analysis.
+The real authenticated client lives at `app.html`; local-only state inspection
+is available with `app.html?demo=signin`, `upload`, `processing`, `colors`,
+`error`, or `review`. Those local-only interface states use synthetic fixtures;
+authenticated review sessions use artifacts generated from the uploaded clip.
+
+### Batch worker
 
 The included container is a batch-worker image. Model weights are excluded and
 must be mounted at `/app/backend/models`. Mount separate input, output, and cache

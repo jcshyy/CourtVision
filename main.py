@@ -1,5 +1,6 @@
 import argparse
 import json
+from pathlib import Path
 
 from backend.app.cache_paths import cache_path, default_job_output_path, video_cache_dir
 from backend.app.analytics import (
@@ -16,7 +17,10 @@ from backend.app.detection import (
 )
 from backend.app.team_assignment import NeedsTeamColorsError, TeamAssigner
 from backend.app.tracking import BallTracker, PlayerTracker
-from backend.app.tracking.ball_tracker import BALL_TRACKING_CACHE_VERSION
+from backend.app.tracking.ball_tracker import (
+    BALL_ADAPTIVE_CACHE_VERSION,
+    BALL_TRACKING_CACHE_VERSION,
+)
 from backend.app.tracking.player_tracker import PLAYER_TRACKING_ALGORITHM_VERSION
 from backend.app.utils import (
     detect_scene_discontinuities,
@@ -56,6 +60,11 @@ def parse_args():
         help="Path to output video file.",
     )
     parser.add_argument(
+        "--output-analysis",
+        default=None,
+        help="Optional path for a web-review analysis manifest.",
+    )
+    parser.add_argument(
         "--stub-path",
         "--stub_path",
         default=str(STUBS_DIR),
@@ -93,6 +102,125 @@ def default_output_path(input_video):
     return default_job_output_path(OUTPUT_DIR, input_video)
 
 
+def write_analysis_manifest(
+    output_path,
+    *,
+    fps,
+    frame_count,
+    court_width,
+    court_height,
+    tactical_player_positions,
+    player_assignment,
+    ball_acquisition,
+    events,
+    tactical_diagnostics,
+    assignment_metadata,
+):
+    """Write the evidence used by the web review surface.
+
+    The manifest intentionally labels detections as beta candidates. It exposes
+    unknowns instead of promoting pipeline output to verified game statistics.
+    """
+    manifest_path = Path(output_path)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    frames = []
+    for frame_index, tactical_positions in enumerate(tactical_player_positions):
+        assignments = (
+            player_assignment[frame_index]
+            if frame_index < len(player_assignment)
+            else {}
+        )
+        holder_id = (
+            ball_acquisition[frame_index]
+            if frame_index < len(ball_acquisition)
+            and ball_acquisition[frame_index] != -1
+            else None
+        )
+        players = []
+        for player_id, position in tactical_positions.items():
+            team_id = _json_safe(assignments.get(player_id))
+            if team_id not in (1, 2):
+                team_id = None
+            players.append(
+                {
+                    "id": int(player_id),
+                    "x": round(float(position[0]), 2),
+                    "y": round(float(position[1]), 2),
+                    "teamId": team_id,
+                    "isHolder": bool(player_id == holder_id),
+                }
+            )
+        frames.append(
+            {
+                "frameIndex": frame_index,
+                "timeSeconds": round(frame_index / fps, 3),
+                "players": players,
+            }
+        )
+
+    review_events = []
+    for event_index, event in enumerate(events):
+        frame_index = int(event["frame_index"])
+        review_events.append(
+            {
+                "id": f"event-{event_index + 1}",
+                "type": event["type"],
+                "frameIndex": frame_index,
+                "timeSeconds": round(frame_index / fps, 3),
+                "fromTeamId": _json_safe(event.get("from_team_id")),
+                "toTeamId": _json_safe(event.get("to_team_id")),
+                "status": (
+                    "candidate"
+                    if event.get("to_team_id") in (1, 2)
+                    else "unknown"
+                ),
+                "evidence": {
+                    key: _json_safe(value)
+                    for key, value in event.items()
+                    if key not in {"type", "frame_index", "from_team_id", "to_team_id"}
+                },
+            }
+        )
+
+    payload = {
+        "schemaVersion": 1,
+        "beta": True,
+        "disclaimer": (
+            "Experimental analysis. Review every result against the source play; "
+            "do not treat it as an authoritative coaching decision."
+        ),
+        "source": {
+            "fps": fps,
+            "frameCount": frame_count,
+            "durationSeconds": round(frame_count / fps, 3),
+        },
+        "court": {"width": court_width, "height": court_height},
+        "events": review_events,
+        "frames": frames,
+        "diagnostics": {
+            "tacticalView": _json_safe(tactical_diagnostics),
+            "teamAssignment": _json_safe(assignment_metadata),
+        },
+    }
+    manifest_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _json_safe(value):
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if hasattr(value, "item"):
+        return value.item()
+    if hasattr(value, "tolist"):
+        return value.tolist()
+    return value
+
+
 def filter_ball_tracks_with_pose(
     video_frames,
     player_tracks,
@@ -101,6 +229,7 @@ def filter_ball_tracks_with_pose(
     ball_tracker,
     *,
     pose_cache_path=None,
+    adaptive_cache_path=None,
     discontinuity_frames=None,
 ):
     """Attach pose evidence before selecting and interpolating the ball path."""
@@ -112,6 +241,15 @@ def filter_ball_tracks_with_pose(
         cache_path=pose_cache_path,
     )
     enriched_player_tracks = attach_player_poses(player_tracks, player_poses)
+    enhance = getattr(ball_tracker, "enhance_tracks_with_adaptive_crops", None)
+    if callable(enhance):
+        raw_ball_tracks = enhance(
+            video_frames,
+            raw_ball_tracks,
+            enriched_player_tracks,
+            read_from_cache=True,
+            cache_path=adaptive_cache_path,
+        )
     filtered_ball_tracks = ball_tracker.remove_wrong_detections(
         raw_ball_tracks,
         player_tracks=enriched_player_tracks,
@@ -204,6 +342,10 @@ def main():
             cache_dir,
             player_pose_detector.cache_filename,
         ),
+        adaptive_cache_path=cache_path(
+            cache_dir,
+            f"ball_adaptive_stubs_{BALL_ADAPTIVE_CACHE_VERSION}.pkl",
+        ),
         discontinuity_frames=scene_discontinuity_frames,
     )
 
@@ -277,6 +419,7 @@ def main():
         tactical_view_converter.transform_players_to_tactical_view(
             court_keypoints_per_frame,
             player_tracks,
+            discontinuity_frames=scene_discontinuity_frames,
         )
     )
 
@@ -304,6 +447,22 @@ def main():
         fps=output_fps,
         tactical_player_positions=tactical_player_positions,
     )
+
+    if args.output_analysis:
+        write_analysis_manifest(
+            args.output_analysis,
+            fps=output_fps,
+            frame_count=len(video_frames),
+            court_width=tactical_view_converter.width,
+            court_height=tactical_view_converter.height,
+            tactical_player_positions=tactical_player_positions,
+            player_assignment=player_assignment,
+            ball_acquisition=ball_acquisition,
+            events=events,
+            tactical_diagnostics=tactical_view_converter.last_diagnostics,
+            assignment_metadata=team_assigner.assignment_metadata,
+        )
+        print(f"Saved analysis manifest to {args.output_analysis}")
 
     player_tracks_drawer = PlayerTracksDrawer()
     ball_tracks_drawer = BallTracksDrawer()

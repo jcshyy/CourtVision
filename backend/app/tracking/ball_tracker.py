@@ -5,7 +5,14 @@ from ultralytics import YOLO
 from backend.app.config import BALL_DETECTOR_PATH
 from backend.app.utils import load_cache, save_cache
 
-BALL_TRACKING_CACHE_VERSION = "v5_temporal_candidate_lattice"
+BALL_DETECTION_IMAGE_SIZE = 640
+BALL_DETECTION_BATCH_SIZE = 20
+BALL_FULL_FRAME_CONFIDENCE = 0.25
+BALL_ADAPTIVE_CONFIDENCE = 0.50
+BALL_ADAPTIVE_TRIGGER_CONFIDENCE = 0.55
+BALL_ADAPTIVE_MAX_CROPS_PER_FRAME = 4
+BALL_TRACKING_CACHE_VERSION = "v6_adaptive_roi_full_pass"
+BALL_ADAPTIVE_CACHE_VERSION = "v2_gated_predicted_hand_rim_conf050"
 
 
 class BallTracker:
@@ -15,14 +22,15 @@ class BallTracker:
         self.model = YOLO(model_path)
 
     def detect_frames(self, frames):
-        batch_size = 20
         detections = []
 
-        for start in range(0, len(frames), batch_size):
+        for start in range(0, len(frames), BALL_DETECTION_BATCH_SIZE):
             detections.extend(
                 self.model.predict(
-                    frames[start : start + batch_size],
-                    conf=0.25,
+                    frames[start : start + BALL_DETECTION_BATCH_SIZE],
+                    conf=BALL_FULL_FRAME_CONFIDENCE,
+                    imgsz=BALL_DETECTION_IMAGE_SIZE,
+                    verbose=False,
                 )
             )
 
@@ -41,29 +49,111 @@ class BallTracker:
 
         detections = self.detect_frames(frames)
         candidate_frames = []
+        rim_frames = []
         for detection in detections:
-            class_names_inv = {value: key for key, value in detection.names.items()}
-            detection_supervision = sv.Detections.from_ultralytics(detection)
-            ball_detections = []
-
-            for frame_detection in detection_supervision:
-                bbox = frame_detection[0].tolist()
-                class_id = frame_detection[3]
-                confidence = frame_detection[2]
-
-                if class_id == class_names_inv["Ball"]:
-                    ball_detections.append(
-                        {"bbox": bbox, "confidence": float(confidence)}
-                    )
-
-            candidate_frames.append(ball_detections)
+            candidate_frames.append([
+                {**item, "detection_source": "full_frame"}
+                for item in _named_detections(detection, "Ball")
+            ])
+            rim_frames.append(_named_detections(detection, "Hoop"))
 
         tracks = _select_ball_track(candidate_frames, player_tracks)
+        for frame, rims in zip(tracks, rim_frames):
+            frame[1]["rim_regions"] = [dict(rim) for rim in rims]
+            frame[1]["adaptive_second_pass_completed"] = False
 
         if cache_path:
             save_cache(cache_path, tracks)
 
         return tracks
+
+    def enhance_tracks_with_adaptive_crops(
+        self,
+        frames,
+        ball_tracks,
+        player_tracks,
+        *,
+        read_from_cache=False,
+        cache_path=None,
+    ):
+        """Add high-resolution ROI candidates to uncertain full-frame detections."""
+        if not (len(frames) == len(ball_tracks) == len(player_tracks)):
+            raise ValueError("Frames, ball tracks, and player tracks must align")
+        cached = load_cache(cache_path, enabled=read_from_cache) if cache_path else None
+        if cached is not None and len(cached) == len(frames):
+            return cached
+
+        requests = _adaptive_crop_requests(frames, ball_tracks, player_tracks)
+        crops = [
+            frames[request["frame_index"]][
+                request["bbox"][1] : request["bbox"][3],
+                request["bbox"][0] : request["bbox"][2],
+            ]
+            for request in requests
+        ]
+        adaptive_candidates = [[] for _ in frames]
+        for start in range(0, len(crops), BALL_DETECTION_BATCH_SIZE):
+            batch_requests = requests[start : start + BALL_DETECTION_BATCH_SIZE]
+            batch_results = self.model.predict(
+                crops[start : start + BALL_DETECTION_BATCH_SIZE],
+                conf=BALL_ADAPTIVE_CONFIDENCE,
+                imgsz=BALL_DETECTION_IMAGE_SIZE,
+                verbose=False,
+            )
+            for request, result in zip(batch_requests, batch_results):
+                origin_x, origin_y = request["bbox"][:2]
+                for detection in _named_detections(result, "Ball"):
+                    bbox = detection["bbox"]
+                    translated_bbox = [
+                        bbox[0] + origin_x,
+                        bbox[1] + origin_y,
+                        bbox[2] + origin_x,
+                        bbox[3] + origin_y,
+                    ]
+                    support_center = request.get("support_center")
+                    support_radius = request.get("support_radius")
+                    if (
+                        support_center is not None
+                        and support_radius is not None
+                        and math_dist(_bbox_center(translated_bbox), support_center)
+                        > support_radius
+                    ):
+                        continue
+                    adaptive_candidates[request["frame_index"]].append({
+                        "bbox": translated_bbox,
+                        "confidence": detection["confidence"],
+                        "detection_source": request["source"],
+                        "roi_bbox": list(request["bbox"]),
+                    })
+
+        merged_frames = []
+        crop_counts = [0] * len(frames)
+        for request in requests:
+            crop_counts[request["frame_index"]] += 1
+        for frame_index, frame in enumerate(ball_tracks):
+            full_candidates = frame.get(1, {}).get(
+                "raw_candidates",
+                frame.get(1, {}).get("candidates", []),
+            )
+            merged_frames.append(_merge_ball_candidates(
+                full_candidates,
+                adaptive_candidates[frame_index],
+            ))
+
+        enhanced = _select_ball_track(merged_frames, player_tracks)
+        for frame_index, frame in enumerate(enhanced):
+            info = frame[1]
+            original_info = ball_tracks[frame_index].get(1, {})
+            info["rim_regions"] = [
+                dict(rim) for rim in original_info.get("rim_regions", [])
+            ]
+            info["adaptive_second_pass_completed"] = True
+            info["adaptive_crop_count"] = crop_counts[frame_index]
+            info["adaptive_candidates_added"] = len(adaptive_candidates[frame_index])
+
+        if cache_path:
+            save_cache(cache_path, enhanced)
+        return enhanced
 
     def remove_wrong_detections(
         self,
@@ -85,13 +175,7 @@ class BallTracker:
         if any(candidates is not None for candidates in candidate_frames):
             candidate_frames = [
                 [
-                    {
-                        "bbox": list(candidate["bbox"]),
-                        "confidence": float(candidate["confidence"]),
-                        "candidate_index": int(
-                            candidate.get("candidate_index", candidate_index)
-                        ),
-                    }
+                    _candidate_record(candidate, candidate_index)
                     for candidate_index, candidate in enumerate(candidates or [])
                     if _valid_detection(
                         candidate.get("bbox"),
@@ -318,6 +402,212 @@ class BallTracker:
         return result
 
 
+def _named_detections(result, class_name):
+    class_names = getattr(result, "names", {})
+    target_id = next(
+        (
+            class_id
+            for class_id, name in class_names.items()
+            if str(name).lower() == class_name.lower()
+        ),
+        None,
+    )
+    if target_id is None:
+        return []
+    detections = sv.Detections.from_ultralytics(result)
+    output = []
+    for detection in detections:
+        if int(detection[3]) != int(target_id):
+            continue
+        bbox = detection[0].tolist() if hasattr(detection[0], "tolist") else list(detection[0])
+        output.append({
+            "bbox": list(map(float, bbox)),
+            "confidence": float(detection[2]),
+        })
+    return output
+
+
+def _candidate_record(candidate, fallback_index):
+    record = {
+        "bbox": list(candidate["bbox"]),
+        "confidence": float(candidate["confidence"]),
+        "candidate_index": int(candidate.get("candidate_index", fallback_index)),
+    }
+    for field in ("detection_source", "roi_bbox"):
+        if candidate.get(field) is not None:
+            record[field] = (
+                list(candidate[field]) if field == "roi_bbox" else candidate[field]
+            )
+    return record
+
+
+def _adaptive_crop_requests(frames, ball_tracks, player_tracks):
+    requests = []
+    for frame_index, (frame, ball_frame, players) in enumerate(
+        zip(frames, ball_tracks, player_tracks)
+    ):
+        info = ball_frame.get(1, {})
+        confidence = info.get("confidence")
+        if confidence is not None and confidence >= BALL_ADAPTIVE_TRIGGER_CONFIDENCE:
+            continue
+        frame_height, frame_width = frame.shape[:2]
+        focus = _predicted_ball_center(ball_tracks, frame_index)
+        if focus is None and info.get("bbox"):
+            focus = _bbox_center(info["bbox"])
+
+        proposed = []
+        if focus is not None:
+            proposed.append({
+                "bbox": _square_crop_bbox(focus, 224, frame_width, frame_height),
+                "source": "adaptive_predicted",
+                "priority": 0,
+                "support_center": tuple(focus),
+                "support_radius": 80.0,
+            })
+
+        wrist_regions = []
+        for player in players.values():
+            player_bbox = player.get("bbox")
+            pose = player.get("pose") or {}
+            points = pose.get("keypoints_xy") or []
+            confidences = pose.get("keypoint_confidences") or []
+            if not player_bbox or len(points) <= 10 or len(confidences) <= 10:
+                continue
+            player_height = float(player_bbox[3]) - float(player_bbox[1])
+            crop_size = max(96, min(224, int(round(0.55 * player_height))))
+            for wrist_index in (9, 10):
+                point = _confident_pose_point(points, confidences, wrist_index, 0.35)
+                if point is None:
+                    continue
+                distance = (
+                    math_dist(point, focus)
+                    if focus is not None
+                    else -player_height
+                )
+                wrist_regions.append((
+                    distance,
+                    {
+                        "bbox": _square_crop_bbox(
+                            point, crop_size, frame_width, frame_height
+                        ),
+                        "source": "adaptive_player_hand",
+                        "priority": 1,
+                        "support_center": tuple(map(float, point)),
+                        "support_radius": 0.38 * crop_size,
+                    },
+                ))
+        proposed.extend(region for _, region in sorted(wrist_regions, key=lambda item: item[0])[:2])
+
+        rim_regions = []
+        for rim in info.get("rim_regions", []):
+            bbox = rim.get("bbox")
+            if not bbox:
+                continue
+            center = _bbox_center(bbox)
+            size = max(160, min(288, int(round(5 * max(
+                float(bbox[2]) - float(bbox[0]),
+                float(bbox[3]) - float(bbox[1]),
+            )))))
+            distance = math_dist(center, focus) if focus is not None else 0.0
+            rim_regions.append((
+                distance,
+                {
+                    "bbox": _square_crop_bbox(center, size, frame_width, frame_height),
+                    "source": "adaptive_rim",
+                    "priority": 2,
+                    "support_center": tuple(center),
+                    "support_radius": 0.42 * size,
+                },
+            ))
+        proposed.extend(region for _, region in sorted(rim_regions, key=lambda item: item[0])[:2])
+
+        accepted = []
+        for request in sorted(proposed, key=lambda item: item["priority"]):
+            if any(_bbox_iou(request["bbox"], previous["bbox"]) >= 0.70 for previous in accepted):
+                continue
+            accepted.append(request)
+            if len(accepted) >= BALL_ADAPTIVE_MAX_CROPS_PER_FRAME:
+                break
+        for request in accepted:
+            requests.append({
+                "frame_index": frame_index,
+                "bbox": request["bbox"],
+                "source": request["source"],
+                "support_center": request.get("support_center"),
+                "support_radius": request.get("support_radius"),
+            })
+    return requests
+
+
+def _predicted_ball_center(ball_tracks, frame_index, maximum_history=8):
+    observations = []
+    for previous_index in range(frame_index - 1, max(-1, frame_index - maximum_history - 1), -1):
+        bbox = ball_tracks[previous_index].get(1, {}).get("bbox")
+        if bbox:
+            observations.append((previous_index, np.asarray(_bbox_center(bbox), dtype=float)))
+            if len(observations) == 2:
+                break
+    if not observations:
+        return None
+    last_index, last_center = observations[0]
+    if len(observations) == 1:
+        return tuple(last_center.tolist())
+    earlier_index, earlier_center = observations[1]
+    velocity = (last_center - earlier_center) / max(1, last_index - earlier_index)
+    prediction = last_center + velocity * (frame_index - last_index)
+    return tuple(prediction.tolist())
+
+
+def _square_crop_bbox(center, size, frame_width, frame_height):
+    size = max(1, min(max(32, int(size)), frame_width, frame_height))
+    center_x, center_y = map(float, center)
+    x1 = int(round(center_x - size / 2))
+    y1 = int(round(center_y - size / 2))
+    x1 = max(0, min(x1, frame_width - size))
+    y1 = max(0, min(y1, frame_height - size))
+    return [x1, y1, x1 + size, y1 + size]
+
+
+def _bbox_iou(first, second):
+    intersection_width = max(0.0, min(first[2], second[2]) - max(first[0], second[0]))
+    intersection_height = max(0.0, min(first[3], second[3]) - max(first[1], second[1]))
+    intersection = intersection_width * intersection_height
+    first_area = max(0.0, first[2] - first[0]) * max(0.0, first[3] - first[1])
+    second_area = max(0.0, second[2] - second[0]) * max(0.0, second[3] - second[1])
+    union = first_area + second_area - intersection
+    return intersection / union if union > 0 else 0.0
+
+
+def math_dist(first, second):
+    return float(np.linalg.norm(np.asarray(first, dtype=float) - np.asarray(second, dtype=float)))
+
+
+def _merge_ball_candidates(full_candidates, adaptive_candidates, maximum_candidates=12):
+    merged = []
+    candidates = [
+        dict(candidate)
+        for candidate in [*(full_candidates or []), *(adaptive_candidates or [])]
+        if _valid_detection(candidate.get("bbox"), candidate.get("confidence"))
+    ]
+    for candidate in sorted(candidates, key=lambda item: item["confidence"], reverse=True):
+        candidate_center = _bbox_center(candidate["bbox"])
+        duplicate = any(
+            _bbox_iou(candidate["bbox"], kept["bbox"]) >= 0.40
+            or math_dist(candidate_center, _bbox_center(kept["bbox"]))
+            <= max(4.0, 0.5 * max(
+                kept["bbox"][2] - kept["bbox"][0],
+                kept["bbox"][3] - kept["bbox"][1],
+            ))
+            for kept in merged
+        )
+        if duplicate:
+            continue
+        merged.append(candidate)
+        if len(merged) >= maximum_candidates:
+            break
+    return merged
+
+
 def _select_ball_track(
     detection_frames,
     player_tracks=None,
@@ -432,13 +722,7 @@ def _select_ball_track(
     previous_selected_frame = None
     for frame_index, candidate_index in enumerate(selected_path):
         candidates = [
-            {
-                "bbox": list(candidate["bbox"]),
-                "confidence": float(candidate["confidence"]),
-                "candidate_index": int(
-                    candidate.get("candidate_index", current_candidate_index)
-                ),
-            }
+            _candidate_record(candidate, current_candidate_index)
             for current_candidate_index, candidate in enumerate(
                 detection_frames[frame_index]
             )
@@ -469,6 +753,7 @@ def _select_ball_track(
             info.update({
                 "bbox": list(chosen["bbox"]),
                 "confidence": float(chosen["confidence"]),
+                "detection_source": chosen.get("detection_source", "full_frame"),
                 "selected_candidate_index": int(
                     chosen.get("candidate_index", candidate_index)
                 ),
