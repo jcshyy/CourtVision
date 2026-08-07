@@ -6,12 +6,43 @@ Parameters:
   SesFromEmail:
     Type: String
     Description: SES-verified sender used for one-time sign-in codes.
-  BatchJobQueue:
+  ApiRuntime:
     Type: String
-    Description: ARN or name of the GPU-backed AWS Batch job queue.
-  BatchJobDefinition:
+    Default: Flask
+    AllowedValues: [Flask, Lambda]
+    Description: Flask is the resume-aligned path; Lambda remains a rollback option.
+  ApiImageUri:
     Type: String
-    Description: ARN or name of the CourtVision worker job definition.
+    Description: ECR image URI built from Dockerfile.api.
+  WorkerImageUri:
+    Type: String
+    Description: ECR image URI built from Dockerfile.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least two public subnets with internet routing for the ALB and Fargate API.
+  WorkerSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets with ECR, S3, DynamoDB, and CloudWatch Logs egress for Batch workers.
+  CloudFrontOriginPrefixListId:
+    Type: String
+    AllowedPattern: "^pl-[a-f0-9]+$"
+    Description: Regional ID for the com.amazonaws.global.cloudfront.origin-facing managed prefix list.
+  BatchInstanceType:
+    Type: String
+    Default: g4dn.xlarge
+    AllowedPattern: "^[a-z0-9]+[a-z0-9.-]*$"
+  BatchMaxVcpus:
+    Type: Number
+    Default: 4
+    MinValue: 4
+    MaxValue: 64
+  ApiDesiredCount:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 4
   MaxUploadBytes:
     Type: Number
     Default: 524288000
@@ -34,6 +65,10 @@ Parameters:
   ReportRetentionSeconds:
     Type: Number
     Default: 7776000
+
+Conditions:
+  UseFlaskApi: !Equals [!Ref ApiRuntime, Flask]
+  UseLambdaApi: !Equals [!Ref ApiRuntime, Lambda]
 
 Globals:
   Function:
@@ -73,6 +108,26 @@ Resources:
             ExpirationInDays: !Ref ArtifactRetentionDays
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 1
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  ModelBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
       OwnershipControls:
         Rules:
           - ObjectOwnership: BucketOwnerEnforced
@@ -170,6 +225,7 @@ Resources:
 
   HttpApi:
     Type: AWS::Serverless::HttpApi
+    Condition: UseLambdaApi
     Properties:
       StageName: "$default"
       AccessLogSettings:
@@ -178,11 +234,13 @@ Resources:
 
   ApiAccessLogs:
     Type: AWS::Logs::LogGroup
+    Condition: UseLambdaApi
     Properties:
       RetentionInDays: 30
 
   WebApiFunction:
     Type: AWS::Serverless::Function
+    Condition: UseLambdaApi
     Properties:
       CodeUri: ../..
       Handler: backend.app.web_api.lambda_handler
@@ -196,8 +254,8 @@ Resources:
           REPORTS_TABLE: !Ref ReportsTable
           SESSION_SECRET_ARN: !Ref SessionSecret
           SES_FROM_EMAIL: !Ref SesFromEmail
-          BATCH_JOB_QUEUE: !Ref BatchJobQueue
-          BATCH_JOB_DEFINITION: !Ref BatchJobDefinition
+          BATCH_JOB_QUEUE: !Ref GpuJobQueue
+          BATCH_JOB_DEFINITION: !Ref WorkerJobDefinition
           MAX_UPLOAD_BYTES: !Ref MaxUploadBytes
           MAX_DURATION_SECONDS: !Ref MaxDurationSeconds
           TARGET_FPS: !Ref TargetFps
@@ -238,6 +296,344 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /api
             Method: ANY
+
+  BatchInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+
+  BatchInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref BatchInstanceRole]
+
+  WorkerJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CourtVisionWorkerArtifacts
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !Sub ${ArtifactBucket.Arn}/jobs/*
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub ${ModelBucket.Arn}/models/*
+              - Effect: Allow
+                Action: dynamodb:UpdateItem
+                Resource: !GetAtt JobsTable.Arn
+
+  BatchSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Egress-only security group for CourtVision GPU workers
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  GpuComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      Type: MANAGED
+      State: ENABLED
+      ComputeResources:
+        Type: EC2
+        AllocationStrategy: BEST_FIT_PROGRESSIVE
+        MinvCpus: 0
+        DesiredvCpus: 0
+        MaxvCpus: !Ref BatchMaxVcpus
+        InstanceRole: !GetAtt BatchInstanceProfile.Arn
+        InstanceTypes: [!Ref BatchInstanceType]
+        Subnets: !Ref WorkerSubnetIds
+        SecurityGroupIds: [!Ref BatchSecurityGroup]
+        Ec2Configuration:
+          - ImageType: ECS_AL2023_NVIDIA
+        Tags:
+          Project: CourtVision
+          Workload: video-inference
+      Tags:
+        Project: CourtVision
+
+  GpuJobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      State: ENABLED
+      Priority: 1
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !Ref GpuComputeEnvironment
+
+  WorkerLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+
+  WorkerJobDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: container
+      PlatformCapabilities: [EC2]
+      PropagateTags: true
+      RetryStrategy:
+        Attempts: 1
+      Timeout:
+        AttemptDurationSeconds: 3600
+      ContainerProperties:
+        Image: !Ref WorkerImageUri
+        Command: [python, -m, backend.app.batch_job]
+        JobRoleArn: !GetAtt WorkerJobRole.Arn
+        ResourceRequirements:
+          - Type: GPU
+            Value: "1"
+          - Type: VCPU
+            Value: "4"
+          - Type: MEMORY
+            Value: "14000"
+        Environment:
+          - Name: COURTVISION_MODEL_BUCKET
+            Value: !Ref ModelBucket
+          - Name: COURTVISION_MODEL_PREFIX
+            Value: models
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: !Ref WorkerLogs
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: worker
+
+  ApiCluster:
+    Type: AWS::ECS::Cluster
+    Condition: UseFlaskApi
+    Properties:
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  ApiExecutionRole:
+    Type: AWS::IAM::Role
+    Condition: UseFlaskApi
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ApiTaskRole:
+    Type: AWS::IAM::Role
+    Condition: UseFlaskApi
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CourtVisionApiDataPlane
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DeleteItem
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !GetAtt BetaUsersTable.Arn
+                  - !GetAtt AuthCodesTable.Arn
+                  - !GetAtt JobsTable.Arn
+                  - !GetAtt ReportsTable.Arn
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !Sub ${ArtifactBucket.Arn}/jobs/*
+              - Effect: Allow
+                Action: batch:SubmitJob
+                Resource:
+                  - !Ref GpuJobQueue
+                  - !Ref WorkerJobDefinition
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SessionSecret
+              - Effect: Allow
+                Action: ses:SendEmail
+                Resource: "*"
+
+  ApiLogs:
+    Type: AWS::Logs::LogGroup
+    Condition: UseFlaskApi
+    Properties:
+      RetentionInDays: 30
+
+  ApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Condition: UseFlaskApi
+    Properties:
+      Cpu: "512"
+      Memory: "1024"
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt ApiExecutionRole.Arn
+      TaskRoleArn: !GetAtt ApiTaskRole.Arn
+      ContainerDefinitions:
+        - Name: api
+          Image: !Ref ApiImageUri
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          Environment:
+            - Name: ENVIRONMENT
+              Value: production
+            - Name: API_PREFIX
+              Value: /api
+            - Name: ARTIFACT_BUCKET
+              Value: !Ref ArtifactBucket
+            - Name: BETA_USERS_TABLE
+              Value: !Ref BetaUsersTable
+            - Name: AUTH_CODES_TABLE
+              Value: !Ref AuthCodesTable
+            - Name: JOBS_TABLE
+              Value: !Ref JobsTable
+            - Name: REPORTS_TABLE
+              Value: !Ref ReportsTable
+            - Name: SESSION_SECRET_ARN
+              Value: !Ref SessionSecret
+            - Name: SES_FROM_EMAIL
+              Value: !Ref SesFromEmail
+            - Name: BATCH_JOB_QUEUE
+              Value: !Ref GpuJobQueue
+            - Name: BATCH_JOB_DEFINITION
+              Value: !Ref WorkerJobDefinition
+            - Name: MAX_UPLOAD_BYTES
+              Value: !Ref MaxUploadBytes
+            - Name: MAX_DURATION_SECONDS
+              Value: !Ref MaxDurationSeconds
+            - Name: TARGET_FPS
+              Value: !Ref TargetFps
+            - Name: MAX_WIDTH
+              Value: !Ref MaxWidth
+            - Name: RESULT_RETENTION_SECONDS
+              Value: !Ref ResultRetentionSeconds
+            - Name: REPORT_RETENTION_SECONDS
+              Value: !Ref ReportRetentionSeconds
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ApiLogs
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+
+  ApiLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: UseFlaskApi
+    Properties:
+      GroupDescription: Allow the CloudFront origin network to reach the API ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourcePrefixListId: !Ref CloudFrontOriginPrefixListId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  ApiServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: UseFlaskApi
+    Properties:
+      GroupDescription: Allow only the CourtVision ALB to reach Flask
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref ApiLoadBalancerSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  ApiLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: UseFlaskApi
+    Properties:
+      Scheme: internet-facing
+      SecurityGroups: [!Ref ApiLoadBalancerSecurityGroup]
+      Subnets: !Ref PublicSubnetIds
+      Type: application
+
+  ApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: UseFlaskApi
+    Properties:
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 8080
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      Matcher:
+        HttpCode: "200"
+
+  ApiListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: UseFlaskApi
+    Properties:
+      LoadBalancerArn: !Ref ApiLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  ApiService:
+    Type: AWS::ECS::Service
+    Condition: UseFlaskApi
+    DependsOn: ApiListener
+    Properties:
+      Cluster: !Ref ApiCluster
+      TaskDefinition: !Ref ApiTaskDefinition
+      DesiredCount: !Ref ApiDesiredCount
+      LaunchType: FARGATE
+      HealthCheckGracePeriodSeconds: 30
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups: [!Ref ApiServiceSecurityGroup]
+          Subnets: !Ref PublicSubnetIds
+      LoadBalancers:
+        - ContainerName: api
+          ContainerPort: 8080
+          TargetGroupArn: !Ref ApiTargetGroup
 
   ApiCachePolicy:
     Type: AWS::CloudFront::CachePolicy
@@ -326,9 +722,12 @@ Resources:
             OriginAccessControlId: !Ref WebOriginAccessControl
             S3OriginConfig: {}
           - Id: ApiOrigin
-            DomainName: !Sub ${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+            DomainName: !If
+              - UseFlaskApi
+              - !GetAtt ApiLoadBalancer.DNSName
+              - !Sub ${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
             CustomOriginConfig:
-              OriginProtocolPolicy: https-only
+              OriginProtocolPolicy: !If [UseFlaskApi, http-only, https-only]
               OriginSSLProtocols: [TLSv1.2]
         DefaultCacheBehavior:
           TargetOriginId: WebOrigin
@@ -372,6 +771,8 @@ Outputs:
     Value: !Ref WebBucket
   ArtifactBucketName:
     Value: !Ref ArtifactBucket
+  ModelBucketName:
+    Value: !Ref ModelBucket
   BetaUsersTableName:
     Value: !Ref BetaUsersTable
   JobsTableName:
@@ -380,3 +781,10 @@ Outputs:
     Value: !Ref ReportsTable
   SessionSecretArn:
     Value: !Ref SessionSecret
+  BatchJobQueueArn:
+    Value: !Ref GpuJobQueue
+  BatchJobDefinitionArn:
+    Value: !Ref WorkerJobDefinition
+  FlaskLoadBalancerDnsName:
+    Condition: UseFlaskApi
+    Value: !GetAtt ApiLoadBalancer.DNSName

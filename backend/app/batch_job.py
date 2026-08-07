@@ -20,6 +20,13 @@ except ImportError:  # Keeps pure helper tests importable without the AWS runtim
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
+MODEL_FILENAMES = (
+    "player_detector.pt",
+    "yolo11n-pose.pt",
+    "ball_detector_model.pt",
+    "court_keypoint_detector.pt",
+)
+
 
 def main():
     if boto3 is None:
@@ -34,6 +41,7 @@ def main():
 
     try:
         _update_job(jobs_table, job_id, "processing", "Preparing the uploaded clip")
+        _prepare_models(s3)
         with tempfile.TemporaryDirectory(prefix=f"courtvision-{job_id[:8]}-") as temp:
             work = Path(temp)
             source_path = work / ("source" + Path(input_key).suffix.lower())
@@ -148,6 +156,31 @@ def main():
         except Exception:
             LOGGER.exception("Could not record failed state for %s", job_id)
         return 1
+
+
+def _prepare_models(s3, models_dir=None):
+    """Materialize private model weights before importing the CLI pipeline."""
+    bucket = os.getenv("COURTVISION_MODEL_BUCKET")
+    if not bucket:
+        return
+
+    project_root = Path(__file__).resolve().parents[2]
+    models_dir = Path(models_dir) if models_dir else project_root / "backend" / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    prefix = os.getenv("COURTVISION_MODEL_PREFIX", "models").strip("/")
+
+    for filename in MODEL_FILENAMES:
+        destination = models_dir / filename
+        if destination.is_file() and destination.stat().st_size > 0:
+            continue
+        key = f"{prefix}/{filename}" if prefix else filename
+        partial = destination.with_suffix(destination.suffix + ".part")
+        LOGGER.info("Downloading model s3://%s/%s", bucket, key)
+        try:
+            s3.download_file(bucket, key, str(partial))
+            partial.replace(destination)
+        finally:
+            partial.unlink(missing_ok=True)
 
 
 def _update_job(table, job_id, status, stage):

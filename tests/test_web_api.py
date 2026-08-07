@@ -88,9 +88,10 @@ class WebApiTests(unittest.TestCase):
         }
         token = web_api._encode_session(payload)
         encoded, signature = token.split(".")
+        replacement = "A" if signature[0] != "A" else "B"
 
         with self.assertRaises(web_api.ApiError) as raised:
-            web_api._decode_session(f"{encoded}.{signature[:-1]}A")
+            web_api._decode_session(f"{encoded}.{replacement}{signature[1:]}")
 
         self.assertEqual(raised.exception.code, "invalid_session")
 

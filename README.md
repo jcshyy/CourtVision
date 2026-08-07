@@ -72,9 +72,10 @@ For longer uploads, use bounded jobs with unique outputs:
 The AWS reference stack is in [`deploy/aws`](deploy/aws/README.md). It keeps the
 initial limits (30 seconds, 15 FPS, 960px, 24-hour retention) in configuration,
 not application structure, so they can change later without redesigning the
-workflow. The deployment requires an AWS Batch queue and job definition with
-the CourtVision models, a verified SES sender, and an allowlist entry for each
-beta user.
+workflow. It requires two ECR images, a verified SES sender, private model
+weights, and an allowlist entry for each beta user. The stack provisions the
+AWS Batch queue and managed GPU EC2 environment, runs the Flask control plane
+on Fargate, and scales worker capacity to zero when idle.
 
 To inspect the UI locally without AWS credentials:
 
@@ -95,11 +96,11 @@ Lambda routes while keeping uploads in S3 and inference in AWS Batch; see
 
 ### Batch worker
 
-The included container is a batch-worker image. Model weights are excluded and
-must be mounted at `/app/backend/models`. Mount separate input, output, and cache
-volumes for each worker. Do not expose `main.py` directly as a multi-user web
-service: job queuing, authentication, upload scanning, retention, and resource
-isolation belong in the hosting layer.
+The included container is a batch-worker image. Model weights are excluded; the
+AWS Batch entrypoint downloads them from the stack's private model bucket, while
+non-AWS runtimes can still mount them at `/app/backend/models`. Do not expose
+`main.py` directly as a multi-user web service: job queuing, authentication,
+upload scanning, retention, and resource isolation belong in the hosting layer.
 
 The in-memory decoder rejects selections estimated above 2 GiB. Production
 jobs should still enforce platform-level limits for upload size, duration,
