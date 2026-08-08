@@ -1,3 +1,5 @@
+import shutil
+import subprocess
 from pathlib import Path
 
 import cv2
@@ -168,14 +170,64 @@ def save_video(frames, output_path: str | Path, fps: float = 24):
     path.parent.mkdir(parents=True, exist_ok=True)
 
     height, width = frames[0].shape[:2]
-    writer = cv2.VideoWriter(
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        try:
+            import imageio_ffmpeg
+
+            ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+        except (ImportError, RuntimeError) as error:
+            raise RuntimeError(
+                "FFmpeg is required to create a browser-compatible review video."
+            ) from error
+
+    command = [
+        ffmpeg,
+        "-y",
+        "-loglevel",
+        "error",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "bgr24",
+        "-s",
+        f"{width}x{height}",
+        "-r",
+        str(fps),
+        "-i",
+        "-",
+        "-an",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
         str(path),
-        cv2.VideoWriter_fourcc(*"mp4v"),
-        fps,
-        (width, height),
+    ]
+    process = subprocess.Popen(
+        command,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
+    assert process.stdin is not None
+    assert process.stderr is not None
+    try:
+        for frame in frames:
+            if frame.shape[:2] != (height, width):
+                raise ValueError("All video frames must have the same dimensions.")
+            process.stdin.write(np.ascontiguousarray(frame).tobytes())
+        process.stdin.close()
+        error_output = process.stderr.read().decode("utf-8", errors="replace").strip()
+        process.stderr.close()
+        return_code = process.wait()
+    except Exception:
+        process.kill()
+        process.wait()
+        process.stderr.close()
+        path.unlink(missing_ok=True)
+        raise
 
-    for frame in frames:
-        writer.write(frame)
-
-    writer.release()
+    if return_code != 0:
+        path.unlink(missing_ok=True)
+        raise RuntimeError(error_output or "FFmpeg could not encode the review video.")

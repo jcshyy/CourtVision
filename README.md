@@ -90,6 +90,20 @@ is available with `app.html?demo=signin`, `upload`, `processing`, `colors`,
 `error`, or `review`. Those local-only interface states use synthetic fixtures;
 authenticated review sessions use artifacts generated from the uploaded clip.
 
+### Local upload-to-review demo
+
+Run the real pipeline behind the browser workflow without AWS:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\check_runtime.py --check-models
+.\.venv\Scripts\python.exe -m backend.app.local_demo
+```
+
+This opens `http://127.0.0.1:8080/`, stores jobs under `runs/local_demo`, and
+processes one upload at a time with the local models. See the
+[local demo guide](deploy/local/README.md) for storage, timeout, and CPU/GPU
+behavior.
+
 The API contract also has a Flask control-plane adapter. It preserves the
 Lambda routes while keeping uploads in S3 and inference in AWS Batch; see
 [`deploy/flask`](deploy/flask/README.md) for local and container verification.

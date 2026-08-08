@@ -4,6 +4,7 @@
   const config = Object.assign(
     {
       apiBaseUrl: "/api",
+      localRuntime: false,
       maxDurationSeconds: 30,
       maxUploadBytes: 500 * 1024 * 1024,
       targetFps: 15,
@@ -484,7 +485,7 @@
         <dl class="file-facts">
           <dt>Duration</dt><dd>${formatTime(state.selectedFileDuration, true)}</dd>
           <dt>Size</dt><dd>${formatBytes(state.selectedFile.size)}</dd>
-          <dt>Retention</dt><dd>${config.resultRetentionHours} hours</dd>
+          <dt>${config.localRuntime ? "Storage" : "Retention"}</dt><dd>${config.localRuntime ? "This computer" : `${config.resultRetentionHours} hours`}</dd>
         </dl>
         ${
           state.busy
@@ -632,7 +633,11 @@
                   )
                   .join("")}
               </ol>
-              <p class="field-hint">You can close this tab. CourtVision will recover the active session after you return and sign in.</p>
+              <p class="field-hint">${
+                config.localRuntime
+                  ? "You can close this tab while the local server stays running. Reopen this address to recover the active job."
+                  : "You can close this tab. CourtVision will recover the active session after you return and sign in."
+              }</p>
               ${demoMode ? '<button class="button button-primary" id="demo-complete" type="button">Open synthetic review</button>' : ""}
             </aside>
           </div>
@@ -662,7 +667,12 @@
     const activeIndex = status === "queued" ? 1 : stageText.includes("final") ? 3 : status === "complete" ? 4 : 2;
     const definitions = [
       ["Upload received", "The source clip is stored in the private job prefix."],
-      ["Worker queued", "A bounded GPU worker is reserved for this analysis."],
+      [
+        "Worker queued",
+        config.localRuntime
+          ? "One bounded worker runs on this computer; additional jobs wait their turn."
+          : "A bounded GPU worker is reserved for this analysis.",
+      ],
       ["Evidence pass", "Players, ball, teams, events, and court position are evaluated."],
       ["Review render", "The annotated video and machine-readable evidence are finalized."],
       ["Ready", "Download and structured failure reporting become available."],
@@ -902,17 +912,19 @@
       `;
     }
     const expiration = state.job?.expiresAt
-      ? `Deletes ${relativeExpiration(state.job.expiresAt)}`
-      : `${config.resultRetentionHours}-hour retention`;
+      ? `${config.localRuntime ? "Expires" : "Deletes"} ${relativeExpiration(state.job.expiresAt)}`
+      : `${config.resultRetentionHours}-hour ${config.localRuntime ? "local session" : "retention"}`;
     const canDownload = review && state.downloads?.videoUrl;
     return `
       <header class="topbar">
         <div class="brand-lockup">
           <a class="brand" href="./" aria-label="CourtVision home">CourtVision</a>
           <span class="brand-divider" aria-hidden="true"></span>
-          <span class="status-chip">Beta analysis</span>
+          <span class="status-chip">${config.localRuntime ? "Local analysis" : "Beta analysis"}</span>
         </div>
-        <div class="topbar-center">${icon("clock")} <span>${escapeHtml(expiration)}</span></div>
+        <div class="topbar-center">${icon("clock")} <span>${escapeHtml(
+          config.localRuntime ? `Stored on this computer · ${expiration}` : expiration,
+        )}</span></div>
         <nav class="topbar-actions" aria-label="Session actions">
           ${
             canDownload
@@ -920,7 +932,11 @@
               : ""
           }
           ${review ? `<button class="button button-secondary" id="report-issue" type="button">${icon("flag")}<span>Report issue</span></button>` : ""}
-          <button class="button button-quiet" id="sign-out" type="button">${icon("signout")}<span>Sign out</span></button>
+          ${
+            config.localRuntime
+              ? ""
+              : `<button class="button button-quiet" id="sign-out" type="button">${icon("signout")}<span>Sign out</span></button>`
+          }
         </nav>
       </header>
     `;

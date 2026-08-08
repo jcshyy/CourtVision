@@ -9,6 +9,7 @@ from backend.app.utils.video import (
     detect_scene_discontinuities,
     probe_video,
     read_video,
+    save_video,
 )
 
 
@@ -48,6 +49,19 @@ class VideoReadTests(unittest.TestCase):
 
             with self.assertRaisesRegex(MemoryError, "--duration-seconds"):
                 read_video(video, max_decoded_bytes=1)
+
+    def test_saves_a_browser_compatible_h264_video(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            video = Path(temp_dir) / "review.mp4"
+            frames = [np.full((48, 64, 3), index * 20, dtype=np.uint8) for index in range(3)]
+
+            save_video(frames, video, fps=6)
+
+            capture = cv2.VideoCapture(str(video))
+            fourcc = int(capture.get(cv2.CAP_PROP_FOURCC))
+            codec = "".join(chr((fourcc >> (8 * index)) & 0xFF) for index in range(4))
+            capture.release()
+            self.assertIn(codec.lower(), {"avc1", "h264"})
 
     def test_detects_persistent_cut_but_ignores_single_frame_flash(self):
         green = np.full((60, 80, 3), (0, 180, 0), dtype=np.uint8)
