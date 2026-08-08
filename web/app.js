@@ -866,7 +866,10 @@
                 }
                 ${demoMode && !state.downloads?.playbackUrl ? '<div class="tracking-overlay" aria-hidden="true"><span class="tracking-mark mark-one"></span><span class="tracking-mark mark-two"></span></div>' : ""}
                 <span class="timecode-badge" id="current-timecode">${formatTime(state.currentTime)}</span>
-                ${tacticalDockMarkup(analysis)}
+                <div class="analysis-dock-stack">
+                  ${tacticalDockMarkup(analysis)}
+                  ${summaryDockMarkup(analysis)}
+                </div>
               </div>
               ${timelineMarkup(events, duration)}
               ${evidenceMarkup(selected, analysis)}
@@ -953,6 +956,56 @@
         <ul class="court-legend" aria-label="Tactical court legend"><li><i class="legend-dot one"></i>Display team one</li><li><i class="legend-dot two"></i>Display team two</li><li><i class="legend-dot unknown"></i>Unknown</li></ul>
       </section>
     `;
+  }
+
+  function summaryDockMarkup(analysis) {
+    const summary = summaryAtTime(analysis, state.currentTime);
+    return `
+      <section class="summary-dock" aria-labelledby="summary-title">
+        <header class="dock-header"><span id="summary-title">Running estimates</span><span id="summary-time">${formatTime(state.currentTime)}</span></header>
+        <table class="summary-table">
+          <caption class="sr-only">Cumulative experimental estimates through the current replay time</caption>
+          <thead><tr><th scope="col">Measure</th><th scope="col">Team 1</th><th scope="col">Team 2</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Pass candidates</th><td id="team-1-passes">${summary.passes[1]}</td><td id="team-2-passes">${summary.passes[2]}</td></tr>
+            <tr><th scope="row">Interception candidates</th><td id="team-1-interceptions">${summary.interceptions[1]}</td><td id="team-2-interceptions">${summary.interceptions[2]}</td></tr>
+            <tr><th scope="row">Ball control estimate</th><td id="team-1-control">${summary.control[1]}</td><td id="team-2-control">${summary.control[2]}</td></tr>
+          </tbody>
+        </table>
+        <p class="summary-note" id="summary-note">${escapeHtml(summary.note)}</p>
+      </section>
+    `;
+  }
+
+  function summaryAtTime(analysis, time) {
+    const passes = { 1: 0, 2: 0 };
+    const interceptions = { 1: 0, 2: 0 };
+    (analysis.events || []).forEach((event) => {
+      if (Number(event.timeSeconds) > time || ![1, 2].includes(Number(event.toTeamId))) return;
+      const totals = event.type === "pass" ? passes : event.type === "interception" ? interceptions : null;
+      if (totals) totals[Number(event.toTeamId)] += 1;
+    });
+
+    const possessionFrames = { 1: 0, 2: 0 };
+    (analysis.frames || []).forEach((frame) => {
+      if (Number(frame.timeSeconds) > time) return;
+      const holder = (frame.players || []).find((player) => player.isHolder);
+      const teamId = Number(frame.possessionTeamId ?? holder?.teamId);
+      if ([1, 2].includes(teamId)) possessionFrames[teamId] += 1;
+    });
+    const knownFrames = possessionFrames[1] + possessionFrames[2];
+    const control = {
+      1: knownFrames ? `${Math.round((possessionFrames[1] / knownFrames) * 100)}%` : "—",
+      2: knownFrames ? `${Math.round((possessionFrames[2] / knownFrames) * 100)}%` : "—",
+    };
+    return {
+      passes,
+      interceptions,
+      control,
+      note: knownFrames
+        ? `Based on ${knownFrames} frames with an estimated team holder.`
+        : "No team-level ball control is supported at this moment.",
+    };
   }
 
   function courtMarkersMarkup(frame, analysis) {
@@ -1184,6 +1237,25 @@
     if (playhead) playhead.style.left = `${clamp((state.currentTime / duration) * 100, 0, 100)}%`;
     if (input && document.activeElement !== input) input.value = state.currentTime;
     if (input) input.setAttribute("aria-valuetext", formatTime(state.currentTime));
+    updateSummaryDock(analysis);
+  }
+
+  function updateSummaryDock(analysis) {
+    const summary = summaryAtTime(analysis, state.currentTime);
+    const values = {
+      "summary-time": formatTime(state.currentTime),
+      "team-1-passes": summary.passes[1],
+      "team-2-passes": summary.passes[2],
+      "team-1-interceptions": summary.interceptions[1],
+      "team-2-interceptions": summary.interceptions[2],
+      "team-1-control": summary.control[1],
+      "team-2-control": summary.control[2],
+      "summary-note": summary.note,
+    };
+    Object.entries(values).forEach(([id, value]) => {
+      const element = app.querySelector(`#${id}`);
+      if (element) element.textContent = value;
+    });
   }
 
   async function submitReport(event) {

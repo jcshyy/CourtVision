@@ -111,6 +111,8 @@ class WebDemoTests(unittest.TestCase):
             'videoUrl: "assets/courtvision-demo-tactical-fixed.webm"', client
         )
         self.assertIn("${tacticalDockMarkup(analysis)}", client)
+        self.assertIn("${summaryDockMarkup(analysis)}", client)
+        self.assertIn("Ball control estimate", client)
         self.assertIn("analysis.court?.mirrorXFrameRanges", client)
         self.assertNotIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
         self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json"', client)

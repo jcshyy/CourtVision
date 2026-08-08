@@ -32,11 +32,9 @@ from backend.app.visualization import (
     BallTracksDrawer,
     CourtKeypointDrawer,
     FrameNumberDrawer,
-    PassInterceptionDrawer,
     PlayerTracksDrawer,
     SpeedAndDistanceDrawer,
     TacticalViewDrawer,
-    TeamBallControlDrawer,
 )
 
 TEAM_DISPLAY_COLORS = {
@@ -137,6 +135,9 @@ def write_analysis_manifest(
             and ball_acquisition[frame_index] != -1
             else None
         )
+        possession_team_id = _json_safe(assignments.get(holder_id))
+        if possession_team_id not in (1, 2):
+            possession_team_id = None
         players = []
         for player_id, position in tactical_positions.items():
             team_id = _json_safe(assignments.get(player_id))
@@ -155,6 +156,7 @@ def write_analysis_manifest(
             {
                 "frameIndex": frame_index,
                 "timeSeconds": round(frame_index / fps, 3),
+                "possessionTeamId": possession_team_id,
                 "players": players,
             }
         )
@@ -397,12 +399,6 @@ def main():
         player_tracks=player_tracks,
         discontinuity_frames=scene_discontinuity_frames,
     )
-    passes = [-1] * len(ball_acquisition)
-    interceptions = [-1] * len(ball_acquisition)
-    for event in events:
-        target = passes if event["type"] == "pass" else interceptions
-        target[event["frame_index"]] = event["to_team_id"]
-
     print(
         "Detected events: "
         f"{sum(event['type'] == 'pass' for event in events)} passes, "
@@ -467,9 +463,7 @@ def main():
     player_tracks_drawer = PlayerTracksDrawer()
     ball_tracks_drawer = BallTracksDrawer()
     court_keypoint_drawer = CourtKeypointDrawer()
-    team_ball_control_drawer = TeamBallControlDrawer()
     frame_number_drawer = FrameNumberDrawer()
-    pass_interception_drawer = PassInterceptionDrawer()
     tactical_view_drawer = TacticalViewDrawer(
         team_1_color=TEAM_DISPLAY_COLORS[1],
         team_2_color=TEAM_DISPLAY_COLORS[2],
@@ -489,16 +483,6 @@ def main():
         court_keypoints_per_frame,
     )
     output_video_frames = frame_number_drawer.draw(output_video_frames)
-    output_video_frames = team_ball_control_drawer.draw(
-        output_video_frames,
-        player_assignment,
-        ball_acquisition,
-    )
-    output_video_frames = pass_interception_drawer.draw(
-        output_video_frames,
-        passes,
-        interceptions,
-    )
     output_video_frames = speed_and_distance_drawer.draw(
         output_video_frames,
         player_tracks,

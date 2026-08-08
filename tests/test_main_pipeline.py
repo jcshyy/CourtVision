@@ -98,4 +98,5 @@ class MainPipelineTests(unittest.TestCase):
         self.assertEqual(payload["events"][0]["timeSeconds"], 0.1)
         self.assertTrue(payload["frames"][0]["players"][0]["isHolder"])
         self.assertEqual(payload["frames"][0]["players"][0]["teamId"], 1)
+        self.assertEqual(payload["frames"][0]["possessionTeamId"], 1)
         self.assertIsNone(payload["frames"][0]["players"][1]["teamId"])

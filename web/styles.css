@@ -962,18 +962,74 @@ dialog .button-secondary:hover:not([disabled]) {
   font-weight: 700;
 }
 
-.tactical-dock {
+.analysis-dock-stack {
   position: absolute;
   z-index: 5;
   top: 1rem;
   right: 1rem;
   width: min(31rem, 40%);
   min-width: 20rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.tactical-dock,
+.summary-dock {
   overflow: hidden;
   border: 1px solid #69747d;
   border-radius: var(--radius-small);
   background: var(--monitor);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-table th,
+.summary-table td {
+  padding: 0.42rem 0.65rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.summary-table thead th {
+  color: var(--text-muted);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.summary-table thead th:first-child,
+.summary-table tbody th {
+  text-align: left;
+}
+
+.summary-table tbody th {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 400;
+}
+
+.summary-table td {
+  width: 4.25rem;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.98rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.summary-note {
+  margin: 0;
+  padding: 0.45rem 0.65rem 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
 }
 
 .dock-header {
@@ -1633,7 +1689,7 @@ dialog::backdrop {
     grid-template-columns: minmax(0, 1fr) 20rem;
   }
 
-  .tactical-dock {
+  .analysis-dock-stack {
     width: 42%;
     min-width: 17rem;
   }
@@ -1713,14 +1769,13 @@ dialog::backdrop {
     min-height: 32rem;
   }
 
-  .tactical-dock {
+  .analysis-dock-stack {
     position: relative;
     top: auto;
     right: auto;
     width: auto;
     min-width: 0;
     margin: 0.75rem;
-    order: 2;
   }
 
   .video-monitor video,
@@ -1808,8 +1863,13 @@ dialog::backdrop {
     display: none;
   }
 
-  .tactical-dock {
+  .analysis-dock-stack {
     margin: 0.5rem;
+  }
+
+  .summary-table th,
+  .summary-table td {
+    padding-inline: 0.5rem;
   }
 
   .court-legend {
