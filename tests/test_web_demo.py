@@ -113,6 +113,8 @@ class WebDemoTests(unittest.TestCase):
         self.assertIn("${tacticalDockMarkup(analysis)}", client)
         self.assertIn("${summaryDockMarkup(analysis)}", client)
         self.assertIn("Ball control estimate", client)
+        self.assertIn('role="tablist" aria-label="Replay inspector view"', client)
+        self.assertIn('inspectorTab: "court"', client)
         self.assertIn("analysis.court?.mirrorXFrameRanges", client)
         self.assertNotIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
         self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json"', client)

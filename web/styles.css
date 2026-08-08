@@ -962,24 +962,98 @@ dialog .button-secondary:hover:not([disabled]) {
   font-weight: 700;
 }
 
-.analysis-dock-stack {
+.replay-inspector {
   position: absolute;
   z-index: 5;
-  top: 1rem;
   right: 1rem;
-  width: min(31rem, 40%);
-  min-width: 20rem;
-  display: grid;
-  gap: 0.65rem;
-}
-
-.tactical-dock,
-.summary-dock {
+  bottom: clamp(4.5rem, 8vh, 6rem);
+  width: min(23rem, 34%);
+  min-width: 18rem;
   overflow: hidden;
   border: 1px solid #69747d;
   border-radius: var(--radius-small);
   background: var(--monitor);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
+}
+
+.inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--monitor-deep);
+}
+
+.inspector-tabs {
+  display: flex;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.inspector-tab {
+  position: relative;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.65rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.inspector-tab::after {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0;
+  left: 0.65rem;
+  height: 2px;
+  background: var(--cobalt);
+  content: "";
+  opacity: 0;
+  transform: scaleX(0.35);
+  transition: opacity 140ms ease, transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.inspector-tab:hover {
+  background: var(--monitor-raised);
+  color: var(--text);
+}
+
+.inspector-tab[aria-selected="true"] {
+  color: var(--text);
+}
+
+.inspector-tab[aria-selected="true"]::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.inspector-time {
+  flex: none;
+  padding-right: 0.65rem;
+  color: var(--text);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.inspector-panel[hidden] {
+  display: none;
+}
+
+.summary-dock {
+  flex-direction: column;
+  min-height: 13.75rem;
+}
+
+.summary-dock:not([hidden]) {
+  display: flex;
 }
 
 .summary-table {
@@ -1026,26 +1100,11 @@ dialog .button-secondary:hover:not([disabled]) {
 
 .summary-note {
   margin: 0;
+  margin-top: auto;
   padding: 0.45rem 0.65rem 0.55rem;
   color: var(--text-muted);
   font-size: 0.68rem;
   line-height: 1.35;
-}
-
-.dock-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 2.4rem;
-  padding: 0.45rem 0.65rem;
-  border-bottom: 1px solid var(--rule);
-  color: var(--text);
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.055em;
-  text-transform: uppercase;
 }
 
 .court-stage {
@@ -1647,11 +1706,11 @@ dialog::backdrop {
   }
 
   .review-desk.is-syncing .timecode-badge,
-  .review-desk.is-syncing #court-time {
+  .review-desk.is-syncing #inspector-time {
     animation: timecodeConfirm 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  .review-desk.is-syncing .tactical-dock {
+  .review-desk.is-syncing .replay-inspector {
     animation: tacticalConfirm 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
@@ -1689,8 +1748,8 @@ dialog::backdrop {
     grid-template-columns: minmax(0, 1fr) 20rem;
   }
 
-  .analysis-dock-stack {
-    width: 42%;
+  .replay-inspector {
+    width: 36%;
     min-width: 17rem;
   }
 }
@@ -1769,10 +1828,10 @@ dialog::backdrop {
     min-height: 32rem;
   }
 
-  .analysis-dock-stack {
+  .replay-inspector {
     position: relative;
-    top: auto;
     right: auto;
+    bottom: auto;
     width: auto;
     min-width: 0;
     margin: 0.75rem;
@@ -1863,7 +1922,7 @@ dialog::backdrop {
     display: none;
   }
 
-  .analysis-dock-stack {
+  .replay-inspector {
     margin: 0.5rem;
   }
 

@@ -34,7 +34,6 @@ from backend.app.visualization import (
     FrameNumberDrawer,
     PlayerTracksDrawer,
     SpeedAndDistanceDrawer,
-    TacticalViewDrawer,
 )
 
 TEAM_DISPLAY_COLORS = {
@@ -464,10 +463,6 @@ def main():
     ball_tracks_drawer = BallTracksDrawer()
     court_keypoint_drawer = CourtKeypointDrawer()
     frame_number_drawer = FrameNumberDrawer()
-    tactical_view_drawer = TacticalViewDrawer(
-        team_1_color=TEAM_DISPLAY_COLORS[1],
-        team_2_color=TEAM_DISPLAY_COLORS[2],
-    )
     speed_and_distance_drawer = SpeedAndDistanceDrawer()
 
     output_video_frames = player_tracks_drawer.draw(
@@ -489,17 +484,6 @@ def main():
         player_distances_per_frame,
         player_speed_per_frame,
     )
-    output_video_frames = tactical_view_drawer.draw(
-        output_video_frames,
-        tactical_view_converter.court_image_path,
-        tactical_view_converter.width,
-        tactical_view_converter.height,
-        tactical_view_converter.key_points,
-        tactical_player_positions,
-        player_assignment,
-        ball_acquisition,
-    )
-
     save_video(output_video_frames, output_path, fps=output_fps)
     print(f"Saved annotated video to {output_path}")
 

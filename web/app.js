@@ -44,6 +44,7 @@
     downloads: null,
     selectedEventId: null,
     currentTime: 0,
+    inspectorTab: "court",
     pollTimer: null,
     toastTimer: null,
     syncAnimationTimer: null,
@@ -866,10 +867,17 @@
                 }
                 ${demoMode && !state.downloads?.playbackUrl ? '<div class="tracking-overlay" aria-hidden="true"><span class="tracking-mark mark-one"></span><span class="tracking-mark mark-two"></span></div>' : ""}
                 <span class="timecode-badge" id="current-timecode">${formatTime(state.currentTime)}</span>
-                <div class="analysis-dock-stack">
+                <section class="replay-inspector" aria-label="Replay inspector">
+                  <header class="inspector-header">
+                    <div class="inspector-tabs" role="tablist" aria-label="Replay inspector view">
+                      <button class="inspector-tab" id="inspector-court-tab" type="button" role="tab" aria-selected="${state.inspectorTab === "court"}" aria-controls="inspector-court-panel" tabindex="${state.inspectorTab === "court" ? "0" : "-1"}">Tactical court</button>
+                      <button class="inspector-tab" id="inspector-estimates-tab" type="button" role="tab" aria-selected="${state.inspectorTab === "estimates"}" aria-controls="inspector-estimates-panel" tabindex="${state.inspectorTab === "estimates" ? "0" : "-1"}">Estimates</button>
+                    </div>
+                    <span class="inspector-time" id="inspector-time">${formatTime(state.currentTime)}</span>
+                  </header>
                   ${tacticalDockMarkup(analysis)}
                   ${summaryDockMarkup(analysis)}
-                </div>
+                </section>
               </div>
               ${timelineMarkup(events, duration)}
               ${evidenceMarkup(selected, analysis)}
@@ -948,21 +956,19 @@
   function tacticalDockMarkup(analysis) {
     const frame = frameAtTime(analysis, state.currentTime);
     return `
-      <section class="tactical-dock" aria-labelledby="court-title">
-        <header class="dock-header"><span id="court-title">Tactical court</span><span id="court-time">${formatTime(state.currentTime)}</span></header>
+      <div class="inspector-panel tactical-dock" id="inspector-court-panel" role="tabpanel" aria-labelledby="inspector-court-tab" ${state.inspectorTab === "court" ? "" : "hidden"}>
         <div class="court-stage" id="court-stage" role="img" aria-label="Player positions on the tactical court at ${formatTime(state.currentTime)}">
           ${courtMarkersMarkup(frame, analysis)}
         </div>
         <ul class="court-legend" aria-label="Tactical court legend"><li><i class="legend-dot one"></i>Display team one</li><li><i class="legend-dot two"></i>Display team two</li><li><i class="legend-dot unknown"></i>Unknown</li></ul>
-      </section>
+      </div>
     `;
   }
 
   function summaryDockMarkup(analysis) {
     const summary = summaryAtTime(analysis, state.currentTime);
     return `
-      <section class="summary-dock" aria-labelledby="summary-title">
-        <header class="dock-header"><span id="summary-title">Running estimates</span><span id="summary-time">${formatTime(state.currentTime)}</span></header>
+      <div class="inspector-panel summary-dock" id="inspector-estimates-panel" role="tabpanel" aria-labelledby="inspector-estimates-tab" ${state.inspectorTab === "estimates" ? "" : "hidden"}>
         <table class="summary-table">
           <caption class="sr-only">Cumulative experimental estimates through the current replay time</caption>
           <thead><tr><th scope="col">Measure</th><th scope="col">Team 1</th><th scope="col">Team 2</th></tr></thead>
@@ -973,7 +979,7 @@
           </tbody>
         </table>
         <p class="summary-note" id="summary-note">${escapeHtml(summary.note)}</p>
-      </section>
+      </div>
     `;
   }
 
@@ -1130,6 +1136,17 @@
     app.querySelectorAll("[data-event-id]").forEach((button) => {
       button.addEventListener("click", () => selectEvent(button.dataset.eventId, video));
     });
+    const inspectorTabs = Array.from(app.querySelectorAll(".inspector-tab"));
+    inspectorTabs.forEach((button, index) => {
+      button.addEventListener("click", () => selectInspectorTab(button.id.includes("estimates") ? "estimates" : "court"));
+      button.addEventListener("keydown", (event) => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? inspectorTabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + inspectorTabs.length) % inspectorTabs.length;
+        const next = inspectorTabs[nextIndex];
+        selectInspectorTab(next.id.includes("estimates") ? "estimates" : "court", true);
+      });
+    });
     const reportButton = app.querySelector("#report-issue");
     const dialog = app.querySelector("#report-dialog");
     if (reportButton && dialog) {
@@ -1143,6 +1160,25 @@
       app.querySelector("#cancel-report").addEventListener("click", () => dialog.close());
       app.querySelector("#report-form").addEventListener("submit", submitReport);
     }
+  }
+
+  function selectInspectorTab(tabName, focus = false) {
+    state.inspectorTab = tabName === "estimates" ? "estimates" : "court";
+    const tabs = {
+      court: app.querySelector("#inspector-court-tab"),
+      estimates: app.querySelector("#inspector-estimates-tab"),
+    };
+    const panels = {
+      court: app.querySelector("#inspector-court-panel"),
+      estimates: app.querySelector("#inspector-estimates-panel"),
+    };
+    Object.keys(tabs).forEach((name) => {
+      const selected = name === state.inspectorTab;
+      tabs[name]?.setAttribute("aria-selected", String(selected));
+      tabs[name]?.setAttribute("tabindex", selected ? "0" : "-1");
+      if (panels[name]) panels[name].hidden = !selected;
+    });
+    if (focus) tabs[state.inspectorTab]?.focus();
   }
 
   function selectEvent(eventId, video) {
@@ -1228,7 +1264,7 @@
           : `Tactical positions unavailable at ${formatTime(state.currentTime)}`,
       );
     }
-    const time = app.querySelector("#court-time");
+    const time = app.querySelector("#inspector-time");
     const badge = app.querySelector("#current-timecode");
     const playhead = app.querySelector("#timeline-playhead");
     const input = app.querySelector("#timeline-input");
@@ -1243,7 +1279,6 @@
   function updateSummaryDock(analysis) {
     const summary = summaryAtTime(analysis, state.currentTime);
     const values = {
-      "summary-time": formatTime(state.currentTime),
       "team-1-passes": summary.passes[1],
       "team-2-passes": summary.passes[2],
       "team-1-interceptions": summary.interceptions[1],
