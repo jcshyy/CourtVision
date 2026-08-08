@@ -331,8 +331,8 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
             "localRuntime": True,
             "maxDurationSeconds": _env_float("MAX_DURATION_SECONDS", 30),
             "maxUploadBytes": _env_int("MAX_UPLOAD_BYTES", 500 * 1024 * 1024),
-            "targetFps": _env_float("TARGET_FPS", 15),
-            "maxWidth": _env_int("MAX_WIDTH", 960),
+            "targetFps": _env_float("TARGET_FPS", 30),
+            "maxWidth": _env_int("MAX_WIDTH", 1280),
             "resultRetentionHours": _env_int("RESULT_RETENTION_SECONDS", 86400) / 3600,
             "pollIntervalMs": 1000,
         }
@@ -448,9 +448,9 @@ def _run_pipeline(job, source, output, analysis, cache, update_stage):
         "--duration-seconds",
         str(job["durationSeconds"]),
         "--target-fps",
-        str(_env_float("TARGET_FPS", 15)),
+        str(_env_float("TARGET_FPS", 30)),
         "--max-width",
-        str(_env_int("MAX_WIDTH", 960)),
+        str(_env_int("MAX_WIDTH", 1280)),
     ]
     if job.get("team1Color") and job.get("team2Color"):
         command.extend(["--team-1-color", job["team1Color"], "--team-2-color", job["team2Color"]])

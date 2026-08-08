@@ -2,13 +2,19 @@
   "use strict";
 
   const localHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  const configuredAppUrl = String(window.COURTVISION_CONFIG?.appUrl || "").trim();
   const connectedDeployment =
     window.COURTVISION_CONFIG?.authConnected === true &&
     window.location.protocol === "https:" &&
     !localHost;
+  const appUrl = configuredAppUrl || "app.html";
 
   document.querySelectorAll("[data-auth-link]").forEach((link) => {
+    link.href = appUrl;
     link.hidden = !connectedDeployment;
+  });
+  document.querySelectorAll("[data-auth-unavailable]").forEach((message) => {
+    message.hidden = connectedDeployment;
   });
 
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

@@ -64,9 +64,9 @@ def main():
                 "--duration-seconds",
                 os.getenv("COURTVISION_MAX_DURATION_SECONDS", "30"),
                 "--target-fps",
-                os.getenv("COURTVISION_TARGET_FPS", "15"),
+                os.getenv("COURTVISION_TARGET_FPS", "30"),
                 "--max-width",
-                os.getenv("COURTVISION_MAX_WIDTH", "960"),
+                os.getenv("COURTVISION_MAX_WIDTH", "1280"),
             ]
             team_one = os.getenv("COURTVISION_TEAM_1_COLOR")
             team_two = os.getenv("COURTVISION_TEAM_2_COLOR")

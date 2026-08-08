@@ -7,8 +7,8 @@
       localRuntime: false,
       maxDurationSeconds: 30,
       maxUploadBytes: 500 * 1024 * 1024,
-      targetFps: 15,
-      maxWidth: 960,
+      targetFps: 30,
+      maxWidth: 1280,
       resultRetentionHours: 24,
       pollIntervalMs: 4000,
     },
@@ -879,22 +879,11 @@
                   ${summaryDockMarkup(analysis)}
                 </section>
               </div>
-              ${timelineMarkup(events, duration)}
+              ${timelineMarkup(events, duration, selected, analysis.disclaimer)}
               ${evidenceMarkup(selected, analysis)}
             </section>
-            <aside class="rundown-rail" aria-labelledby="rundown-title">
-              <header class="rundown-header">
-                <h2 id="rundown-title"><span>Event rundown</span><span class="timecode">${formatTime(duration, true)}</span></h2>
-                <p>Select a cue to inspect the same moment in the replay and tactical court.</p>
-              </header>
-              ${eventListMarkup(events, selected)}
-              <footer class="rundown-footer">
-                <div class="rundown-legend"><span><i class="legend-shape"></i>Candidate</span><span><i class="legend-shape unknown"></i>Unknown or tentative</span></div>
-                <span>${escapeHtml(analysis.disclaimer || "Experimental beta analysis. Review every result against the source play.")}</span>
-              </footer>
-            </aside>
           </div>
-          ${permanentDemo ? "" : reportDialogMarkup(selected)}
+          ${permanentDemo ? "" : `${newAnalysisDialogMarkup()}${reportDialogMarkup(selected)}`}
           <p class="sr-only" id="sync-announcement" aria-live="polite" aria-atomic="true"></p>
         </main>
         ${toastRegion()}
@@ -933,10 +922,15 @@
           <span class="brand-divider" aria-hidden="true"></span>
           <span class="status-chip">${config.localRuntime ? "Local analysis" : "Beta analysis"}</span>
         </div>
-        <div class="topbar-center">${icon("clock")} <span>${escapeHtml(
-          config.localRuntime ? `Stored on this computer · ${expiration}` : expiration,
-        )}</span></div>
+        <div class="topbar-center">
+          ${icon("clock")}
+          <span class="topbar-status-copy">
+            ${review && state.job?.filename ? `<strong class="topbar-source">${escapeHtml(state.job.filename)} · ${formatTime(state.job.durationSeconds || state.analysis?.source?.durationSeconds || 0)}</strong>` : ""}
+            <span>${escapeHtml(config.localRuntime ? `Stored on this computer · ${expiration}` : expiration)}</span>
+          </span>
+        </div>
         <nav class="topbar-actions" aria-label="Session actions">
+          ${review ? `<button class="button button-secondary new-analysis" id="new-analysis" type="button" aria-label="Analyze another clip">${icon("upload")}<span>Analyze another clip</span></button>` : ""}
           ${
             canDownload
               ? `<a class="button button-primary" href="${escapeHtml(state.downloads.videoUrl)}" download>${icon("download")}<span>Download video</span></a>`
@@ -1033,7 +1027,7 @@
       .join("");
   }
 
-  function timelineMarkup(events, duration) {
+  function timelineMarkup(events, duration, selected, disclaimer) {
     const playhead = clamp((state.currentTime / duration) * 100, 0, 100);
     return `
       <section class="timeline-console" aria-label="Review timeline">
@@ -1047,6 +1041,19 @@
           <input class="timeline-input" id="timeline-input" type="range" min="0" max="${duration}" step="0.05" value="${state.currentTime}" aria-label="Replay position" aria-valuetext="${formatTime(state.currentTime)}" />
           <div class="timeline-labels" aria-hidden="true"><span>00:00</span><span>${formatTime(duration / 2, true)}</span><span>${formatTime(duration, true)}</span></div>
         </div>
+        <section class="timeline-dock" aria-labelledby="timeline-dock-title">
+          <header class="timeline-dock-header">
+            <div class="timeline-dock-title">
+              <h2 id="timeline-dock-title">Event cues</h2>
+              <span>${events.length} ${events.length === 1 ? "cue" : "cues"}</span>
+            </div>
+            <div class="timeline-dock-meta">
+              ${events.length ? '<div class="timeline-legend" aria-label="Cue states"><span><i class="legend-shape"></i>Candidate</span><span><i class="legend-shape unknown"></i>Unknown</span></div>' : ""}
+              <span class="timeline-disclaimer">${escapeHtml(disclaimer || "Experimental beta analysis. Review every result against the source play.")}</span>
+            </div>
+          </header>
+          ${eventListMarkup(events, selected)}
+        </section>
       </section>
     `;
   }
@@ -1062,11 +1069,16 @@
   }
 
   function evidenceContentMarkup(event, unavailable) {
+    const tacticalState = unavailable
+      ? `Estimated court positions are unavailable for ${unavailable} replay ${unavailable === 1 ? "frame" : "frames"}`
+      : event
+        ? "Estimated court positions are available at this cue"
+        : "Estimated court positions remain available along the replay timeline";
     return `
-      <div><strong>Selected cue</strong><span>${event ? `${escapeHtml(eventLabel(event))} at ${formatTime(event.timeSeconds)}` : "No candidate event at this moment"}</span></div>
-      <div><strong>Review state</strong><span>${event?.status === "unknown" ? "Unknown—insufficient evidence" : "Candidate—requires video review"}</span></div>
-      <div><strong>Evidence state</strong><span>Qualitative candidate or unknown state; requires video review</span></div>
-      <div><strong>Tactical availability</strong><span>${unavailable ? `${unavailable} diagnostic frame references are present` : "No tactical fallback is reported at this cue"}</span></div>
+      <div><strong>Selected cue</strong><span>${event ? `${escapeHtml(eventLabel(event))} at ${formatTime(event.timeSeconds)}` : "No cue selected"}</span></div>
+      <div><strong>Review state</strong><span>${event ? (event.status === "unknown" ? "Unknown—insufficient evidence" : "Candidate—requires video review") : "No reliable event candidate"}</span></div>
+      <div><strong>Evidence state</strong><span>${event ? "Qualitative candidate or unknown state; requires video review" : "No pass or interception transition met the review threshold"}</span></div>
+      <div><strong>Tactical availability</strong><span>${escapeHtml(tacticalState)}</span></div>
     `;
   }
 
@@ -1075,7 +1087,7 @@
       return '<div class="empty-rundown"><div><h3>No reliable events</h3><p>CourtVision kept the event list empty rather than inventing a transition.</p></div></div>';
     }
     return `
-      <ol class="event-list">
+      <ol class="event-list" aria-label="Detected event cues">
         ${events
           .map(
             (event) => `
@@ -1108,6 +1120,21 @@
             <input id="report-event-id" type="hidden" name="eventId" value="${escapeHtml(selected?.id || "")}" />
           </div>
           <footer class="dialog-footer"><button class="button button-secondary" id="cancel-report" type="button">Cancel</button><button class="button button-primary" type="submit">${icon("flag")}<span>Save failure report</span></button></footer>
+        </form>
+      </dialog>
+    `;
+  }
+
+  function newAnalysisDialogMarkup() {
+    return `
+      <dialog id="new-analysis-dialog" aria-labelledby="new-analysis-title">
+        <form method="dialog">
+          <header class="dialog-header">
+            <div><h2 id="new-analysis-title">Analyze another clip?</h2><p class="field-hint">This result stays stored until its expiry, but CourtVision will stop opening it automatically in this browser.</p></div>
+            <button class="button button-quiet" id="close-new-analysis" type="button" aria-label="Close new analysis dialog">${icon("close")}</button>
+          </header>
+          <div class="dialog-body"><p>Download this video first if you want an easy copy. Continuing returns to the local upload desk.</p></div>
+          <footer class="dialog-footer"><button class="button button-secondary" id="cancel-new-analysis" type="button">Keep reviewing</button><button class="button button-primary" id="confirm-new-analysis" type="button">Continue to upload</button></footer>
         </form>
       </dialog>
     `;
@@ -1149,6 +1176,14 @@
     });
     const reportButton = app.querySelector("#report-issue");
     const dialog = app.querySelector("#report-dialog");
+    const newAnalysisButton = app.querySelector("#new-analysis");
+    const newAnalysisDialog = app.querySelector("#new-analysis-dialog");
+    if (newAnalysisButton && newAnalysisDialog) {
+      newAnalysisButton.addEventListener("click", () => newAnalysisDialog.showModal());
+      app.querySelector("#close-new-analysis").addEventListener("click", () => newAnalysisDialog.close());
+      app.querySelector("#cancel-new-analysis").addEventListener("click", () => newAnalysisDialog.close());
+      app.querySelector("#confirm-new-analysis").addEventListener("click", resetJob);
+    }
     if (reportButton && dialog) {
       reportButton.addEventListener("click", () => {
         const timeInput = app.querySelector("#report-time");
@@ -1347,7 +1382,11 @@
     state.analysis = null;
     state.downloads = null;
     state.selectedFile = null;
-    state.message = null;
+    state.selectedFileDuration = 0;
+    state.selectedEventId = null;
+    state.currentTime = 0;
+    state.inspectorTab = "court";
+    state.message = { type: "success", text: "Ready for another clip. The previous result remains stored until its expiry." };
     state.view = "upload";
     render();
   }

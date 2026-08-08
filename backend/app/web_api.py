@@ -330,8 +330,8 @@ def _submit_batch(job):
         {"name": "COURTVISION_JOBS_TABLE", "value": _env("JOBS_TABLE")},
         {"name": "COURTVISION_RETENTION_SECONDS", "value": str(_env_int("RESULT_RETENTION_SECONDS", 86400))},
         {"name": "COURTVISION_MAX_DURATION_SECONDS", "value": str(_env_float("MAX_DURATION_SECONDS", 30))},
-        {"name": "COURTVISION_TARGET_FPS", "value": str(_env_float("TARGET_FPS", 15))},
-        {"name": "COURTVISION_MAX_WIDTH", "value": str(_env_int("MAX_WIDTH", 960))},
+        {"name": "COURTVISION_TARGET_FPS", "value": str(_env_float("TARGET_FPS", 30))},
+        {"name": "COURTVISION_MAX_WIDTH", "value": str(_env_int("MAX_WIDTH", 1280))},
     ]
     if job.get("team1Color") and job.get("team2Color"):
         environment.extend(

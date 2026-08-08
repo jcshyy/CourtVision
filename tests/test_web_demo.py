@@ -115,9 +115,29 @@ class WebDemoTests(unittest.TestCase):
         self.assertIn("Ball control estimate", client)
         self.assertIn('role="tablist" aria-label="Replay inspector view"', client)
         self.assertIn('inspectorTab: "court"', client)
+        self.assertIn('id="new-analysis"', client)
+        self.assertIn("Analyze another clip?", client)
+        self.assertIn("No reliable event candidate", client)
+        self.assertIn("No pass or interception transition met the review threshold", client)
+        self.assertIn("The previous result remains stored until its expiry.", client)
+        self.assertIn("targetFps: 30", client)
+        self.assertIn("maxWidth: 1280", client)
         self.assertIn("analysis.court?.mirrorXFrameRanges", client)
         self.assertNotIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
         self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json"', client)
+
+    def test_landing_exposes_honest_private_beta_entry(self):
+        root = Path(__file__).resolve().parents[1]
+        landing = (root / "web" / "index.html").read_text(encoding="utf-8")
+        config = (root / "web" / "config.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="private-beta"', landing)
+        self.assertIn("Upload after approved-email sign-in.", landing)
+        self.assertIn("Open Upload Desk", landing)
+        self.assertIn("Private beta access", landing)
+        self.assertNotIn("Public analyzer not connected yet.", landing)
+        self.assertIn("targetFps: 30", config)
+        self.assertIn("maxWidth: 1280", config)
 
 
 if __name__ == "__main__":

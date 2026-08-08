@@ -51,10 +51,10 @@ Parameters:
     Default: 30
   TargetFps:
     Type: Number
-    Default: 15
+    Default: 30
   MaxWidth:
     Type: Number
-    Default: 960
+    Default: 1280
   ResultRetentionSeconds:
     Type: Number
     Default: 86400

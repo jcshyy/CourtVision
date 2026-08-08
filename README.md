@@ -61,7 +61,7 @@ For longer uploads, use bounded jobs with unique outputs:
 ```powershell
 .\.venv\Scripts\python.exe main.py game.mp4 `
   --start-seconds 60 --duration-seconds 15 `
-  --target-fps 15 --max-width 960 `
+  --target-fps 30 --max-width 1280 `
   --output-video output_videos\game_s60_d15.mp4
 ```
 
@@ -70,7 +70,7 @@ For longer uploads, use bounded jobs with unique outputs:
 ### Private beta web app
 
 The AWS reference stack is in [`deploy/aws`](deploy/aws/README.md). It keeps the
-initial limits (30 seconds, 15 FPS, 960px, 24-hour retention) in configuration,
+initial limits (30 seconds, 30 FPS, 1280px, 24-hour retention) in configuration,
 not application structure, so they can change later without redesigning the
 workflow. It requires two ECR images, a verified SES sender, private model
 weights, and an allowlist entry for each beta user. The stack provisions the

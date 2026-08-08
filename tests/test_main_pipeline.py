@@ -45,6 +45,13 @@ class _BallTracker:
 
 
 class MainPipelineTests(unittest.TestCase):
+    def test_render_keeps_interface_panels_out_of_annotated_video(self):
+        source = (Path(__file__).resolve().parents[1] / "main.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("PassInterceptionDrawer(", source)
+        self.assertNotIn("TeamBallControlDrawer(", source)
+        self.assertNotIn("TacticalViewDrawer(", source)
+
     def test_pose_is_attached_before_ball_candidate_filtering(self):
         tracker = _BallTracker()
         players, ball = filter_ball_tracks_with_pose(
