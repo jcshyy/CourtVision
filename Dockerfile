@@ -9,7 +9,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY backend/requirements.txt /app/backend/requirements.txt
+COPY backend/requirements.txt backend/api-requirements.txt /app/backend/
 ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
 RUN python -m pip install --no-cache-dir \
         --index-url "$PYTORCH_INDEX_URL" \
@@ -20,4 +20,6 @@ COPY . /app
 
 # Model weights are deliberately excluded from the image. Mount the three files
 # into /app/backend/models or provision them in the deployment platform.
-ENTRYPOINT ["python", "main.py"]
+# Keep the default useful for one-off CLI analysis while allowing AWS Batch to
+# replace the command with `python -m backend.app.batch_job`.
+CMD ["python", "main.py"]

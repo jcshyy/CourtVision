@@ -72,6 +72,24 @@ class _Keypoints:
         self.xy = _TensorLike([points])
 
 
+def _sequenced_homography(orientations):
+    orientation_iterator = iter(orientations)
+
+    class _SequencedHomography:
+        def __init__(self, source, target, **kwargs):
+            self.inlier_count = len(source)
+            self.orientation = next(orientation_iterator)
+
+        def transform_points(self, points):
+            if self.orientation == "right":
+                return [_Point([300 - point[0], point[1]]) for point in points]
+            if self.orientation == "outside":
+                return [_Point([point[0] + 400, point[1]]) for point in points]
+            return [_Point(point) for point in points]
+
+    return _SequencedHomography
+
+
 class TacticalViewHomographyTests(unittest.TestCase):
     def setUp(self):
         self.converter = tactical_view.TacticalViewConverter("unused.png")
@@ -176,6 +194,123 @@ class TacticalViewHomographyTests(unittest.TestCase):
                 15,
             )
         )
+
+    def test_transient_court_flip_is_reflected_to_stable_orientation(self):
+        keypoints = self._valid_keypoints(3)
+        player_tracks = self._two_player_tracks(3)
+
+        with patch.object(
+            tactical_view,
+            "Homography",
+            _sequenced_homography(["left", "right", "left"]),
+        ), patch.object(
+            tactical_view,
+            "_homography_is_consistent",
+            return_value=True,
+        ):
+            positions = self.converter.transform_players_to_tactical_view(
+                keypoints,
+                player_tracks,
+            )
+
+        self.assertLess(positions[1][1][0], 100)
+        self.assertEqual(
+            self.converter.last_diagnostics["orientation_correction"],
+            [1],
+        )
+        self.assertEqual(self.converter.last_diagnostics["fallback_used"], [])
+
+    def test_persistent_swapped_orientation_does_not_teleport_players(self):
+        keypoints = self._valid_keypoints(3)
+        player_tracks = self._two_player_tracks(3)
+
+        with patch.object(
+            tactical_view,
+            "Homography",
+            _sequenced_homography(["left", "right", "right"]),
+        ), patch.object(
+            tactical_view,
+            "_homography_is_consistent",
+            return_value=True,
+        ):
+            positions = self.converter.transform_players_to_tactical_view(
+                keypoints,
+                player_tracks,
+            )
+
+        self.assertLess(positions[1][1][0], 100)
+        self.assertLess(positions[2][1][0], 100)
+        self.assertEqual(
+            self.converter.last_diagnostics["orientation_correction"],
+            [1, 2],
+        )
+        self.assertEqual(self.converter.last_diagnostics["fallback_used"], [])
+
+    def test_scene_cut_resets_orientation_guard(self):
+        keypoints = self._valid_keypoints(2)
+        player_tracks = self._two_player_tracks(2)
+
+        with patch.object(
+            tactical_view,
+            "Homography",
+            _sequenced_homography(["left", "right"]),
+        ), patch.object(
+            tactical_view,
+            "_homography_is_consistent",
+            return_value=True,
+        ):
+            positions = self.converter.transform_players_to_tactical_view(
+                keypoints,
+                player_tracks,
+                discontinuity_frames=[1],
+            )
+
+        self.assertGreater(positions[1][1][0], 200)
+        self.assertEqual(
+            self.converter.last_diagnostics["temporal_discontinuity"],
+            [],
+        )
+
+    def test_empty_projection_does_not_break_orientation_continuity(self):
+        keypoints = self._valid_keypoints(3)
+        player_tracks = self._two_player_tracks(3)
+
+        with patch.object(
+            tactical_view,
+            "Homography",
+            _sequenced_homography(["left", "outside", "right"]),
+        ), patch.object(
+            tactical_view,
+            "_homography_is_consistent",
+            return_value=True,
+        ):
+            positions = self.converter.transform_players_to_tactical_view(
+                keypoints,
+                player_tracks,
+            )
+
+        self.assertLess(positions[1][1][0], 100)
+        self.assertLess(positions[2][1][0], 100)
+        self.assertEqual(self.converter.last_diagnostics["empty_projection"], [1])
+        self.assertEqual(self.converter.last_diagnostics["fallback_used"], [1])
+        self.assertEqual(
+            self.converter.last_diagnostics["orientation_correction"],
+            [2],
+        )
+
+    def _valid_keypoints(self, frame_count):
+        valid_points = [[0, 0] for _ in range(18)]
+        for index in (8, 9, 12, 13, 16, 17):
+            valid_points[index] = list(self.converter.key_points[index])
+        return [_Keypoints(valid_points) for _ in range(frame_count)]
+
+    @staticmethod
+    def _two_player_tracks(frame_count):
+        frame = {
+            1: {"bbox": [10, 20, 30, 60]},
+            2: {"bbox": [30, 20, 50, 80]},
+        }
+        return [frame for _ in range(frame_count)]
 
 
 if __name__ == "__main__":

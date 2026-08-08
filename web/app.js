@@ -4,10 +4,11 @@
   const config = Object.assign(
     {
       apiBaseUrl: "/api",
+      localRuntime: false,
       maxDurationSeconds: 30,
       maxUploadBytes: 500 * 1024 * 1024,
-      targetFps: 15,
-      maxWidth: 960,
+      targetFps: 30,
+      maxWidth: 1280,
       resultRetentionHours: 24,
       pollIntervalMs: 4000,
     },
@@ -43,6 +44,7 @@
     downloads: null,
     selectedEventId: null,
     currentTime: 0,
+    inspectorTab: "court",
     pollTimer: null,
     toastTimer: null,
     syncAnimationTimer: null,
@@ -484,7 +486,7 @@
         <dl class="file-facts">
           <dt>Duration</dt><dd>${formatTime(state.selectedFileDuration, true)}</dd>
           <dt>Size</dt><dd>${formatBytes(state.selectedFile.size)}</dd>
-          <dt>Retention</dt><dd>${config.resultRetentionHours} hours</dd>
+          <dt>${config.localRuntime ? "Storage" : "Retention"}</dt><dd>${config.localRuntime ? "This computer" : `${config.resultRetentionHours} hours`}</dd>
         </dl>
         ${
           state.busy
@@ -632,7 +634,11 @@
                   )
                   .join("")}
               </ol>
-              <p class="field-hint">You can close this tab. CourtVision will recover the active session after you return and sign in.</p>
+              <p class="field-hint">${
+                config.localRuntime
+                  ? "You can close this tab while the local server stays running. Reopen this address to recover the active job."
+                  : "You can close this tab. CourtVision will recover the active session after you return and sign in."
+              }</p>
               ${demoMode ? '<button class="button button-primary" id="demo-complete" type="button">Open synthetic review</button>' : ""}
             </aside>
           </div>
@@ -662,7 +668,12 @@
     const activeIndex = status === "queued" ? 1 : stageText.includes("final") ? 3 : status === "complete" ? 4 : 2;
     const definitions = [
       ["Upload received", "The source clip is stored in the private job prefix."],
-      ["Worker queued", "A bounded GPU worker is reserved for this analysis."],
+      [
+        "Worker queued",
+        config.localRuntime
+          ? "One bounded worker runs on this computer; additional jobs wait their turn."
+          : "A bounded GPU worker is reserved for this analysis.",
+      ],
       ["Evidence pass", "Players, ball, teams, events, and court position are evaluated."],
       ["Review render", "The annotated video and machine-readable evidence are finalized."],
       ["Ready", "Download and structured failure reporting become available."],
@@ -856,24 +867,23 @@
                 }
                 ${demoMode && !state.downloads?.playbackUrl ? '<div class="tracking-overlay" aria-hidden="true"><span class="tracking-mark mark-one"></span><span class="tracking-mark mark-two"></span></div>' : ""}
                 <span class="timecode-badge" id="current-timecode">${formatTime(state.currentTime)}</span>
-                ${tacticalDockMarkup(analysis)}
+                <section class="replay-inspector" aria-label="Replay inspector">
+                  <header class="inspector-header">
+                    <div class="inspector-tabs" role="tablist" aria-label="Replay inspector view">
+                      <button class="inspector-tab" id="inspector-court-tab" type="button" role="tab" aria-selected="${state.inspectorTab === "court"}" aria-controls="inspector-court-panel" tabindex="${state.inspectorTab === "court" ? "0" : "-1"}">Tactical court</button>
+                      <button class="inspector-tab" id="inspector-estimates-tab" type="button" role="tab" aria-selected="${state.inspectorTab === "estimates"}" aria-controls="inspector-estimates-panel" tabindex="${state.inspectorTab === "estimates" ? "0" : "-1"}">Estimates</button>
+                    </div>
+                    <span class="inspector-time" id="inspector-time">${formatTime(state.currentTime)}</span>
+                  </header>
+                  ${tacticalDockMarkup(analysis)}
+                  ${summaryDockMarkup(analysis)}
+                </section>
               </div>
-              ${timelineMarkup(events, duration)}
+              ${timelineMarkup(events, duration, selected, analysis.disclaimer)}
               ${evidenceMarkup(selected, analysis)}
             </section>
-            <aside class="rundown-rail" aria-labelledby="rundown-title">
-              <header class="rundown-header">
-                <h2 id="rundown-title"><span>Event rundown</span><span class="timecode">${formatTime(duration, true)}</span></h2>
-                <p>Select a cue to inspect the same moment in the replay and tactical court.</p>
-              </header>
-              ${eventListMarkup(events, selected)}
-              <footer class="rundown-footer">
-                <div class="rundown-legend"><span><i class="legend-shape"></i>Candidate</span><span><i class="legend-shape unknown"></i>Unknown or tentative</span></div>
-                <span>${escapeHtml(analysis.disclaimer || "Experimental beta analysis. Review every result against the source play.")}</span>
-              </footer>
-            </aside>
           </div>
-          ${permanentDemo ? "" : reportDialogMarkup(selected)}
+          ${permanentDemo ? "" : `${newAnalysisDialogMarkup()}${reportDialogMarkup(selected)}`}
           <p class="sr-only" id="sync-announcement" aria-live="polite" aria-atomic="true"></p>
         </main>
         ${toastRegion()}
@@ -902,25 +912,36 @@
       `;
     }
     const expiration = state.job?.expiresAt
-      ? `Deletes ${relativeExpiration(state.job.expiresAt)}`
-      : `${config.resultRetentionHours}-hour retention`;
+      ? `${config.localRuntime ? "Expires" : "Deletes"} ${relativeExpiration(state.job.expiresAt)}`
+      : `${config.resultRetentionHours}-hour ${config.localRuntime ? "local session" : "retention"}`;
     const canDownload = review && state.downloads?.videoUrl;
     return `
       <header class="topbar">
         <div class="brand-lockup">
           <a class="brand" href="./" aria-label="CourtVision home">CourtVision</a>
           <span class="brand-divider" aria-hidden="true"></span>
-          <span class="status-chip">Beta analysis</span>
+          <span class="status-chip">${config.localRuntime ? "Local analysis" : "Beta analysis"}</span>
         </div>
-        <div class="topbar-center">${icon("clock")} <span>${escapeHtml(expiration)}</span></div>
+        <div class="topbar-center">
+          ${icon("clock")}
+          <span class="topbar-status-copy">
+            ${review && state.job?.filename ? `<strong class="topbar-source">${escapeHtml(state.job.filename)} · ${formatTime(state.job.durationSeconds || state.analysis?.source?.durationSeconds || 0)}</strong>` : ""}
+            <span>${escapeHtml(config.localRuntime ? `Stored on this computer · ${expiration}` : expiration)}</span>
+          </span>
+        </div>
         <nav class="topbar-actions" aria-label="Session actions">
+          ${review ? `<button class="button button-secondary new-analysis" id="new-analysis" type="button" aria-label="Analyze another clip">${icon("upload")}<span>Analyze another clip</span></button>` : ""}
           ${
             canDownload
               ? `<a class="button button-primary" href="${escapeHtml(state.downloads.videoUrl)}" download>${icon("download")}<span>Download video</span></a>`
               : ""
           }
           ${review ? `<button class="button button-secondary" id="report-issue" type="button">${icon("flag")}<span>Report issue</span></button>` : ""}
-          <button class="button button-quiet" id="sign-out" type="button">${icon("signout")}<span>Sign out</span></button>
+          ${
+            config.localRuntime
+              ? ""
+              : `<button class="button button-quiet" id="sign-out" type="button">${icon("signout")}<span>Sign out</span></button>`
+          }
         </nav>
       </header>
     `;
@@ -929,14 +950,62 @@
   function tacticalDockMarkup(analysis) {
     const frame = frameAtTime(analysis, state.currentTime);
     return `
-      <section class="tactical-dock" aria-labelledby="court-title">
-        <header class="dock-header"><span id="court-title">Tactical court</span><span id="court-time">${formatTime(state.currentTime)}</span></header>
+      <div class="inspector-panel tactical-dock" id="inspector-court-panel" role="tabpanel" aria-labelledby="inspector-court-tab" ${state.inspectorTab === "court" ? "" : "hidden"}>
         <div class="court-stage" id="court-stage" role="img" aria-label="Player positions on the tactical court at ${formatTime(state.currentTime)}">
           ${courtMarkersMarkup(frame, analysis)}
         </div>
         <ul class="court-legend" aria-label="Tactical court legend"><li><i class="legend-dot one"></i>Display team one</li><li><i class="legend-dot two"></i>Display team two</li><li><i class="legend-dot unknown"></i>Unknown</li></ul>
-      </section>
+      </div>
     `;
+  }
+
+  function summaryDockMarkup(analysis) {
+    const summary = summaryAtTime(analysis, state.currentTime);
+    return `
+      <div class="inspector-panel summary-dock" id="inspector-estimates-panel" role="tabpanel" aria-labelledby="inspector-estimates-tab" ${state.inspectorTab === "estimates" ? "" : "hidden"}>
+        <table class="summary-table">
+          <caption class="sr-only">Cumulative experimental estimates through the current replay time</caption>
+          <thead><tr><th scope="col">Measure</th><th scope="col">Team 1</th><th scope="col">Team 2</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Pass candidates</th><td id="team-1-passes">${summary.passes[1]}</td><td id="team-2-passes">${summary.passes[2]}</td></tr>
+            <tr><th scope="row">Interception candidates</th><td id="team-1-interceptions">${summary.interceptions[1]}</td><td id="team-2-interceptions">${summary.interceptions[2]}</td></tr>
+            <tr><th scope="row">Ball control estimate</th><td id="team-1-control">${summary.control[1]}</td><td id="team-2-control">${summary.control[2]}</td></tr>
+          </tbody>
+        </table>
+        <p class="summary-note" id="summary-note">${escapeHtml(summary.note)}</p>
+      </div>
+    `;
+  }
+
+  function summaryAtTime(analysis, time) {
+    const passes = { 1: 0, 2: 0 };
+    const interceptions = { 1: 0, 2: 0 };
+    (analysis.events || []).forEach((event) => {
+      if (Number(event.timeSeconds) > time || ![1, 2].includes(Number(event.toTeamId))) return;
+      const totals = event.type === "pass" ? passes : event.type === "interception" ? interceptions : null;
+      if (totals) totals[Number(event.toTeamId)] += 1;
+    });
+
+    const possessionFrames = { 1: 0, 2: 0 };
+    (analysis.frames || []).forEach((frame) => {
+      if (Number(frame.timeSeconds) > time) return;
+      const holder = (frame.players || []).find((player) => player.isHolder);
+      const teamId = Number(frame.possessionTeamId ?? holder?.teamId);
+      if ([1, 2].includes(teamId)) possessionFrames[teamId] += 1;
+    });
+    const knownFrames = possessionFrames[1] + possessionFrames[2];
+    const control = {
+      1: knownFrames ? `${Math.round((possessionFrames[1] / knownFrames) * 100)}%` : "—",
+      2: knownFrames ? `${Math.round((possessionFrames[2] / knownFrames) * 100)}%` : "—",
+    };
+    return {
+      passes,
+      interceptions,
+      control,
+      note: knownFrames
+        ? `Based on ${knownFrames} frames with an estimated team holder.`
+        : "No team-level ball control is supported at this moment.",
+    };
   }
 
   function courtMarkersMarkup(frame, analysis) {
@@ -958,7 +1027,7 @@
       .join("");
   }
 
-  function timelineMarkup(events, duration) {
+  function timelineMarkup(events, duration, selected, disclaimer) {
     const playhead = clamp((state.currentTime / duration) * 100, 0, 100);
     return `
       <section class="timeline-console" aria-label="Review timeline">
@@ -972,6 +1041,19 @@
           <input class="timeline-input" id="timeline-input" type="range" min="0" max="${duration}" step="0.05" value="${state.currentTime}" aria-label="Replay position" aria-valuetext="${formatTime(state.currentTime)}" />
           <div class="timeline-labels" aria-hidden="true"><span>00:00</span><span>${formatTime(duration / 2, true)}</span><span>${formatTime(duration, true)}</span></div>
         </div>
+        <section class="timeline-dock" aria-labelledby="timeline-dock-title">
+          <header class="timeline-dock-header">
+            <div class="timeline-dock-title">
+              <h2 id="timeline-dock-title">Event cues</h2>
+              <span>${events.length} ${events.length === 1 ? "cue" : "cues"}</span>
+            </div>
+            <div class="timeline-dock-meta">
+              ${events.length ? '<div class="timeline-legend" aria-label="Cue states"><span><i class="legend-shape"></i>Candidate</span><span><i class="legend-shape unknown"></i>Unknown</span></div>' : ""}
+              <span class="timeline-disclaimer">${escapeHtml(disclaimer || "Experimental beta analysis. Review every result against the source play.")}</span>
+            </div>
+          </header>
+          ${eventListMarkup(events, selected)}
+        </section>
       </section>
     `;
   }
@@ -987,11 +1069,16 @@
   }
 
   function evidenceContentMarkup(event, unavailable) {
+    const tacticalState = unavailable
+      ? `Estimated court positions are unavailable for ${unavailable} replay ${unavailable === 1 ? "frame" : "frames"}`
+      : event
+        ? "Estimated court positions are available at this cue"
+        : "Estimated court positions remain available along the replay timeline";
     return `
-      <div><strong>Selected cue</strong><span>${event ? `${escapeHtml(eventLabel(event))} at ${formatTime(event.timeSeconds)}` : "No candidate event at this moment"}</span></div>
-      <div><strong>Review state</strong><span>${event?.status === "unknown" ? "Unknown—insufficient evidence" : "Candidate—requires video review"}</span></div>
-      <div><strong>Evidence state</strong><span>Qualitative candidate or unknown state; requires video review</span></div>
-      <div><strong>Tactical availability</strong><span>${unavailable ? `${unavailable} diagnostic frame references are present` : "No tactical fallback is reported at this cue"}</span></div>
+      <div><strong>Selected cue</strong><span>${event ? `${escapeHtml(eventLabel(event))} at ${formatTime(event.timeSeconds)}` : "No cue selected"}</span></div>
+      <div><strong>Review state</strong><span>${event ? (event.status === "unknown" ? "Unknown—insufficient evidence" : "Candidate—requires video review") : "No reliable event candidate"}</span></div>
+      <div><strong>Evidence state</strong><span>${event ? "Qualitative candidate or unknown state; requires video review" : "No pass or interception transition met the review threshold"}</span></div>
+      <div><strong>Tactical availability</strong><span>${escapeHtml(tacticalState)}</span></div>
     `;
   }
 
@@ -1000,7 +1087,7 @@
       return '<div class="empty-rundown"><div><h3>No reliable events</h3><p>CourtVision kept the event list empty rather than inventing a transition.</p></div></div>';
     }
     return `
-      <ol class="event-list">
+      <ol class="event-list" aria-label="Detected event cues">
         ${events
           .map(
             (event) => `
@@ -1038,6 +1125,21 @@
     `;
   }
 
+  function newAnalysisDialogMarkup() {
+    return `
+      <dialog id="new-analysis-dialog" aria-labelledby="new-analysis-title">
+        <form method="dialog">
+          <header class="dialog-header">
+            <div><h2 id="new-analysis-title">Analyze another clip?</h2><p class="field-hint">This result stays stored until its expiry, but CourtVision will stop opening it automatically in this browser.</p></div>
+            <button class="button button-quiet" id="close-new-analysis" type="button" aria-label="Close new analysis dialog">${icon("close")}</button>
+          </header>
+          <div class="dialog-body"><p>Download this video first if you want an easy copy. Continuing returns to the local upload desk.</p></div>
+          <footer class="dialog-footer"><button class="button button-secondary" id="cancel-new-analysis" type="button">Keep reviewing</button><button class="button button-primary" id="confirm-new-analysis" type="button">Continue to upload</button></footer>
+        </form>
+      </dialog>
+    `;
+  }
+
   function bindReviewActions(duration) {
     const video = app.querySelector("#result-video");
     const timeline = app.querySelector("#timeline-input");
@@ -1061,8 +1163,27 @@
     app.querySelectorAll("[data-event-id]").forEach((button) => {
       button.addEventListener("click", () => selectEvent(button.dataset.eventId, video));
     });
+    const inspectorTabs = Array.from(app.querySelectorAll(".inspector-tab"));
+    inspectorTabs.forEach((button, index) => {
+      button.addEventListener("click", () => selectInspectorTab(button.id.includes("estimates") ? "estimates" : "court"));
+      button.addEventListener("keydown", (event) => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? inspectorTabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + inspectorTabs.length) % inspectorTabs.length;
+        const next = inspectorTabs[nextIndex];
+        selectInspectorTab(next.id.includes("estimates") ? "estimates" : "court", true);
+      });
+    });
     const reportButton = app.querySelector("#report-issue");
     const dialog = app.querySelector("#report-dialog");
+    const newAnalysisButton = app.querySelector("#new-analysis");
+    const newAnalysisDialog = app.querySelector("#new-analysis-dialog");
+    if (newAnalysisButton && newAnalysisDialog) {
+      newAnalysisButton.addEventListener("click", () => newAnalysisDialog.showModal());
+      app.querySelector("#close-new-analysis").addEventListener("click", () => newAnalysisDialog.close());
+      app.querySelector("#cancel-new-analysis").addEventListener("click", () => newAnalysisDialog.close());
+      app.querySelector("#confirm-new-analysis").addEventListener("click", resetJob);
+    }
     if (reportButton && dialog) {
       reportButton.addEventListener("click", () => {
         const timeInput = app.querySelector("#report-time");
@@ -1074,6 +1195,25 @@
       app.querySelector("#cancel-report").addEventListener("click", () => dialog.close());
       app.querySelector("#report-form").addEventListener("submit", submitReport);
     }
+  }
+
+  function selectInspectorTab(tabName, focus = false) {
+    state.inspectorTab = tabName === "estimates" ? "estimates" : "court";
+    const tabs = {
+      court: app.querySelector("#inspector-court-tab"),
+      estimates: app.querySelector("#inspector-estimates-tab"),
+    };
+    const panels = {
+      court: app.querySelector("#inspector-court-panel"),
+      estimates: app.querySelector("#inspector-estimates-panel"),
+    };
+    Object.keys(tabs).forEach((name) => {
+      const selected = name === state.inspectorTab;
+      tabs[name]?.setAttribute("aria-selected", String(selected));
+      tabs[name]?.setAttribute("tabindex", selected ? "0" : "-1");
+      if (panels[name]) panels[name].hidden = !selected;
+    });
+    if (focus) tabs[state.inspectorTab]?.focus();
   }
 
   function selectEvent(eventId, video) {
@@ -1159,7 +1299,7 @@
           : `Tactical positions unavailable at ${formatTime(state.currentTime)}`,
       );
     }
-    const time = app.querySelector("#court-time");
+    const time = app.querySelector("#inspector-time");
     const badge = app.querySelector("#current-timecode");
     const playhead = app.querySelector("#timeline-playhead");
     const input = app.querySelector("#timeline-input");
@@ -1168,6 +1308,24 @@
     if (playhead) playhead.style.left = `${clamp((state.currentTime / duration) * 100, 0, 100)}%`;
     if (input && document.activeElement !== input) input.value = state.currentTime;
     if (input) input.setAttribute("aria-valuetext", formatTime(state.currentTime));
+    updateSummaryDock(analysis);
+  }
+
+  function updateSummaryDock(analysis) {
+    const summary = summaryAtTime(analysis, state.currentTime);
+    const values = {
+      "team-1-passes": summary.passes[1],
+      "team-2-passes": summary.passes[2],
+      "team-1-interceptions": summary.interceptions[1],
+      "team-2-interceptions": summary.interceptions[2],
+      "team-1-control": summary.control[1],
+      "team-2-control": summary.control[2],
+      "summary-note": summary.note,
+    };
+    Object.entries(values).forEach(([id, value]) => {
+      const element = app.querySelector(`#${id}`);
+      if (element) element.textContent = value;
+    });
   }
 
   async function submitReport(event) {
@@ -1224,7 +1382,11 @@
     state.analysis = null;
     state.downloads = null;
     state.selectedFile = null;
-    state.message = null;
+    state.selectedFileDuration = 0;
+    state.selectedEventId = null;
+    state.currentTime = 0;
+    state.inspectorTab = "court";
+    state.message = { type: "success", text: "Ready for another clip. The previous result remains stored until its expiry." };
     state.view = "upload";
     render();
   }

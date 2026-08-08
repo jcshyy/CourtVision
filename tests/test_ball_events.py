@@ -1,5 +1,7 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, call, patch
+
+import numpy as np
 
 from backend.app.analytics.ball_acquisition import BallAcquisitionDetector
 from backend.app.analytics.ball_holder_state import BallHolderStateModel
@@ -8,12 +10,171 @@ from backend.app.analytics.pass_interception import (
     events_from_arrays,
 )
 from backend.app.tracking.ball_tracker import (
+    BALL_DETECTION_BATCH_SIZE,
+    BALL_DETECTION_IMAGE_SIZE,
+    BALL_TRACKING_CACHE_VERSION,
     BallTracker,
+    _adaptive_crop_requests,
+    _merge_ball_candidates,
     _prune_sustained_body_locked_candidates,
     _reject_uncertain_observations,
     _select_ball_detection,
     _select_ball_track,
 )
+
+
+class BallDetectorConfigurationTests(unittest.TestCase):
+    @patch("backend.app.tracking.ball_tracker.YOLO")
+    def test_ball_detection_uses_default_resolution_and_batch_size(self, yolo):
+        model = MagicMock()
+        model.predict.side_effect = [["a", "b", "c", "d"], ["e"]]
+        yolo.return_value = model
+        frames = [object() for _ in range(BALL_DETECTION_BATCH_SIZE + 1)]
+
+        detections = BallTracker().detect_frames(frames)
+
+        self.assertEqual(detections, ["a", "b", "c", "d", "e"])
+        self.assertEqual(BALL_DETECTION_IMAGE_SIZE, 640)
+        self.assertEqual(BALL_TRACKING_CACHE_VERSION, "v6_adaptive_roi_full_pass")
+        self.assertEqual(
+            model.predict.call_args_list,
+            [
+                call(
+                    frames[:BALL_DETECTION_BATCH_SIZE],
+                    conf=0.25,
+                    imgsz=640,
+                    verbose=False,
+                ),
+                call(
+                    frames[BALL_DETECTION_BATCH_SIZE:],
+                    conf=0.25,
+                    imgsz=640,
+                    verbose=False,
+                ),
+            ],
+        )
+
+    def test_adaptive_crops_cover_prediction_hands_and_rim_on_uncertain_frame(self):
+        frames = [np.zeros((640, 640, 3), dtype=np.uint8) for _ in range(2)]
+        ball_tracks = [
+            {1: {"bbox": [95, 95, 105, 105], "confidence": 0.8}},
+            {1: {
+                "bbox": [105, 95, 115, 105],
+                "confidence": 0.3,
+                "rim_regions": [{"bbox": [500, 100, 530, 120], "confidence": 0.9}],
+            }},
+        ]
+        points = [[1, 1] for _ in range(17)]
+        points[9], points[10] = [300, 400], [380, 400]
+        players = [{}, {7: {
+            "bbox": [260, 250, 420, 580],
+            "pose": {
+                "keypoints_xy": points,
+                "keypoint_confidences": [0.9] * 17,
+            },
+        }}]
+
+        requests = _adaptive_crop_requests(frames, ball_tracks, players)
+
+        self.assertEqual({request["frame_index"] for request in requests}, {1})
+        self.assertEqual(
+            {request["source"] for request in requests},
+            {"adaptive_predicted", "adaptive_player_hand", "adaptive_rim"},
+        )
+        self.assertLessEqual(len(requests), 4)
+
+    def test_candidate_merge_keeps_best_duplicate_and_distinct_roi_candidate(self):
+        merged = _merge_ball_candidates(
+            [{
+                "bbox": [100, 100, 110, 110],
+                "confidence": 0.4,
+                "detection_source": "full_frame",
+            }],
+            [
+                {
+                    "bbox": [99, 99, 111, 111],
+                    "confidence": 0.8,
+                    "detection_source": "adaptive_predicted",
+                },
+                {
+                    "bbox": [300, 300, 310, 310],
+                    "confidence": 0.6,
+                    "detection_source": "adaptive_rim",
+                },
+            ],
+        )
+
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0]["detection_source"], "adaptive_predicted")
+        self.assertEqual(merged[1]["detection_source"], "adaptive_rim")
+
+    @patch("backend.app.tracking.ball_tracker._adaptive_crop_requests")
+    @patch("backend.app.tracking.ball_tracker._named_detections")
+    @patch("backend.app.tracking.ball_tracker.YOLO")
+    def test_adaptive_pass_maps_crop_detection_back_to_frame(
+        self,
+        yolo,
+        named_detections,
+        crop_requests,
+    ):
+        frame = np.zeros((640, 640, 3), dtype=np.uint8)
+        crop_requests.return_value = [{
+            "frame_index": 0,
+            "bbox": [100, 200, 300, 400],
+            "source": "adaptive_player_hand",
+        }]
+        named_detections.return_value = [{
+            "bbox": [10, 20, 20, 30],
+            "confidence": 0.8,
+        }]
+        yolo.return_value.predict.return_value = [object()]
+        tracker = BallTracker()
+
+        enhanced = tracker.enhance_tracks_with_adaptive_crops(
+            [frame],
+            [{1: {"raw_candidates": [], "rim_regions": []}}],
+            [{}],
+        )
+
+        candidates = enhanced[0][1]["raw_candidates"]
+        self.assertEqual(candidates[0]["bbox"], [110, 220, 120, 230])
+        self.assertEqual(candidates[0]["detection_source"], "adaptive_player_hand")
+        self.assertEqual(enhanced[0][1]["adaptive_crop_count"], 1)
+        predict_call = yolo.return_value.predict.call_args
+        self.assertEqual(predict_call.kwargs["conf"], 0.50)
+        self.assertEqual(predict_call.kwargs["imgsz"], 640)
+
+    @patch("backend.app.tracking.ball_tracker._adaptive_crop_requests")
+    @patch("backend.app.tracking.ball_tracker._named_detections")
+    @patch("backend.app.tracking.ball_tracker.YOLO")
+    def test_adaptive_pass_rejects_detection_far_from_roi_anchor(
+        self,
+        yolo,
+        named_detections,
+        crop_requests,
+    ):
+        frame = np.zeros((640, 640, 3), dtype=np.uint8)
+        crop_requests.return_value = [{
+            "frame_index": 0,
+            "bbox": [100, 200, 300, 400],
+            "source": "adaptive_player_hand",
+            "support_center": [250, 350],
+            "support_radius": 20,
+        }]
+        named_detections.return_value = [{
+            "bbox": [10, 20, 20, 30],
+            "confidence": 0.9,
+        }]
+        yolo.return_value.predict.return_value = [object()]
+
+        enhanced = BallTracker().enhance_tracks_with_adaptive_crops(
+            [frame],
+            [{1: {"raw_candidates": [], "rim_regions": []}}],
+            [{}],
+        )
+
+        self.assertEqual(enhanced[0][1]["raw_candidates"], [])
+        self.assertEqual(enhanced[0][1]["adaptive_candidates_added"], 0)
 
 
 class BallAcquisitionTests(unittest.TestCase):

@@ -1,9 +1,14 @@
 # CourtVision
 
 CourtVision is an offline basketball-video analysis pipeline. It detects and
-tracks players and the ball, assigns teams from jersey evidence, estimates
-possession and holder-change events, maps players to a tactical court, and
-renders an annotated video.
+tracks players and the ball, estimates teams and possession, maps player
+positions to a tactical court, identifies timecoded pass and interception
+candidates, and renders an annotated video.
+
+The repository also includes the private-beta web application: passwordless
+email access for known users, direct temporary uploads, managed batch jobs, and
+an evidence-first review room built around annotated video, tactical court
+context, and an event rundown.
 
 ## Current product status
 
@@ -56,17 +61,60 @@ For longer uploads, use bounded jobs with unique outputs:
 ```powershell
 .\.venv\Scripts\python.exe main.py game.mp4 `
   --start-seconds 60 --duration-seconds 15 `
-  --target-fps 15 --max-width 960 `
+  --target-fps 30 --max-width 1280 `
   --output-video output_videos\game_s60_d15.mp4
 ```
 
 ## Deployment
 
-The included container is a batch-worker image. Model weights are excluded and
-must be mounted at `/app/backend/models`. Mount separate input, output, and cache
-volumes for each worker. Do not expose `main.py` directly as a multi-user web
-service: job queuing, authentication, upload scanning, retention, and resource
-isolation belong in the hosting layer.
+### Private beta web app
+
+The AWS reference stack is in [`deploy/aws`](deploy/aws/README.md). It keeps the
+initial limits (30 seconds, 30 FPS, 1280px, 24-hour retention) in configuration,
+not application structure, so they can change later without redesigning the
+workflow. It requires two ECR images, a verified SES sender, private model
+weights, and an allowlist entry for each beta user. The stack provisions the
+AWS Batch queue and managed GPU EC2 environment, runs the Flask control plane
+on Fargate, and scales worker capacity to zero when idle.
+
+To inspect the UI locally without AWS credentials:
+
+```powershell
+python -m http.server 8765 -d web
+```
+
+Open `http://127.0.0.1:8765/` for the landing page or
+`http://127.0.0.1:8765/demo.html` for the permanent preprocessed sample analysis.
+The real authenticated client lives at `app.html`; local-only state inspection
+is available with `app.html?demo=signin`, `upload`, `processing`, `colors`,
+`error`, or `review`. Those local-only interface states use synthetic fixtures;
+authenticated review sessions use artifacts generated from the uploaded clip.
+
+### Local upload-to-review demo
+
+Run the real pipeline behind the browser workflow without AWS:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\check_runtime.py --check-models
+.\.venv\Scripts\python.exe -m backend.app.local_demo
+```
+
+This opens `http://127.0.0.1:8080/`, stores jobs under `runs/local_demo`, and
+processes one upload at a time with the local models. See the
+[local demo guide](deploy/local/README.md) for storage, timeout, and CPU/GPU
+behavior.
+
+The API contract also has a Flask control-plane adapter. It preserves the
+Lambda routes while keeping uploads in S3 and inference in AWS Batch; see
+[`deploy/flask`](deploy/flask/README.md) for local and container verification.
+
+### Batch worker
+
+The included container is a batch-worker image. Model weights are excluded; the
+AWS Batch entrypoint downloads them from the stack's private model bucket, while
+non-AWS runtimes can still mount them at `/app/backend/models`. Do not expose
+`main.py` directly as a multi-user web service: job queuing, authentication,
+upload scanning, retention, and resource isolation belong in the hosting layer.
 
 The in-memory decoder rejects selections estimated above 2 GiB. Production
 jobs should still enforce platform-level limits for upload size, duration,

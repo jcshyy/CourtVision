@@ -2,7 +2,7 @@
 
 This deployment runs CourtVision as a single-job batch worker. It is not a
 public upload API. The defaults accept at most 30 seconds per invocation,
-analyze at 15 FPS and 960-pixel width, cap the container at 14 GiB/4 vCPUs,
+analyze at 30 FPS and 1280-pixel width, cap the container at 14 GiB/4 vCPUs,
 and kill a job after 90 minutes.
 
 ## Recommended starting instance
@@ -70,7 +70,7 @@ succeeds, fails, or hits the 90-minute timeout. Run once with
 Override limits only deliberately:
 
 ```bash
-sudo -E MAX_DURATION_SECONDS=30 TARGET_FPS=15 MAX_WIDTH=960 \
+sudo -E MAX_DURATION_SECONDS=30 TARGET_FPS=30 MAX_WIDTH=1280 \
   MAX_JOB_MINUTES=90 SHUTDOWN_AFTER_JOB=1 \
   deploy/ec2/run-job.sh clip.mp4
 ```
