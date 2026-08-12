@@ -20,7 +20,7 @@ both adapters use the same tested request handler.
 - The Batch entrypoint runs the bounded pipeline, uploads the annotated video
   and analysis manifest, and updates the job state.
 - Worker capacity has `MinvCpus=0`, so EC2 scales down when the queue is idle.
-  Each new worker downloads the four private detector weights from the retained,
+  Each new worker downloads the five private detector weights from the retained,
   versioned model bucket before inference.
 - S3 objects and job records expire after 24 hours by default. Structured
   failure reports default to 90 days and never retain the source video.
@@ -62,6 +62,7 @@ private `ModelBucketName`; upload these exact keys after the first deploy:
 models/player_detector.pt
 models/yolo11n-pose.pt
 models/ball_detector_model.pt
+models/wasb_basketball_torchscript.pt
 models/court_keypoint_detector.pt
 ```
 
@@ -70,13 +71,17 @@ models/court_keypoint_detector.pt
 From the repository root:
 
 ```powershell
-sam build --template-file deploy/aws/template.yaml
+sam build `
+  --template-file deploy/aws/template.yaml `
+  --build-dir "$env:TEMP\courtvision-sam-build"
 sam deploy --guided `
+  --template-file "$env:TEMP\courtvision-sam-build\template.yaml" `
   --parameter-overrides `
     SesFromEmail=beta@example.com `
     ApiRuntime=Flask `
     ApiImageUri=ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-api:COMMIT `
     WorkerImageUri=ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-worker:COMMIT `
+    BallDetectorBackend=hybrid `
     VpcId=vpc-0123456789abcdef0 `
     PublicSubnetIds=subnet-aaa,subnet-bbb `
     WorkerSubnetIds=subnet-aaa,subnet-bbb `
@@ -100,6 +105,7 @@ weights to the `ModelBucketName` output:
 aws s3 cp backend/models/player_detector.pt "s3://MODEL_BUCKET/models/player_detector.pt"
 aws s3 cp backend/models/yolo11n-pose.pt "s3://MODEL_BUCKET/models/yolo11n-pose.pt"
 aws s3 cp backend/models/ball_detector_model.pt "s3://MODEL_BUCKET/models/ball_detector_model.pt"
+aws s3 cp backend/models/wasb_basketball_torchscript.pt "s3://MODEL_BUCKET/models/wasb_basketball_torchscript.pt"
 aws s3 cp backend/models/court_keypoint_detector.pt "s3://MODEL_BUCKET/models/court_keypoint_detector.pt"
 ```
 
@@ -128,6 +134,7 @@ aws dynamodb put-item `
 ## Configurable limits
 
 `MaxUploadBytes`, `MaxDurationSeconds`, `TargetFps`, `MaxWidth`,
+`BallDetectorBackend`,
 `ResultRetentionSeconds`, `ArtifactRetentionDays`, and `ReportRetentionSeconds`
 are stack parameters. Changing them does not require a UI redesign. Keep the
 whole-day S3 lifecycle backstop aligned with the result-retention policy.
@@ -145,12 +152,3 @@ whole-day S3 lifecycle backstop aligned with the result-retention policy.
 - Confirm CloudWatch alarms for ECS task health, ALB 5xx responses, Batch
   failures, queue age, and unexpected GPU runtime.
 - Recheck the AWS Pricing Calculator and budget alarms before raising capacity.
-
-## Resume claim boundary
-
-After an actual end-to-end AWS run succeeds, the implementation supports the
-claim that the Flask backend submits video jobs to distributed inference
-workers on AWS EC2 through AWS Batch. FashionCLIP remains an optional text-label
-team-assignment path in `TeamAssigner`; the default web flow uses automatic or
-user-supplied jersey colors, so do not describe FashionCLIP as the default
-production classifier.

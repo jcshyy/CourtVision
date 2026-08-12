@@ -17,10 +17,6 @@ from backend.app.detection import (
 )
 from backend.app.team_assignment import NeedsTeamColorsError, TeamAssigner
 from backend.app.tracking import BallTracker, PlayerTracker
-from backend.app.tracking.ball_tracker import (
-    BALL_ADAPTIVE_CACHE_VERSION,
-    BALL_TRACKING_CACHE_VERSION,
-)
 from backend.app.tracking.player_tracker import PLAYER_TRACKING_ALGORITHM_VERSION
 from backend.app.utils import (
     detect_scene_discontinuities,
@@ -32,14 +28,32 @@ from backend.app.visualization import (
     BallTracksDrawer,
     CourtKeypointDrawer,
     FrameNumberDrawer,
+    PassInterceptionDrawer,
     PlayerTracksDrawer,
     SpeedAndDistanceDrawer,
+    TeamBallControlDrawer,
 )
 
 TEAM_DISPLAY_COLORS = {
     1: (255, 80, 0),   # Bright blue in OpenCV BGR order.
     2: (0, 215, 255),  # Bright yellow in OpenCV BGR order.
 }
+
+
+def events_to_overlay_arrays(events, frame_count):
+    """Convert validated transition events into the legacy per-frame drawer shape."""
+    passes = [-1] * frame_count
+    interceptions = [-1] * frame_count
+    for event in events:
+        frame_index = int(event.get("frame_index", -1))
+        team_id = event.get("to_team_id")
+        if not 0 <= frame_index < frame_count or team_id not in (1, 2):
+            continue
+        if event.get("type") == "pass":
+            passes[frame_index] = team_id
+        elif event.get("type") == "interception":
+            interceptions[frame_index] = team_id
+    return passes, interceptions
 
 
 def parse_args():
@@ -77,10 +91,24 @@ def parse_args():
         default=None,
         help="Team 2 primary jersey color in #RRGGBB format.",
     )
+    parser.add_argument(
+        "--allow-uncertain-teams",
+        action="store_true",
+        help=(
+            "Continue when team assignment is uncertain, leaving unresolved players "
+            "unknown. Team-level event totals may be inaccurate."
+        ),
+    )
     parser.add_argument("--start-seconds", type=float, default=0.0)
     parser.add_argument("--duration-seconds", type=float, default=None)
     parser.add_argument("--target-fps", type=float, default=None)
     parser.add_argument("--max-width", type=int, default=None)
+    parser.add_argument(
+        "--ball-detector-backend",
+        choices=("yolo", "wasb", "hybrid"),
+        default="yolo",
+        help="Ball candidate source. The production default remains yolo.",
+    )
     args = parser.parse_args()
     if (args.team_1_color is None) != (args.team_2_color is None):
         parser.error("--team-1-color and --team-2-color must be provided together")
@@ -232,6 +260,7 @@ def filter_ball_tracks_with_pose(
     pose_cache_path=None,
     adaptive_cache_path=None,
     discontinuity_frames=None,
+    include_semantic_track=False,
 ):
     """Attach pose evidence before selecting and interpolating the ball path."""
     player_poses = player_pose_detector.get_player_poses(
@@ -256,13 +285,22 @@ def filter_ball_tracks_with_pose(
         player_tracks=enriched_player_tracks,
         discontinuity_frames=discontinuity_frames,
     )
-    return (
-        enriched_player_tracks,
-        ball_tracker.interpolate_positions(
-            filtered_ball_tracks,
-            discontinuity_frames=discontinuity_frames,
-        ),
+    ball_tracks = ball_tracker.interpolate_positions(
+        filtered_ball_tracks,
+        discontinuity_frames=discontinuity_frames,
     )
+    if not include_semantic_track:
+        return enriched_player_tracks, ball_tracks
+    if getattr(ball_tracker, "detector_backend", "yolo") == "hybrid":
+        semantic_ball_tracks = ball_tracker.build_semantic_tracks(
+            raw_ball_tracks,
+            enriched_player_tracks,
+            fused_tracks=ball_tracks,
+            discontinuity_frames=discontinuity_frames,
+        )
+    else:
+        semantic_ball_tracks = ball_tracks
+    return enriched_player_tracks, ball_tracks, semantic_ball_tracks
 
 
 def main():
@@ -274,6 +312,7 @@ def main():
             team_1_color=args.team_1_color,
             team_2_color=args.team_2_color,
             tracking_algorithm_version=PLAYER_TRACKING_ALGORITHM_VERSION,
+            allow_uncertain_teams=args.allow_uncertain_teams,
         )
     except ValueError as error:
         raise SystemExit(f"Invalid team-color configuration: {error}") from error
@@ -311,7 +350,7 @@ def main():
 
     player_tracker = PlayerTracker()
     player_pose_detector = PlayerPoseDetector()
-    ball_tracker = BallTracker()
+    ball_tracker = BallTracker(detector_backend=args.ball_detector_backend)
     court_keypoint_detector = CourtKeypointDetector()
 
     player_tracks = player_tracker.get_object_tracks(
@@ -323,7 +362,7 @@ def main():
         video_frames,
         read_from_cache=True,
         cache_path=cache_path(
-            cache_dir, f"ball_track_stubs_{BALL_TRACKING_CACHE_VERSION}.pkl"
+            cache_dir, f"ball_track_stubs_{ball_tracker.cache_version}.pkl"
         ),
         player_tracks=player_tracks,
     )
@@ -333,7 +372,7 @@ def main():
         cache_path=cache_path(cache_dir, "court_key_points_stub.pkl"),
     )
 
-    player_tracks, ball_tracks = filter_ball_tracks_with_pose(
+    player_tracks, ball_tracks, semantic_ball_tracks = filter_ball_tracks_with_pose(
         video_frames,
         player_tracks,
         raw_ball_tracks,
@@ -345,9 +384,10 @@ def main():
         ),
         adaptive_cache_path=cache_path(
             cache_dir,
-            f"ball_adaptive_stubs_{BALL_ADAPTIVE_CACHE_VERSION}.pkl",
+            f"ball_adaptive_stubs_{ball_tracker.adaptive_cache_version}.pkl",
         ),
         discontinuity_frames=scene_discontinuity_frames,
+        include_semantic_track=True,
     )
 
     try:
@@ -372,7 +412,7 @@ def main():
     ball_acquisition_detector = BallAcquisitionDetector(fps=output_fps)
     holder_states = ball_acquisition_detector.detect_holder_states(
         player_tracks,
-        ball_tracks,
+        semantic_ball_tracks,
     )
     ball_acquisition = [
         state["holder_id"] if state["holder_id"] is not None else -1
@@ -394,7 +434,7 @@ def main():
         ball_acquisition,
         player_assignment,
         holder_states=holder_states,
-        ball_tracks=ball_tracks,
+        ball_tracks=semantic_ball_tracks,
         player_tracks=player_tracks,
         discontinuity_frames=scene_discontinuity_frames,
     )
@@ -464,6 +504,14 @@ def main():
     court_keypoint_drawer = CourtKeypointDrawer()
     frame_number_drawer = FrameNumberDrawer()
     speed_and_distance_drawer = SpeedAndDistanceDrawer()
+    pass_interception_drawer = PassInterceptionDrawer(
+        event_display_frames=round(output_fps * 1.5),
+        team_colors=TEAM_DISPLAY_COLORS,
+    )
+    team_ball_control_drawer = TeamBallControlDrawer(
+        team_colors=TEAM_DISPLAY_COLORS,
+    )
+    passes, interceptions = events_to_overlay_arrays(events, len(video_frames))
 
     output_video_frames = player_tracks_drawer.draw(
         video_frames,
@@ -483,6 +531,16 @@ def main():
         player_tracks,
         player_distances_per_frame,
         player_speed_per_frame,
+    )
+    output_video_frames = pass_interception_drawer.draw(
+        output_video_frames,
+        passes,
+        interceptions,
+    )
+    output_video_frames = team_ball_control_drawer.draw(
+        output_video_frames,
+        player_assignment,
+        ball_acquisition,
     )
     save_video(output_video_frames, output_path, fps=output_fps)
     print(f"Saved annotated video to {output_path}")

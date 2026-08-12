@@ -14,6 +14,7 @@ class PassInterceptionDetector:
         minimum_catch_frames=3,
         catch_confirmation_frames=30,
         reject_preexisting_competing_takeovers=True,
+        minimum_interception_player_separation=0.75,
     ):
         self.max_holder_gap_frames = max_holder_gap_frames
         self.team_lookup_frames = max(1, int(team_lookup_frames))
@@ -31,6 +32,10 @@ class PassInterceptionDetector:
         )
         self.reject_preexisting_competing_takeovers = bool(
             reject_preexisting_competing_takeovers
+        )
+        self.minimum_interception_player_separation = max(
+            0.0,
+            float(minimum_interception_player_separation),
         )
 
     def clean_transient_control_chains(
@@ -260,6 +265,22 @@ class PassInterceptionDetector:
         discontinuity_frames=None,
     ):
         """Interpret stable holder transitions as passes or interceptions."""
+        if holder_states is not None:
+            # Retrospective possession recovery is useful for an offline
+            # possession timeline, but it is hindsight rather than causal
+            # release/catch evidence. Never let it create an event boundary.
+            ball_acquisition = [
+                -1
+                if (
+                    frame < len(holder_states)
+                    and holder_states[frame].get("reason") in {
+                        "retrospective_holder_confirmation",
+                        "same_holder_gap_bridged",
+                    }
+                )
+                else holder_id
+                for frame, holder_id in enumerate(ball_acquisition)
+            ]
         events = []
         previous_holder = -1
         previous_frame = -1
@@ -346,6 +367,15 @@ class PassInterceptionDetector:
                     frame,
                 )
                 and self._catch_evidence_is_valid(holder_states, catch_frame)
+                and not _is_close_range_contested_turnover(
+                    player_tracks,
+                    previous_holder,
+                    current_holder,
+                    previous_frame,
+                    catch_frame,
+                    self.minimum_interception_player_separation,
+                    self.minimum_catch_frames,
+                )
             ):
                 event_type = "interception"
             if event_type is None:
@@ -593,6 +623,59 @@ def _relative_bbox_center(ball_bbox, player_bbox):
         (center_x - float(player_bbox[0])) / width,
         (center_y - float(player_bbox[1])) / height,
     )
+
+
+def _is_close_range_contested_turnover(
+    player_tracks,
+    source_holder,
+    receiver_id,
+    release_frame,
+    catch_frame,
+    minimum_separation,
+    minimum_loose_frames,
+):
+    """Separate strips/contested recoveries from pass interceptions.
+
+    An interception implies that the defender took a pass. When the source
+    and new holder occupy the same small interaction area, the observable
+    event is instead a steal, strip, or contested recovery. The current event
+    schema has no safe subtype for those, so suppress the incorrect label.
+    """
+    if (
+        player_tracks is None
+        or minimum_separation <= 0
+        or catch_frame - release_frame - 1 < minimum_loose_frames
+    ):
+        return False
+    if not (
+        0 <= release_frame < len(player_tracks)
+        and 0 <= catch_frame < len(player_tracks)
+    ):
+        return False
+    source_bbox = _nearby_player_bbox(
+        player_tracks,
+        source_holder,
+        release_frame,
+    )
+    receiver_bbox = _nearby_player_bbox(
+        player_tracks,
+        receiver_id,
+        catch_frame,
+    )
+    if source_bbox is None or receiver_bbox is None:
+        return False
+    source_height = float(source_bbox[3]) - float(source_bbox[1])
+    receiver_height = float(receiver_bbox[3]) - float(receiver_bbox[1])
+    scale = (source_height + receiver_height) / 2.0
+    if scale <= 0:
+        return False
+    source_center = _bbox_center(source_bbox)
+    receiver_center = _bbox_center(receiver_bbox)
+    separation = (
+        (receiver_center[0] - source_center[0]) ** 2
+        + (receiver_center[1] - source_center[1]) ** 2
+    ) ** 0.5 / scale
+    return separation < minimum_separation
 
 
 def _is_rising_flythrough(

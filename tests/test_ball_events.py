@@ -108,6 +108,172 @@ class BallDetectorConfigurationTests(unittest.TestCase):
         self.assertEqual(merged[0]["detection_source"], "adaptive_predicted")
         self.assertEqual(merged[1]["detection_source"], "adaptive_rim")
 
+    @patch.object(BallTracker, "interpolate_positions")
+    @patch.object(BallTracker, "remove_wrong_detections")
+    def test_semantic_track_excludes_wasb_candidates(
+        self,
+        remove_wrong_detections,
+        interpolate_positions,
+    ):
+        remove_wrong_detections.side_effect = lambda _, tracks, **kwargs: tracks
+        interpolate_positions.side_effect = lambda _, tracks, **kwargs: tracks
+        raw = [{1: {
+            "raw_candidates": [
+                {
+                    "bbox": [10, 10, 20, 20],
+                    "confidence": 0.9,
+                    "detection_source": "wasb_temporal",
+                },
+                {
+                    "bbox": [30, 30, 40, 40],
+                    "confidence": 0.7,
+                    "detection_source": "full_frame",
+                },
+            ],
+        }}]
+
+        semantic = BallTracker.build_semantic_tracks(raw, [{}])
+
+        candidates = semantic[0][1]["raw_candidates"]
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["detection_source"], "full_frame")
+
+    @patch.object(BallTracker, "interpolate_positions")
+    @patch.object(BallTracker, "remove_wrong_detections")
+    def test_close_wasb_rescue_refines_but_cannot_confirm_semantic_track(
+        self,
+        remove_wrong_detections,
+        interpolate_positions,
+    ):
+        semantic = [{1: {
+            "bbox": [100, 100, 110, 110],
+            "confidence": None,
+            "interpolated": True,
+            "position_source": "interpolated",
+        }}]
+        remove_wrong_detections.return_value = [{}]
+        interpolate_positions.return_value = semantic
+        fused = [{1: {
+            "bbox": [104, 102, 114, 112],
+            "confidence": 0.9,
+            "interpolated": False,
+            "detection_source": "wasb_temporal",
+        }}]
+
+        result = BallTracker.build_semantic_tracks(
+            [{1: {"semantic_raw_candidates": []}}],
+            [{}],
+            fused_tracks=fused,
+        )
+
+        info = result[0][1]
+        self.assertEqual(info["bbox"], fused[0][1]["bbox"])
+        self.assertTrue(info["interpolated"])
+        self.assertFalse(info["semantic_confirmable"])
+        self.assertEqual(info["position_source"], "wasb_guarded_rescue")
+
+    @patch.object(BallTracker, "interpolate_positions")
+    @patch.object(BallTracker, "remove_wrong_detections")
+    def test_consecutive_hand_supported_wasb_rescues_become_confirmable(
+        self,
+        remove_wrong_detections,
+        interpolate_positions,
+    ):
+        semantic = [
+            {1: {
+                "bbox": [100 + frame, 100, 110 + frame, 110],
+                "confidence": None,
+                "interpolated": True,
+                "position_source": "interpolated",
+            }}
+            for frame in range(3)
+        ]
+        remove_wrong_detections.return_value = [{} for _ in semantic]
+        interpolate_positions.return_value = semantic
+        fused = [
+            {1: {
+                "bbox": [101 + frame, 100, 111 + frame, 110],
+                "confidence": 0.9,
+                "interpolated": False,
+                "detection_source": "wasb_temporal",
+            }}
+            for frame in range(3)
+        ]
+        points = [[1, 1] for _ in range(17)]
+        points[7], points[9] = [104, 105], [106, 105]
+        players = [{7: {
+            "bbox": [80, 50, 130, 150],
+            "pose": {
+                "keypoints_xy": points,
+                "keypoint_confidences": [0.9] * 17,
+            },
+        }} for _ in semantic]
+
+        result = BallTracker.build_semantic_tracks(
+            [{1: {"semantic_raw_candidates": []}} for _ in semantic],
+            players,
+            fused_tracks=fused,
+        )
+
+        self.assertTrue(all(
+            frame[1]["semantic_confirmable"] for frame in result
+        ))
+        self.assertTrue(all(
+            not frame[1]["interpolated"] for frame in result
+        ))
+        self.assertTrue(all(
+            frame[1]["position_source"] == "wasb_hand_confirmed"
+            for frame in result
+        ))
+
+    @patch.object(BallTracker, "interpolate_positions")
+    @patch.object(BallTracker, "remove_wrong_detections")
+    def test_airborne_wasb_sequence_cannot_confirm_possession(
+        self,
+        remove_wrong_detections,
+        interpolate_positions,
+    ):
+        semantic = [
+            {1: {
+                "bbox": [100 + 10 * frame, 100, 110 + 10 * frame, 110],
+                "confidence": None,
+                "interpolated": True,
+                "position_source": "interpolated",
+            }}
+            for frame in range(3)
+        ]
+        remove_wrong_detections.return_value = [{} for _ in semantic]
+        interpolate_positions.return_value = semantic
+        fused = [
+            {1: {
+                "bbox": [100 + 10 * frame, 100, 110 + 10 * frame, 110],
+                "confidence": 0.9,
+                "interpolated": False,
+                "detection_source": "wasb_temporal",
+            }}
+            for frame in range(3)
+        ]
+        points = [[1, 1] for _ in range(17)]
+        points[7], points[9] = [10, 10], [15, 10]
+        players = [{7: {
+            "bbox": [0, 0, 50, 100],
+            "pose": {
+                "keypoints_xy": points,
+                "keypoint_confidences": [0.9] * 17,
+            },
+        }} for _ in semantic]
+
+        result = BallTracker.build_semantic_tracks(
+            [{1: {"semantic_raw_candidates": []}} for _ in semantic],
+            players,
+            fused_tracks=fused,
+        )
+
+        self.assertTrue(all(frame[1]["interpolated"] for frame in result))
+        self.assertTrue(all(
+            not frame[1]["semantic_confirmable"] for frame in result
+        ))
+
     @patch("backend.app.tracking.ball_tracker._adaptive_crop_requests")
     @patch("backend.app.tracking.ball_tracker._named_detections")
     @patch("backend.app.tracking.ball_tracker.YOLO")
@@ -214,7 +380,46 @@ class BallAcquisitionTests(unittest.TestCase):
                 ball_tracks,
             )
 
-        self.assertEqual(possession, [-1, -1, 7, 7])
+        self.assertEqual(possession, [7, 7, 7, 7])
+
+    def test_same_holder_is_bridged_across_short_compatible_gap(self):
+        states = [
+            {"holder_id": 7, "state": "confirmed", "confidence": 0.8,
+             "candidate_id": 7, "reason": "holder_reinforced"},
+            {"holder_id": None, "state": "unknown", "confidence": 0.0,
+             "candidate_id": None, "reason": "ball_missing"},
+            {"holder_id": None, "state": "loose", "confidence": 0.5,
+             "candidate_id": 7, "reason": "interpolated_ball_not_confirmable"},
+            {"holder_id": 7, "state": "confirmed", "confidence": 0.8,
+             "candidate_id": 7, "reason": "holder_reinforced"},
+        ]
+
+        from backend.app.analytics.ball_holder_state import (
+            _bridge_short_same_holder_gaps,
+        )
+
+        result = _bridge_short_same_holder_gaps(states, maximum_gap=2)
+
+        self.assertEqual([state["holder_id"] for state in result], [7] * 4)
+        self.assertEqual(result[1]["reason"], "same_holder_gap_bridged")
+
+    def test_gap_with_competing_candidate_is_not_bridged(self):
+        states = [
+            {"holder_id": 7, "state": "confirmed", "confidence": 0.8,
+             "candidate_id": 7, "reason": "holder_reinforced"},
+            {"holder_id": None, "state": "loose", "confidence": 0.5,
+             "candidate_id": 8, "reason": "no_credible_candidate"},
+            {"holder_id": 7, "state": "confirmed", "confidence": 0.8,
+             "candidate_id": 7, "reason": "holder_reinforced"},
+        ]
+
+        from backend.app.analytics.ball_holder_state import (
+            _bridge_short_same_holder_gaps,
+        )
+
+        result = _bridge_short_same_holder_gaps(states, maximum_gap=2)
+
+        self.assertIsNone(result[1]["holder_id"])
 
     def test_missing_ball_breaks_confirmation_run(self):
         detector = BallAcquisitionDetector()
@@ -1298,6 +1503,129 @@ class PassInterceptionTests(unittest.TestCase):
 
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["type"], "pass")
+
+    def test_close_range_opponent_takeover_is_not_an_interception(self):
+        detector = PassInterceptionDetector(minimum_catch_frames=2)
+        acquisitions = [10, -1, -1, 20, 20]
+        assignments = [{10: 1}, {}, {}, {20: 2}, {20: 2}]
+        states = [
+            {"state": "confirmed", "ball_confidence": 0.9},
+            {"state": "loose", "ball_confidence": 0.8},
+            {"state": "loose", "ball_confidence": 0.8},
+            {"state": "confirmed", "ball_confidence": 0.8},
+            {"state": "confirmed", "ball_confidence": 0.8},
+        ]
+        players = [
+            {
+                10: {"bbox": [0, 0, 50, 100]},
+                20: {"bbox": [30, 0, 80, 100]},
+            }
+            for _ in acquisitions
+        ]
+
+        self.assertEqual(
+            detector.detect_events(
+                acquisitions,
+                assignments,
+                holder_states=states,
+                player_tracks=players,
+            ),
+            [],
+        )
+
+    def test_spatially_separated_opponent_takeover_is_an_interception(self):
+        detector = PassInterceptionDetector(minimum_catch_frames=2)
+        acquisitions = [10, -1, 20, 20]
+        assignments = [{10: 1}, {}, {20: 2}, {20: 2}]
+        states = [
+            {"state": "confirmed", "ball_confidence": 0.9},
+            {"state": "loose", "ball_confidence": 0.8},
+            {"state": "confirmed", "ball_confidence": 0.8},
+            {"state": "confirmed", "ball_confidence": 0.8},
+        ]
+        players = [
+            {
+                10: {"bbox": [0, 0, 50, 100]},
+                20: {"bbox": [200, 0, 250, 100]},
+            }
+            for _ in acquisitions
+        ]
+
+        events = detector.detect_events(
+            acquisitions,
+            assignments,
+            holder_states=states,
+            player_tracks=players,
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["type"], "interception")
+
+    def test_immediate_close_range_takeaway_remains_an_interception(self):
+        detector = PassInterceptionDetector(minimum_catch_frames=2)
+        acquisitions = [10, -1, 20, 20]
+        assignments = [{10: 1}, {}, {20: 2}, {20: 2}]
+        states = [
+            {"state": "confirmed", "ball_confidence": 0.9},
+            {"state": "loose", "ball_confidence": 0.8},
+            {"state": "confirmed", "ball_confidence": 0.8},
+            {"state": "confirmed", "ball_confidence": 0.8},
+        ]
+        players = [
+            {
+                10: {"bbox": [0, 0, 50, 100]},
+                20: {"bbox": [30, 0, 80, 100]},
+            }
+            for _ in acquisitions
+        ]
+
+        events = detector.detect_events(
+            acquisitions,
+            assignments,
+            holder_states=states,
+            player_tracks=players,
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["type"], "interception")
+
+    def test_offline_possession_recovery_cannot_create_event_boundary(self):
+        detector = PassInterceptionDetector(
+            minimum_catch_frames=2,
+            catch_confirmation_frames=5,
+        )
+        acquisitions = [10, -1, 20, 20, 20]
+        assignments = [{10: 1}, {}, {20: 1}, {20: 1}, {20: 1}]
+        states = [
+            {"state": "confirmed", "reason": "holder_reinforced",
+             "ball_confidence": 0.9},
+            {"state": "loose", "reason": "ball_missing",
+             "ball_confidence": None},
+            {"state": "confirmed", "reason": "retrospective_holder_confirmation",
+             "ball_confidence": 0.8},
+            {"state": "confirmed", "reason": "initial_holder_confirmed",
+             "ball_confidence": 0.8},
+            {"state": "confirmed", "reason": "holder_reinforced",
+             "ball_confidence": 0.8},
+        ]
+
+        events = detector.detect_events(
+            acquisitions,
+            assignments,
+            holder_states=states,
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["catch_frame"], 3)
+
+        states[2]["reason"] = "same_holder_gap_bridged"
+        events = detector.detect_events(
+            acquisitions,
+            assignments,
+            holder_states=states,
+        )
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["catch_frame"], 3)
 
     def test_event_waits_for_stable_receiver_after_provisional_catch(self):
         detector = PassInterceptionDetector(

@@ -107,7 +107,10 @@ def handle_request(request):
         if method == "POST" and path == "/jobs":
             return _create_job(session, _json_body(request))
 
-        job_match = re.fullmatch(r"/jobs/([0-9a-f-]+)(?:/(start|download|reports|team-colors))?", path)
+        job_match = re.fullmatch(
+            r"/jobs/([0-9a-f-]+)(?:/(start|download|reports|team-colors|continue-with-uncertain-teams))?",
+            path,
+        )
         if job_match:
             job_id, action = job_match.groups()
             if method == "GET" and action is None:
@@ -120,6 +123,8 @@ def handle_request(request):
                 return _create_report(session, job_id, _json_body(request))
             if method == "POST" and action == "team-colors":
                 return _submit_team_colors(session, job_id, _json_body(request))
+            if method == "POST" and action == "continue-with-uncertain-teams":
+                return _submit_uncertain_teams(session, job_id)
 
         raise ApiError(404, "The requested endpoint does not exist.", code="not_found")
     except ApiError as error:
@@ -324,6 +329,21 @@ def _submit_team_colors(session, job_id, body):
         )
     job["team1Color"] = color_one
     job["team2Color"] = color_two
+    job["allowUncertainTeams"] = False
+    return _submit_batch(job)
+
+
+def _submit_uncertain_teams(session, job_id):
+    job = _owned_job(session, job_id)
+    if job["status"] != "needs_team_colors":
+        raise ApiError(
+            409,
+            "Team assignment is not waiting for a decision.",
+            code="team_decision_not_required",
+        )
+    job.pop("team1Color", None)
+    job.pop("team2Color", None)
+    job["allowUncertainTeams"] = True
     return _submit_batch(job)
 
 
@@ -345,6 +365,10 @@ def _submit_batch(job):
                 {"name": "COURTVISION_TEAM_1_COLOR", "value": _worker_compatible_jersey_color(job["team1Color"])},
                 {"name": "COURTVISION_TEAM_2_COLOR", "value": _worker_compatible_jersey_color(job["team2Color"])},
             ]
+        )
+    if job.get("allowUncertainTeams"):
+        environment.append(
+            {"name": "COURTVISION_ALLOW_UNCERTAIN_TEAMS", "value": "true"}
         )
     result = _client("batch").submit_job(
         jobName=f"courtvision-{job_id[:8]}",

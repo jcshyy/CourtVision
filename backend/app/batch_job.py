@@ -24,8 +24,10 @@ MODEL_FILENAMES = (
     "player_detector.pt",
     "yolo11n-pose.pt",
     "ball_detector_model.pt",
+    "wasb_basketball_torchscript.pt",
     "court_keypoint_detector.pt",
 )
+BALL_DETECTOR_BACKENDS = {"yolo", "wasb", "hybrid"}
 
 
 def main():
@@ -51,27 +53,22 @@ def main():
             s3.download_file(bucket, input_key, str(source_path))
 
             _update_job(jobs_table, job_id, "processing", "Analyzing players, ball, and court")
-            command = [
-                sys.executable,
-                str(Path(__file__).resolve().parents[2] / "main.py"),
-                str(source_path),
-                "--output-video",
-                str(output_path),
-                "--output-analysis",
-                str(analysis_path),
-                "--stub-path",
-                str(cache_path),
-                "--duration-seconds",
-                os.getenv("COURTVISION_MAX_DURATION_SECONDS", "30"),
-                "--target-fps",
-                os.getenv("COURTVISION_TARGET_FPS", "30"),
-                "--max-width",
-                os.getenv("COURTVISION_MAX_WIDTH", "1280"),
-            ]
+            command = _analysis_command(
+                source_path,
+                output_path,
+                analysis_path,
+                cache_path,
+            )
             team_one = os.getenv("COURTVISION_TEAM_1_COLOR")
             team_two = os.getenv("COURTVISION_TEAM_2_COLOR")
             if team_one and team_two:
                 command.extend(["--team-1-color", team_one, "--team-2-color", team_two])
+            if os.getenv("COURTVISION_ALLOW_UNCERTAIN_TEAMS", "").lower() in {
+                "1",
+                "true",
+                "yes",
+            }:
+                command.append("--allow-uncertain-teams")
 
             process = subprocess.Popen(
                 command,
@@ -181,6 +178,38 @@ def _prepare_models(s3, models_dir=None):
             partial.replace(destination)
         finally:
             partial.unlink(missing_ok=True)
+
+
+def _analysis_command(source_path, output_path, analysis_path, cache_path):
+    """Build the bounded worker command from validated deployment settings."""
+    detector_backend = os.getenv(
+        "COURTVISION_BALL_DETECTOR_BACKEND",
+        "hybrid",
+    ).strip().lower()
+    if detector_backend not in BALL_DETECTOR_BACKENDS:
+        raise RuntimeError(
+            "COURTVISION_BALL_DETECTOR_BACKEND must be one of "
+            f"{sorted(BALL_DETECTOR_BACKENDS)}"
+        )
+    return [
+        sys.executable,
+        str(Path(__file__).resolve().parents[2] / "main.py"),
+        str(source_path),
+        "--output-video",
+        str(output_path),
+        "--output-analysis",
+        str(analysis_path),
+        "--stub-path",
+        str(cache_path),
+        "--duration-seconds",
+        os.getenv("COURTVISION_MAX_DURATION_SECONDS", "30"),
+        "--target-fps",
+        os.getenv("COURTVISION_TARGET_FPS", "30"),
+        "--max-width",
+        os.getenv("COURTVISION_MAX_WIDTH", "1280"),
+        "--ball-detector-backend",
+        detector_backend,
+    ]
 
 
 def _update_job(table, job_id, status, stage):

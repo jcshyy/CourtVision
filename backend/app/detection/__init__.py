@@ -1,4 +1,5 @@
 from .ball_detector import BallDetector
+from .wasb_ball_detector import WasbBallDetector
 from .court_keypoint_detector import CourtKeypointDetector
 from .player_detector import PlayerDetector
 from .player_pose_detector import PlayerPoseDetector, attach_player_poses
@@ -10,5 +11,6 @@ __all__ = [
     "PlayerDetector",
     "PlayerPoseDetector",
     "YoloDetector",
+    "WasbBallDetector",
     "attach_player_poses",
 ]

@@ -1,0 +1,363 @@
+{
+  "benchmark_id": "courtvision_v1",
+  "baseline": "current cached pipeline",
+  "coverage": {
+    "video_count": 1,
+    "scored_frames": 9,
+    "ground_truth_events": 0,
+    "predicted_events": 0,
+    "cache_dirs": {
+      "video_1": "backend\\stubs\\video_1-0c615bd00c7e65fce1b82be9b890974832e52b1bfa6d7aebab0ffabcfb16e010"
+    }
+  },
+  "frame_metrics": {
+    "ball": {
+      "visible_frames": 8,
+      "observed_detection_recall": 0.5,
+      "final_position_coverage": 0.5,
+      "interpolated_fraction_of_visible": 0.0,
+      "within_px": {
+        "25": 0.5,
+        "50": 0.5,
+        "100": 0.5
+      },
+      "center_error_px": {
+        "count": 4,
+        "mean": 3.4722415577587356,
+        "median": 3.862109162941225,
+        "p90": 5.003280648837468
+      },
+      "observed_center_error_px": {
+        "count": 4,
+        "mean": 3.4722415577587356,
+        "median": 3.862109162941225,
+        "p90": 5.003280648837468
+      },
+      "observed_rate_by_ground_truth_visibility": {
+        "visible": 0.5,
+        "occluded": 1.0,
+        "out_of_frame": 0.0,
+        "uncertain": 0.0
+      },
+      "worst_visible_errors": [
+        {
+          "video_id": "video_1",
+          "frame_index": 116,
+          "visibility": "visible",
+          "actual_center": [
+            749,
+            280
+          ],
+          "predicted_center": [
+            744.2376708984375,
+            282.4078674316406
+          ],
+          "source": "observed",
+          "error_px": 5.336441139930685
+        },
+        {
+          "video_id": "video_1",
+          "frame_index": 90,
+          "visibility": "visible",
+          "actual_center": [
+            878,
+            218
+          ],
+          "predicted_center": [
+            876.1302490234375,
+            221.78976440429688
+          ],
+          "source": "observed",
+          "error_px": 4.225906169619964
+        },
+        {
+          "video_id": "video_1",
+          "frame_index": 60,
+          "visibility": "visible",
+          "actual_center": [
+            818,
+            376
+          ],
+          "predicted_center": [
+            814.614990234375,
+            376.88311767578125
+          ],
+          "source": "observed",
+          "error_px": 3.4983121562624873
+        },
+        {
+          "video_id": "video_1",
+          "frame_index": 0,
+          "visibility": "visible",
+          "actual_center": [
+            941,
+            483
+          ],
+          "predicted_center": [
+            940.4637451171875,
+            482.36871337890625
+          ],
+          "source": "observed",
+          "error_px": 0.828306765221806
+        }
+      ]
+    },
+    "possession": {
+      "state": {
+        "count": 9,
+        "accuracy": 0.1111111111111111,
+        "macro_f1_supported": 0.06666666666666667,
+        "per_class": {
+          "controlled": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "false_negative": 5,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 5
+          },
+          "loose": {
+            "true_positive": 1,
+            "false_positive": 8,
+            "false_negative": 0,
+            "precision": 0.1111111111111111,
+            "recall": 1.0,
+            "f1": 0.19999999999999998,
+            "support": 1
+          },
+          "in_flight": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "false_negative": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "shot": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "false_negative": 3,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 3
+          },
+          "dead": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "false_negative": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unknown": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "false_negative": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion": {
+          "controlled": {
+            "controlled": 0,
+            "loose": 5,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "loose": {
+            "controlled": 0,
+            "loose": 1,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "in_flight": {
+            "controlled": 0,
+            "loose": 0,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "shot": {
+            "controlled": 0,
+            "loose": 3,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "dead": {
+            "controlled": 0,
+            "loose": 0,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "unknown": {
+            "controlled": 0,
+            "loose": 0,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          }
+        }
+      },
+      "controlled_detection": {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 5,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "false_negative_reasons": {
+        "ball_missing": 3,
+        "candidate_building": 2
+      },
+      "false_positive_reasons": {},
+      "team": {
+        "ground_truth_controlled_frames": 5,
+        "prediction_coverage": 0.0,
+        "conditional_accuracy": 0.0,
+        "end_to_end_accuracy": 0.0,
+        "correct": 0,
+        "predicted": 0,
+        "mappings": {
+          "video_1": {
+            "1": "team_a",
+            "2": "team_b"
+          }
+        },
+        "mapping_method": "best two-cluster permutation on controlled benchmark frames"
+      }
+    },
+    "per_video": {
+      "video_1": {
+        "sample_count": 9,
+        "ball": {
+          "visible_frames": 8,
+          "observed_detection_recall": 0.5,
+          "final_position_coverage": 0.5,
+          "interpolated_fraction_of_visible": 0.0,
+          "within_px": {
+            "25": 0.5,
+            "50": 0.5,
+            "100": 0.5
+          },
+          "center_error_px": {
+            "count": 4,
+            "mean": 3.4722415577587356,
+            "median": 3.862109162941225,
+            "p90": 5.003280648837468
+          },
+          "observed_center_error_px": {
+            "count": 4,
+            "mean": 3.4722415577587356,
+            "median": 3.862109162941225,
+            "p90": 5.003280648837468
+          },
+          "observed_rate_by_ground_truth_visibility": {
+            "visible": 0.5,
+            "occluded": 1.0,
+            "out_of_frame": 0.0,
+            "uncertain": 0.0
+          }
+        },
+        "controlled_detection": {
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 5,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "team_end_to_end_accuracy": 0.0,
+        "team_prediction_coverage": 0.0
+      }
+    }
+  },
+  "event_metrics": {
+    "ground_truth_count": 0,
+    "prediction_count": 0,
+    "tolerance_frames": 15,
+    "scores_by_tolerance": {
+      "5": {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "15": {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "30": {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "per_type_at_default_tolerance": {},
+    "release_timing_mae_frames": null,
+    "catch_timing_mae_frames": null,
+    "matched_team_accuracy": 0.0,
+    "matched_team_checks": 0,
+    "matches": [],
+    "unmatched_ground_truth": [],
+    "unmatched_predictions": [],
+    "ground_truth_completeness": "candidate review plus explicitly identified misses"
+  },
+  "largest_failures": [
+    {
+      "area": "controlled_possession_recall",
+      "error_rate": 1.0,
+      "evidence": "Controlled-possession recall is 0.0%."
+    },
+    {
+      "area": "possession_team_end_to_end",
+      "error_rate": 1.0,
+      "evidence": "End-to-end possession-team accuracy is 0.0% with 0.0% team coverage."
+    },
+    {
+      "area": "events",
+      "error_rate": 1.0,
+      "evidence": "Event F1 is 0.0% at \u00b115 frames (0 TP, 0 FP, 0 FN)."
+    },
+    {
+      "area": "possession_state",
+      "error_rate": 0.8888888888888888,
+      "evidence": "Six-state possession accuracy is 11.1%; the pipeline currently emits only controlled or loose for this benchmark."
+    },
+    {
+      "area": "ball_detection",
+      "error_rate": 0.5,
+      "evidence": "Only 50.0% of visible balls have an observed post-filter detection; the rest depend on interpolation."
+    },
+    {
+      "area": "ball_localization_50px",
+      "error_rate": 0.5,
+      "evidence": "Only 50.0% of visible balls are localized within 50 pixels after interpolation."
+    }
+  ]
+}

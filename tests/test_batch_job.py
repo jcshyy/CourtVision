@@ -4,10 +4,45 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from backend.app.batch_job import MODEL_FILENAMES, _last_json_object, _prepare_models
+from backend.app.batch_job import (
+    MODEL_FILENAMES,
+    _analysis_command,
+    _last_json_object,
+    _prepare_models,
+)
 
 
 class BatchJobTests(unittest.TestCase):
+    def test_private_model_manifest_includes_hybrid_ball_weights(self):
+        self.assertIn("ball_detector_model.pt", MODEL_FILENAMES)
+        self.assertIn("wasb_basketball_torchscript.pt", MODEL_FILENAMES)
+
+    def test_analysis_command_defaults_to_hybrid_ball_backend(self):
+        with patch.dict(os.environ, {}, clear=True):
+            command = _analysis_command(
+                "source.mp4",
+                "annotated.mp4",
+                "analysis.json",
+                "cache",
+            )
+
+        backend_flag = command.index("--ball-detector-backend")
+        self.assertEqual(command[backend_flag + 1], "hybrid")
+
+    def test_analysis_command_rejects_unknown_ball_backend(self):
+        with patch.dict(
+            os.environ,
+            {"COURTVISION_BALL_DETECTOR_BACKEND": "mystery"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "must be one of"):
+                _analysis_command(
+                    "source.mp4",
+                    "annotated.mp4",
+                    "analysis.json",
+                    "cache",
+                )
+
     def test_last_json_object_skips_pipeline_log_lines(self):
         result = _last_json_object(
             [

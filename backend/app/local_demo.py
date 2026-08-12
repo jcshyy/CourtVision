@@ -261,7 +261,30 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
             raise ApiError(400, "Choose two six-digit jersey colors.", code="invalid_team_colors")
         if first == second:
             raise ApiError(400, "Choose two distinct jersey colors.", code="invalid_team_colors")
-        store.update(job_id, team1Color=first, team2Color=second)
+        store.update(
+            job_id,
+            team1Color=first,
+            team2Color=second,
+            allowUncertainTeams=False,
+        )
+        return api_response({"job": _public_job(submit(job_id))}, 202)
+
+    @app.post("/api/jobs/<job_id>/continue-with-uncertain-teams")
+    def continue_with_uncertain_teams(job_id):
+        require_csrf()
+        job = store.read(job_id)
+        if job["status"] != "needs_team_colors":
+            raise ApiError(
+                409,
+                "Team assignment is not waiting for a decision.",
+                code="team_decision_not_required",
+            )
+        store.update(
+            job_id,
+            team1Color=None,
+            team2Color=None,
+            allowUncertainTeams=True,
+        )
         return api_response({"job": _public_job(submit(job_id))}, 202)
 
     @app.get("/api/jobs/<job_id>/download")
@@ -406,8 +429,8 @@ def _execute_job(store, job_id, runner):
                 status="needs_team_colors",
                 stage="Team colors required",
                 teamColorReason=str(
-                    detail.get("reason")
-                    or detail.get("message")
+                    detail.get("message")
+                    or detail.get("reason")
                     or "Automatic jersey discovery was uncertain."
                 )[:1000],
             )
@@ -455,6 +478,8 @@ def _run_pipeline(job, source, output, analysis, cache, update_stage):
     ]
     if job.get("team1Color") and job.get("team2Color"):
         command.extend(["--team-1-color", job["team1Color"], "--team-2-color", job["team2Color"]])
+    if job.get("allowUncertainTeams"):
+        command.append("--allow-uncertain-teams")
 
     process = subprocess.Popen(
         command,
