@@ -223,7 +223,7 @@
       createdAt: new Date(now - 8 * 60e3).toISOString(),
       updatedAt: new Date(now - 20e3).toISOString(),
       expiresAt: new Date(now + 24 * 3600e3).toISOString(),
-      teamColorReason: "Automatic jersey discovery needs two distinct primary colors.",
+      teamColorReason: "Automatic analysis could not classify every player with enough confidence.",
     };
   }
 
@@ -736,8 +736,8 @@
         <main class="workspace-view view" aria-labelledby="colors-title">
           <header class="workspace-heading">
             <div>
-              <h1 id="colors-title">The jerseys need one human cue.</h1>
-              <p>${escapeHtml(state.job?.teamColorReason || "Automatic discovery could not separate two reliable jersey groups.")}</p>
+              <h1 id="colors-title">Team assignment needs your review.</h1>
+              <p>${escapeHtml(state.job?.teamColorReason || "Automatic analysis could not classify every player with enough confidence.")}</p>
             </div>
             ${limitStrip()}
           </header>
@@ -747,19 +747,23 @@
               <div class="drop-zone">
                 <div class="drop-zone-inner">
                   <div class="drop-symbol">${icon("evidence")}</div>
-                  <h2>Choose primary jersey colors</h2>
-                  <p>These colors guide team prototypes. They do not bypass crop rejection, referee filtering, or unknown assignments.</p>
+                  <h2>Confirm the two jersey colors</h2>
+                  <p>Automatic color analysis and FashionCLIP could not classify every player reliably. Adding one color for each team is the best way to finish this clip accurately.</p>
                 </div>
               </div>
             </section>
             <aside class="upload-rundown paper-surface">
-              <h2 class="panel-title"><span>Team cue</span><span class="timecode">Required</span></h2>
+              <h2 class="panel-title"><span>Team cue</span><span class="timecode">Recommended</span></h2>
               <form id="color-form" class="color-form">
                 <div class="color-fields">
                   <div class="field"><label class="field-label" for="team-1-color">Team one</label><input class="color-input" id="team-1-color" name="team1Color" type="color" value="#F4F5F7" /></div>
                   <div class="field"><label class="field-label" for="team-2-color">Team two</label><input class="color-input" id="team-2-color" name="team2Color" type="color" value="#1E55D6" /></div>
                 </div>
-                <button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("refresh")}<span>${state.busy ? "Re-queuing…" : "Continue analysis"}</span></button>
+                <p class="uncertainty-warning" role="note"><strong>If you skip this step:</strong> unresolved players will remain green and marked Unknown. Team possession, pass, and interception totals may be inaccurate.</p>
+                <div class="form-actions">
+                  <button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("refresh")}<span>${state.busy ? "Re-queuing…" : "Use colors and continue"}</span></button>
+                  <button class="button button-secondary" id="continue-uncertain-teams" type="button" ${state.busy ? "disabled" : ""}>Continue without colors</button>
+                </div>
               </form>
             </aside>
           </div>
@@ -769,6 +773,7 @@
     `;
     bindGlobalActions();
     app.querySelector("#color-form").addEventListener("submit", submitTeamColors);
+    app.querySelector("#continue-uncertain-teams").addEventListener("click", continueWithUncertainTeams);
   }
 
   async function submitTeamColors(event) {
@@ -854,7 +859,7 @@
     const selected = events.find((event) => event.id === state.selectedEventId) || events[0] || null;
     if (selected && !state.selectedEventId) state.selectedEventId = selected.id;
     app.innerHTML = `
-      <div class="app-shell">
+      <div class="app-shell review-shell">
         ${topbar(true)}
         <main class="review-view view" aria-label="CourtVision beta review workspace">
           <div class="review-desk">
@@ -879,9 +884,23 @@
                   ${summaryDockMarkup(analysis)}
                 </section>
               </div>
-              ${timelineMarkup(events, duration, selected, analysis.disclaimer)}
+              ${timelineMarkup(events, duration)}
               ${evidenceMarkup(selected, analysis)}
             </section>
+            <aside class="rundown-rail" aria-labelledby="rundown-title">
+              <header class="rundown-header">
+                <div class="rundown-heading">
+                  <h2 id="rundown-title">Event rundown</h2>
+                  <time id="rundown-time" datetime="PT${Math.max(0, state.currentTime)}S">${formatTime(state.currentTime)}</time>
+                </div>
+                <p>Select a cue to inspect the same moment in the replay and tactical court.</p>
+              </header>
+              ${eventListMarkup(events, selected)}
+              <footer class="rundown-footer">
+                ${events.length ? '<div class="timeline-legend" aria-label="Cue states"><span><i class="legend-shape"></i>Candidate</span><span><i class="legend-shape unknown"></i>Unknown</span></div>' : ""}
+                <p>${escapeHtml(analysis.disclaimer || "Experimental beta analysis. Review every result against the source play.")}</p>
+              </footer>
+            </aside>
           </div>
           ${permanentDemo ? "" : `${newAnalysisDialogMarkup()}${reportDialogMarkup(selected)}`}
           <p class="sr-only" id="sync-announcement" aria-live="polite" aria-atomic="true"></p>
@@ -959,6 +978,27 @@
     `;
   }
 
+  async function continueWithUncertainTeams() {
+    state.busy = true;
+    renderTeamColors();
+    try {
+      if (demoMode) state.job = demoJob("processing", "Queued with uncertain teams");
+      else {
+        const response = await api(`/jobs/${state.job.id}/continue-with-uncertain-teams`, {
+          method: "POST",
+          body: {},
+        });
+        state.job = response.job;
+      }
+      state.view = "processing";
+    } catch (error) {
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
   function summaryDockMarkup(analysis) {
     const summary = summaryAtTime(analysis, state.currentTime);
     return `
@@ -1027,7 +1067,7 @@
       .join("");
   }
 
-  function timelineMarkup(events, duration, selected, disclaimer) {
+  function timelineMarkup(events, duration) {
     const playhead = clamp((state.currentTime / duration) * 100, 0, 100);
     return `
       <section class="timeline-console" aria-label="Review timeline">
@@ -1041,19 +1081,6 @@
           <input class="timeline-input" id="timeline-input" type="range" min="0" max="${duration}" step="0.05" value="${state.currentTime}" aria-label="Replay position" aria-valuetext="${formatTime(state.currentTime)}" />
           <div class="timeline-labels" aria-hidden="true"><span>00:00</span><span>${formatTime(duration / 2, true)}</span><span>${formatTime(duration, true)}</span></div>
         </div>
-        <section class="timeline-dock" aria-labelledby="timeline-dock-title">
-          <header class="timeline-dock-header">
-            <div class="timeline-dock-title">
-              <h2 id="timeline-dock-title">Event cues</h2>
-              <span>${events.length} ${events.length === 1 ? "cue" : "cues"}</span>
-            </div>
-            <div class="timeline-dock-meta">
-              ${events.length ? '<div class="timeline-legend" aria-label="Cue states"><span><i class="legend-shape"></i>Candidate</span><span><i class="legend-shape unknown"></i>Unknown</span></div>' : ""}
-              <span class="timeline-disclaimer">${escapeHtml(disclaimer || "Experimental beta analysis. Review every result against the source play.")}</span>
-            </div>
-          </header>
-          ${eventListMarkup(events, selected)}
-        </section>
       </section>
     `;
   }
@@ -1300,10 +1327,15 @@
       );
     }
     const time = app.querySelector("#inspector-time");
+    const rundownTime = app.querySelector("#rundown-time");
     const badge = app.querySelector("#current-timecode");
     const playhead = app.querySelector("#timeline-playhead");
     const input = app.querySelector("#timeline-input");
     if (time) time.textContent = formatTime(state.currentTime);
+    if (rundownTime) {
+      rundownTime.textContent = formatTime(state.currentTime);
+      rundownTime.setAttribute("datetime", `PT${Math.max(0, state.currentTime)}S`);
+    }
     if (badge) badge.textContent = formatTime(state.currentTime);
     if (playhead) playhead.style.left = `${clamp((state.currentTime / duration) * 100, 0, 100)}%`;
     if (input && document.activeElement !== input) input.value = state.currentTime;

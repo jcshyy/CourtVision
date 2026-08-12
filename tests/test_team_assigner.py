@@ -84,7 +84,13 @@ class TeamDiscoveryTests(unittest.TestCase):
                 )
             return real_import(name, *args, **kwargs)
 
-        with patch.dict(sys.modules, {"cv2": fake_cv2}), patch(
+        fake_utils = types.ModuleType("backend.app.utils")
+        fake_utils.load_cache = lambda *_args, **_kwargs: None
+        fake_utils.save_cache = lambda *_args, **_kwargs: None
+        with patch.dict(
+            sys.modules,
+            {"cv2": fake_cv2, "backend.app.utils": fake_utils},
+        ), patch(
             "builtins.__import__",
             side_effect=reject_clip_dependencies,
         ):
@@ -143,6 +149,12 @@ class TeamDiscoveryTests(unittest.TestCase):
 
     def test_indistinct_samples_return_needs_team_colors(self):
         assigner = team_assigner.TeamAssigner()
+        fallback = {
+            "status": "needs_team_colors",
+            "reason": "indistinct_fashion_clip_embeddings",
+            "track_assignments": {},
+            "confidence": {"eligible_track_count": 1},
+        }
 
         with patch.object(
             team_assigner,
@@ -157,7 +169,11 @@ class TeamDiscoveryTests(unittest.TestCase):
                     "cluster_support": [],
                 },
             },
-        ), patch.object(assigner, "load_model") as load_model, self.assertLogs(
+        ), patch.object(
+            assigner,
+            "_discover_teams_with_fashion_clip",
+            return_value=fallback,
+        ) as fashion_clip, self.assertLogs(
             "courtvision_team_assigner",
             level="WARNING",
         ):
@@ -176,7 +192,96 @@ class TeamDiscoveryTests(unittest.TestCase):
             raised.exception.result["discovery_confidence"]["eligible_track_count"],
             1,
         )
-        load_model.assert_not_called()
+        fashion_clip.assert_called_once()
+        self.assertEqual(
+            raised.exception.result["discovery_confidence"]["fallback_used"],
+            "fashion_clip",
+        )
+
+    def test_uncertain_team_continuation_keeps_players_unknown(self):
+        assigner = team_assigner.TeamAssigner(allow_uncertain_teams=True)
+        tracks = [{7: {"bbox": [0, 0, 10, 20]}}]
+        fallback = {
+            "status": "needs_team_colors",
+            "reason": "indistinct_fashion_clip_embeddings",
+            "track_assignments": {},
+            "confidence": {"eligible_track_count": 1},
+        }
+
+        with patch.object(
+            team_assigner,
+            "_discover_team_colors_result",
+            return_value={
+                "status": "needs_team_colors",
+                "reason": "insufficient_distinct_team_prototypes",
+                "prototypes": None,
+                "confidence": {"eligible_track_count": 1},
+            },
+        ), patch.object(
+            assigner,
+            "_discover_teams_with_fashion_clip",
+            return_value=fallback,
+        ):
+            assignments = assigner.get_player_teams_across_frames(
+                [object()],
+                tracks,
+            )
+
+        self.assertEqual(assignments, [{7: -1}])
+        self.assertTrue(
+            assigner.assignment_metadata["proceeded_with_uncertain_teams"]
+        )
+        self.assertEqual(
+            assigner.assignment_metadata["unknown_observation_fraction"],
+            1.0,
+        )
+        self.assertIn("may be inaccurate", assigner.assignment_metadata["uncertainty_warning"])
+
+    def test_fashion_clip_fallback_resolves_uncertain_color_discovery(self):
+        assigner = team_assigner.TeamAssigner()
+        frames = [object(), object()]
+        tracks = [
+            {
+                1: {"bbox": [0, 0, 10, 20]},
+                2: {"bbox": [0, 0, 10, 20]},
+                3: {"bbox": [0, 0, 10, 20]},
+                4: {"bbox": [0, 0, 10, 20]},
+            }
+        ] * 2
+        uncertain = {
+            "status": "needs_team_colors",
+            "reason": "unstable_track_observations",
+            "prototypes": None,
+            "confidence": {"eligible_track_count": 4},
+        }
+        fallback = {
+            "status": "confident",
+            "reason": None,
+            "device": "cuda:0",
+            "track_assignments": {1: 1, 2: 1, 3: 2, 4: 2},
+            "confidence": {"cluster_support": [2, 2]},
+        }
+
+        with patch.object(
+            team_assigner,
+            "_discover_team_colors_result",
+            return_value=uncertain,
+        ), patch.object(
+            assigner,
+            "_discover_teams_with_fashion_clip",
+            return_value=fallback,
+        ):
+            assignments = assigner.get_player_teams_across_frames(frames, tracks)
+
+        self.assertEqual(assignments, [{1: 1, 2: 1, 3: 2, 4: 2}] * 2)
+        self.assertEqual(
+            assigner.assignment_metadata["fashion_clip_fallback"]["status"],
+            "confident",
+        )
+        self.assertEqual(
+            assigner.assignment_metadata["track_assignments"]["3"]["reason"],
+            "fashion_clip_cluster",
+        )
 
     def test_user_colors_are_normalized_and_skip_automatic_discovery(self):
         assigner = team_assigner.TeamAssigner(
@@ -199,7 +304,10 @@ class TeamDiscoveryTests(unittest.TestCase):
         self.assertTrue(all(frame[7] == 2 for frame in assignments))
         self.assertEqual(assigner.assignment_mode, "user_colors")
         self.assertEqual(assigner.normalized_team_colors, ("#FFFFFF", "#C8102E"))
-        self.assertEqual(assigner.assignment_metadata["algorithm_version"], "v14")
+        self.assertEqual(
+            assigner.assignment_metadata["algorithm_version"],
+            "v17_evidence_arbitration",
+        )
         self.assertEqual(
             assigner.assignment_metadata["team_colors"],
             ["#FFFFFF", "#C8102E"],
@@ -304,6 +412,27 @@ class TeamDiscoveryTests(unittest.TestCase):
         clusters = team_assigner._cluster_team_colors(colors)
 
         self.assertEqual(set(clusters), {(11, 19, 30), (201, 209, 219)})
+
+    def test_fashion_clip_embedding_clusters_require_stable_two_team_support(self):
+        embeddings = [
+            [1.0, 0.0],
+            [0.99, 0.01],
+            [1.0, 0.0],
+            [0.99, 0.01],
+            [0.0, 1.0],
+            [0.01, 0.99],
+            [0.0, 1.0],
+            [0.01, 0.99],
+        ]
+        result = team_assigner._cluster_fashion_clip_embeddings(
+            embeddings,
+            [1, 1, 2, 2, 3, 3, 4, 4],
+        )
+
+        self.assertEqual(result["status"], "confident")
+        self.assertEqual(sorted(result["confidence"]["cluster_support"]), [2, 2])
+        self.assertEqual(result["track_assignments"][1], result["track_assignments"][2])
+        self.assertNotEqual(result["track_assignments"][1], result["track_assignments"][3])
 
     def test_hsv_jersey_features_separate_red_and_white_despite_contamination(self):
         red = _synthetic_jersey_pixels((0, 0, 220), (240, 240, 240))
@@ -525,7 +654,7 @@ class TeamDiscoveryTests(unittest.TestCase):
             team_assigner._confident_nearest_team((50, 100, 100), prototypes)
         )
 
-    def test_offline_track_requires_multiple_confident_observations(self):
+    def test_automatic_assignment_prompts_when_unknown_coverage_is_excessive(self):
         assigner = team_assigner.TeamAssigner()
         with patch.object(
             team_assigner,
@@ -535,6 +664,50 @@ class TeamDiscoveryTests(unittest.TestCase):
             assigner,
             "get_player_jersey_color",
             return_value=(210, 220, 230),
+        ), patch.object(
+            assigner,
+            "_discover_teams_with_fashion_clip",
+            return_value={
+                "status": "needs_team_colors",
+                "reason": "insufficient_fashion_clip_tracks",
+                "track_assignments": {},
+                "confidence": {"eligible_track_count": 1},
+            },
+        ):
+            with self.assertRaises(team_assigner.NeedsTeamColorsError) as raised:
+                assigner.get_player_teams_across_frames(
+                    [object()],
+                    [{7: {"bbox": [0, 0, 10, 20]}}],
+                )
+
+        self.assertEqual(
+            raised.exception.result["reason"],
+            "too_many_unknown_team_observations",
+        )
+        self.assertEqual(
+            assigner.assignment_metadata["track_assignments"]["7"]["reason"],
+            "insufficient_confident_observations",
+        )
+
+    def test_automatic_assignment_can_continue_with_excessive_unknown_coverage(self):
+        assigner = team_assigner.TeamAssigner(allow_uncertain_teams=True)
+        with patch.object(
+            team_assigner,
+            "_discover_team_colors_result",
+            return_value=_discovery_result(),
+        ), patch.object(
+            assigner,
+            "get_player_jersey_color",
+            return_value=(210, 220, 230),
+        ), patch.object(
+            assigner,
+            "_discover_teams_with_fashion_clip",
+            return_value={
+                "status": "needs_team_colors",
+                "reason": "insufficient_fashion_clip_tracks",
+                "track_assignments": {},
+                "confidence": {"eligible_track_count": 1},
+            },
         ):
             assignments = assigner.get_player_teams_across_frames(
                 [object()],
@@ -542,10 +715,80 @@ class TeamDiscoveryTests(unittest.TestCase):
             )
 
         self.assertEqual(assignments, [{7: -1}])
-        self.assertEqual(
-            assigner.assignment_metadata["track_assignments"]["7"]["reason"],
-            "insufficient_confident_observations",
+        self.assertTrue(
+            assigner.assignment_metadata["proceeded_with_uncertain_teams"]
         )
+
+    def test_user_colors_relax_track_thresholds_for_usable_evidence(self):
+        observations = [
+            {
+                "feature": (0, 0, 0),
+                "accepted": True,
+                "quality_score": 1.0,
+                "frame": frame,
+            }
+            for frame in range(7)
+        ] + [
+            {
+                "feature": (100, 0, 0),
+                "accepted": True,
+                "quality_score": 1.0,
+                "frame": frame + 7,
+            }
+            for frame in range(17)
+        ]
+
+        automatic = team_assigner._track_team_decision(
+            observations,
+            {1: (0, 0, 0), 2: (100, 0, 0)},
+        )
+        guided = team_assigner._track_team_decision(
+            observations,
+            {1: (0, 0, 0), 2: (100, 0, 0)},
+            allow_guided_fallback=True,
+        )
+
+        self.assertIsNone(automatic["team_id"])
+        self.assertEqual(guided["team_id"], 2)
+        self.assertEqual(guided["guidance"], "user_colors_relaxed_nearest")
+
+    def test_fashion_clip_clusters_map_to_existing_color_team_anchors(self):
+        mapping = team_assigner._map_fashion_clip_clusters_to_teams(
+            {1: 2, 2: 2, 3: 1, 4: 1, 5: 1},
+            {1: 1, 2: 1, 3: 2, 4: 2, 5: -1},
+        )
+
+        self.assertEqual(mapping["status"], "confident")
+        self.assertEqual(mapping["cluster_to_team"], {1: 2, 2: 1})
+
+    def test_weighted_color_evidence_wins_fashion_clip_conflict(self):
+        decision = team_assigner._arbitrate_track_assignment(
+            {
+                "confident_observation_count": 24,
+                "team_vote_weights": {"1": 6.9874, "2": 13.6259},
+                "weight_share": 0.661,
+            },
+            fashion_team_id=1,
+        )
+
+        self.assertEqual(decision["team_id"], 2)
+        self.assertEqual(
+            decision["reason"],
+            "weighted_color_over_fashion_clip_conflict",
+        )
+
+    def test_weak_color_fashion_clip_conflict_stays_unknown(self):
+        decision = team_assigner._arbitrate_track_assignment(
+            {
+                "confident_observation_count": 24,
+                "team_vote_weights": {"1": 10.0, "2": 11.0},
+                "weight_share": 11 / 21,
+            },
+            fashion_team_id=1,
+        )
+
+        self.assertIsNone(decision["team_id"])
+        self.assertEqual(decision["reason"], "color_fashion_clip_conflict")
 
     def test_inconsistent_offline_track_stays_unknown(self):
         observations = [

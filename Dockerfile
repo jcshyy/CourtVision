@@ -18,7 +18,7 @@ RUN python -m pip install --no-cache-dir \
 
 COPY . /app
 
-# Model weights are deliberately excluded from the image. Mount the three files
+# Model weights are deliberately excluded from the image. Mount the five files
 # into /app/backend/models or provision them in the deployment platform.
 # Keep the default useful for one-off CLI analysis while allowing AWS Batch to
 # replace the command with `python -m backend.app.batch_job`.

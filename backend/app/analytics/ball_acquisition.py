@@ -117,6 +117,8 @@ class BallAquisitionDetector:
             confirmation_frames=self.state_confirmation_frames,
             max_missing_frames=max(1, round(self.state_confirmation_frames)),
             maximum_distance=self.possession_threshold,
+            recover_confirmed_run_starts=True,
+            bridge_confirmed_holder_gaps=True,
         )
         return model.process(player_tracks, ball_tracks)
 

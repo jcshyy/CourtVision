@@ -24,6 +24,12 @@ def parse_args():
     parser.add_argument("--output-json", type=Path)
     parser.add_argument("--output-markdown", type=Path)
     parser.add_argument("--event-tolerance", type=int, default=15)
+    parser.add_argument(
+        "--ball-cache-version",
+        default=None,
+        help="Use an explicitly generated experimental ball-track cache version.",
+    )
+    parser.add_argument("--video-id", action="append", dest="video_ids")
     return parser.parse_args()
 
 
@@ -171,7 +177,7 @@ def _first_existing(cache_dir, preferred, fallback_pattern):
     return fallbacks[-1]
 
 
-def _pipeline_predictions(video):
+def _pipeline_predictions(video, ball_cache_version=None):
     from backend.app.analytics import (
         BallAcquisitionDetector,
         PassInterceptionDetector,
@@ -195,11 +201,16 @@ def _pipeline_predictions(video):
         f"player_pose_{PLAYER_POSE_CACHE_VERSION}.pkl",
         "player_pose_*.pkl",
     )
-    ball_path = _first_existing(
-        cache_dir,
-        f"ball_track_stubs_{BALL_TRACKING_CACHE_VERSION}.pkl",
-        "ball_track_stubs.pkl",
-    )
+    if ball_cache_version:
+        ball_path = cache_dir / f"ball_track_stubs_{ball_cache_version}.pkl"
+        if not ball_path.is_file():
+            raise FileNotFoundError(ball_path)
+    else:
+        ball_path = _first_existing(
+            cache_dir,
+            f"ball_track_stubs_{BALL_TRACKING_CACHE_VERSION}.pkl",
+            "ball_track_stubs.pkl",
+        )
     assigner = TeamAssigner(
         tracking_algorithm_version=PLAYER_TRACKING_ALGORITHM_VERSION,
     )
@@ -232,10 +243,23 @@ def _pipeline_predictions(video):
         player_tracks=player_tracks,
     )
     ball_tracks = BallTracker.interpolate_positions(None, filtered_ball_tracks)
+    source_aware_hybrid = any(
+        "semantic_raw_candidates" in frame.get(1, {})
+        for frame in raw_ball_tracks
+    )
+    semantic_ball_tracks = (
+        BallTracker.build_semantic_tracks(
+            copy.deepcopy(raw_ball_tracks),
+            player_tracks,
+            fused_tracks=ball_tracks,
+        )
+        if source_aware_hybrid
+        else ball_tracks
+    )
     acquisition_detector = BallAcquisitionDetector(fps=video["fps"])
     holder_states = acquisition_detector.detect_holder_states(
         player_tracks,
-        ball_tracks,
+        semantic_ball_tracks,
     )
     acquisitions = [
         state["holder_id"] if state["holder_id"] is not None else -1
@@ -255,7 +279,7 @@ def _pipeline_predictions(video):
         acquisitions,
         assignments,
         holder_states=holder_states,
-        ball_tracks=ball_tracks,
+        ball_tracks=semantic_ball_tracks,
         player_tracks=player_tracks,
     )
     for event in events:
@@ -263,6 +287,7 @@ def _pipeline_predictions(video):
     return {
         "cache_dir": str(cache_dir.relative_to(ROOT)),
         "ball_tracks": ball_tracks,
+        "semantic_ball_tracks": semantic_ball_tracks,
         "player_tracks": player_tracks,
         "holder_states": holder_states,
         "acquisitions": acquisitions,
@@ -718,19 +743,32 @@ def _markdown(report):
     return "\n".join(lines)
 
 
-def score(benchmark_dir, event_tolerance=15):
+def score(
+    benchmark_dir,
+    event_tolerance=15,
+    ball_cache_version=None,
+    video_ids=None,
+):
     dataset = json.loads((benchmark_dir / "dataset.json").read_text(encoding="utf-8"))
-    videos = {video["id"]: video for video in dataset["videos"]}
+    videos = {
+        video["id"]: video
+        for video in dataset["videos"]
+        if not video_ids or video["id"] in video_ids
+    }
+    if not videos:
+        raise ValueError("No benchmark videos matched --video-id")
     annotations = [
         record for record in _jsonl(benchmark_dir / "annotations.jsonl")
         if record.get("review_status") == "verified"
+        and record["video_id"] in videos
     ]
     ground_truth_events = [
         event for event in _jsonl(benchmark_dir / "events.jsonl")
         if event.get("review_status") == "verified"
+        and event["video_id"] in videos
     ]
     pipelines = {
-        video_id: _pipeline_predictions(video)
+        video_id: _pipeline_predictions(video, ball_cache_version)
         for video_id, video in videos.items()
     }
     frame_metrics = _frame_metrics(annotations, videos, pipelines)
@@ -747,7 +785,11 @@ def score(benchmark_dir, event_tolerance=15):
     )
     report = {
         "benchmark_id": dataset["benchmark_id"],
-        "baseline": "current cached pipeline",
+        "baseline": (
+            f"experimental ball cache {ball_cache_version}"
+            if ball_cache_version
+            else "current cached pipeline"
+        ),
         "coverage": {
             "video_count": len(videos),
             "scored_frames": len(annotations),
@@ -771,7 +813,12 @@ def main():
     output_markdown = (
         args.output_markdown or benchmark_dir / "baseline_report.md"
     ).resolve()
-    report = score(benchmark_dir, event_tolerance=args.event_tolerance)
+    report = score(
+        benchmark_dir,
+        event_tolerance=args.event_tolerance,
+        ball_cache_version=args.ball_cache_version,
+        video_ids=set(args.video_ids or ()),
+    )
     output_json.parent.mkdir(parents=True, exist_ok=True)
     output_markdown.parent.mkdir(parents=True, exist_ok=True)
     output_json.write_text(

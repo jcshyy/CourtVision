@@ -7,6 +7,7 @@ from backend.app.visualization.pass_interception_drawer import (
     PassInterceptionDrawer,
 )
 from backend.app.visualization.team_ball_control_drawer import TeamBallControlDrawer
+from backend.app.visualization.speed_distance_drawer import SpeedAndDistanceDrawer
 
 
 class OverlayAlignmentTests(unittest.TestCase):
@@ -49,6 +50,10 @@ class OverlayAlignmentTests(unittest.TestCase):
             TeamBallControlDrawer().get_control_percentages(np.array([-1, -1])),
             (0.0, 0.0),
         )
+
+    def test_speed_overlay_hides_distance_by_default(self):
+        self.assertFalse(SpeedAndDistanceDrawer().show_distance)
+        self.assertTrue(SpeedAndDistanceDrawer(show_distance=True).show_distance)
 
 
 if __name__ == "__main__":

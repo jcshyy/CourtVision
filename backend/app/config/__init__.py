@@ -5,6 +5,7 @@ from .settings import (
     PLAYER_DETECTOR_PATH,
     PLAYER_POSE_DETECTOR_PATH,
     STUBS_DIR,
+    WASB_BALL_DETECTOR_PATH,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "PLAYER_DETECTOR_PATH",
     "PLAYER_POSE_DETECTOR_PATH",
     "STUBS_DIR",
+    "WASB_BALL_DETECTOR_PATH",
 ]

@@ -1,0 +1,6 @@
+path: training_yolo
+train: images/train
+val: images/valid
+
+names:
+  0: Ball

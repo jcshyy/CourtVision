@@ -115,6 +115,31 @@ class WebApiTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, "job_not_found")
 
+    def test_uncertain_team_continuation_sets_batch_override(self):
+        job = {
+            "jobId": "job-id",
+            "status": "needs_team_colors",
+            "team1Color": "#FFFFFF",
+            "team2Color": "#C8102E",
+        }
+        expected = {"statusCode": 202}
+
+        with patch.object(web_api, "_owned_job", return_value=job), patch.object(
+            web_api,
+            "_submit_batch",
+            return_value=expected,
+        ) as submit:
+            response = web_api._submit_uncertain_teams(
+                {"email": "analyst@example.com"},
+                "job-id",
+            )
+
+        self.assertEqual(response, expected)
+        submitted = submit.call_args.args[0]
+        self.assertTrue(submitted["allowUncertainTeams"])
+        self.assertNotIn("team1Color", submitted)
+        self.assertNotIn("team2Color", submitted)
+
 
 if __name__ == "__main__":
     unittest.main()

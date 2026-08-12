@@ -5,7 +5,7 @@ import unittest
 
 import numpy as np
 
-from main import filter_ball_tracks_with_pose, write_analysis_manifest
+from main import events_to_overlay_arrays, filter_ball_tracks_with_pose, write_analysis_manifest
 
 
 class _PoseDetector:
@@ -17,6 +17,7 @@ class _BallTracker:
     def __init__(self):
         self.saw_pose = False
         self.adaptive_saw_pose = False
+        self.detector_backend = "yolo"
 
     def enhance_tracks_with_adaptive_crops(
         self,
@@ -43,14 +44,38 @@ class _BallTracker:
         self.interpolation_discontinuities = discontinuity_frames
         return tracks
 
+    def build_semantic_tracks(
+        self,
+        tracks,
+        player_tracks,
+        *,
+        fused_tracks,
+        discontinuity_frames=None,
+    ):
+        self.semantic_saw_pose = "pose" in player_tracks[0][7]
+        self.semantic_fused_tracks = fused_tracks
+        return [{1: {"bbox": [8, 8, 10, 10], "semantic_track": True}}]
+
 
 class MainPipelineTests(unittest.TestCase):
-    def test_render_keeps_interface_panels_out_of_annotated_video(self):
+    def test_render_keeps_compact_event_huds_but_not_tactical_view_in_video(self):
         source = (Path(__file__).resolve().parents[1] / "main.py").read_text(encoding="utf-8")
 
-        self.assertNotIn("PassInterceptionDrawer(", source)
-        self.assertNotIn("TeamBallControlDrawer(", source)
+        self.assertIn("PassInterceptionDrawer(", source)
+        self.assertIn("TeamBallControlDrawer(", source)
         self.assertNotIn("TacticalViewDrawer(", source)
+
+    def test_events_are_mapped_to_overlay_arrays_without_changing_type(self):
+        passes, interceptions = events_to_overlay_arrays(
+            [
+                {"type": "pass", "frame_index": 1, "to_team_id": 1},
+                {"type": "interception", "frame_index": 3, "to_team_id": 2},
+            ],
+            5,
+        )
+
+        self.assertEqual(passes, [-1, 1, -1, -1, -1])
+        self.assertEqual(interceptions, [-1, -1, -1, 2, -1])
 
     def test_pose_is_attached_before_ball_candidate_filtering(self):
         tracker = _BallTracker()
@@ -71,6 +96,25 @@ class MainPipelineTests(unittest.TestCase):
         self.assertEqual(ball[0][1]["bbox"], [2, 2, 4, 4])
         self.assertEqual(tracker.discontinuity_frames, [3])
         self.assertEqual(tracker.interpolation_discontinuities, [3])
+
+    def test_hybrid_pipeline_returns_separate_semantic_track(self):
+        tracker = _BallTracker()
+        tracker.detector_backend = "hybrid"
+
+        players, fused, semantic = filter_ball_tracks_with_pose(
+            [object()],
+            [{7: {"bbox": [0, 0, 10, 20]}}],
+            [{1: {"bbox": [2, 2, 4, 4]}}],
+            _PoseDetector(),
+            tracker,
+            include_semantic_track=True,
+        )
+
+        self.assertIn("pose", players[0][7])
+        self.assertEqual(fused[0][1]["bbox"], [2, 2, 4, 4])
+        self.assertTrue(semantic[0][1]["semantic_track"])
+        self.assertTrue(tracker.semantic_saw_pose)
+        self.assertIs(tracker.semantic_fused_tracks, fused)
 
     def test_analysis_manifest_preserves_candidates_and_unknowns(self):
         with TemporaryDirectory() as directory:

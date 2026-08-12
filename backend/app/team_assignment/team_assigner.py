@@ -12,7 +12,7 @@ from backend.app.utils import load_cache, save_cache
 
 
 logger = logging.getLogger(__name__)
-ASSIGNMENT_ALGORITHM_VERSION = "v14"
+ASSIGNMENT_ALGORITHM_VERSION = "v17_evidence_arbitration"
 MINIMUM_PROTOTYPE_MARGIN_RATIO = 0.1
 MAXIMUM_PROTOTYPE_DISTANCE_RATIO = 0.75
 MINIMUM_TORSO_AREA_FRACTION = 900 / (1280 * 720)
@@ -21,6 +21,9 @@ MINIMUM_TRACK_CONFIDENT_OBSERVATIONS = 3
 MINIMUM_TRACK_TEAM_AGREEMENT = 0.8
 MINIMUM_TRACK_WEIGHT_SHARE = 0.8
 MAXIMUM_TRACK_EVIDENCE_SAMPLES = 24
+MAXIMUM_UNKNOWN_OBSERVATION_FRACTION = 0.15
+MINIMUM_COLOR_CONFLICT_EVIDENCE = 6
+MINIMUM_COLOR_CONFLICT_WEIGHT_SHARE = 0.65
 
 
 class NeedsTeamColorsError(RuntimeError):
@@ -32,9 +35,10 @@ class NeedsTeamColorsError(RuntimeError):
             "reason": reason,
             "discovery_confidence": discovery_confidence,
             "message": (
-                "Automatic team discovery was not confident enough. Provide "
-                "both teams' primary jersey colors with --team-1-color and "
-                "--team-2-color (for example, #FFFFFF and #C8102E)."
+                "Color analysis and FashionCLIP could not confidently separate "
+                "the two teams. Add both teams' primary jersey colors for the "
+                "most accurate team-level results, or continue with unresolved "
+                "players marked unknown."
             ),
         }
         super().__init__(self.result["message"])
@@ -53,6 +57,7 @@ class TeamAssigner:
         vote_window_size=5,
         initial_observations=3,
         tracking_algorithm_version=None,
+        allow_uncertain_teams=False,
     ):
         if (team_1_description is None) != (team_2_description is None):
             raise ValueError("Both team descriptions must be provided together")
@@ -96,15 +101,18 @@ class TeamAssigner:
         self.model_name = model_name
         self.model = None
         self.processor = None
+        self.model_device = None
         self.use_discovered_colors = team_1_description is None
         self.assignment_mode = (
             "user_colors" if normalized_colors is not None else "automatic"
         )
+        self.allow_uncertain_teams = bool(allow_uncertain_teams)
         self.normalized_team_colors = normalized_colors
         cache_identity = {
             "algorithm_version": ASSIGNMENT_ALGORITHM_VERSION,
             "assignment_mode": self.assignment_mode,
             "team_colors": list(normalized_colors) if normalized_colors else None,
+            "allow_uncertain_teams": self.allow_uncertain_teams,
         }
         if tracking_algorithm_version is not None:
             cache_identity["player_tracking_algorithm_version"] = str(
@@ -135,6 +143,7 @@ class TeamAssigner:
             return
 
         try:
+            import torch
             from transformers import CLIPModel, CLIPProcessor
         except ImportError as error:
             raise RuntimeError(
@@ -143,8 +152,29 @@ class TeamAssigner:
                 "use automatic jersey-color discovery."
             ) from error
 
-        self.model = CLIPModel.from_pretrained(self.model_name)
-        self.processor = CLIPProcessor.from_pretrained(self.model_name)
+        self.model_device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        try:
+            model = CLIPModel.from_pretrained(
+                self.model_name,
+                local_files_only=True,
+            )
+            processor = CLIPProcessor.from_pretrained(
+                self.model_name,
+                local_files_only=True,
+            )
+            model_source = "local cache"
+        except OSError:
+            model = CLIPModel.from_pretrained(self.model_name)
+            processor = CLIPProcessor.from_pretrained(self.model_name)
+            model_source = "model registry"
+        self.model = model.to(self.model_device)
+        self.model.eval()
+        self.processor = processor
+        logger.info(
+            "Loaded FashionCLIP from %s on %s",
+            model_source,
+            self.model_device,
+        )
 
     def get_player_color(self, frame, bbox):
         crop = _crop_player(frame, bbox)
@@ -159,6 +189,10 @@ class TeamAssigner:
             padding=True,
         )
 
+        inputs = {
+            name: tensor.to(self.model_device)
+            for name, tensor in inputs.items()
+        }
         outputs = self.model(**inputs)
         probabilities = outputs.logits_per_image.softmax(dim=1)
         return classes[probabilities.argmax(dim=1)[0]]
@@ -235,6 +269,9 @@ class TeamAssigner:
                     self.assignment_metadata["track_assignments"] = (
                         cached_metadata.get("track_assignments", {})
                     )
+                    self.assignment_metadata["fashion_clip_fallback"] = (
+                        cached_metadata.get("fashion_clip_fallback")
+                    )
                 except (OSError, json.JSONDecodeError):
                     logger.warning(
                         "Could not restore assignment metadata from %s",
@@ -253,10 +290,95 @@ class TeamAssigner:
                         discovery["reason"],
                         discovery["confidence"],
                     )
-                    raise NeedsTeamColorsError(
-                        discovery["reason"],
-                        discovery["confidence"],
+                    fashion_clip = self._discover_teams_with_fashion_clip(
+                        video_frames,
+                        player_tracks,
                     )
+                    combined_confidence = {
+                        **discovery["confidence"],
+                        "fallback_used": "fashion_clip",
+                        "fashion_clip": fashion_clip.get("confidence", {}),
+                    }
+                    self.assignment_metadata["discovery_confidence"] = combined_confidence
+                    self.assignment_metadata["fashion_clip_fallback"] = fashion_clip
+                    if fashion_clip["status"] != "confident":
+                        logger.warning(
+                            "FashionCLIP fallback is uncertain (%s): %s",
+                            fashion_clip["reason"],
+                            fashion_clip.get("confidence", {}),
+                        )
+                        if not self.allow_uncertain_teams:
+                            raise NeedsTeamColorsError(
+                                discovery["reason"],
+                                combined_confidence,
+                            )
+                        self._record_uncertain_continuation(
+                            discovery["reason"],
+                            combined_confidence,
+                        )
+                        self.assignment_metadata["track_assignments"] = {
+                            str(int(player_id)): {
+                                "team_id": -1,
+                                "reason": "uncertain_team_continuation",
+                            }
+                            for frame_tracks in player_tracks
+                            for player_id in frame_tracks
+                        }
+                        player_assignment = [
+                            {player_id: -1 for player_id in frame_tracks}
+                            for frame_tracks in player_tracks
+                        ]
+                        self.assignment_metadata["unknown_observation_fraction"] = (
+                            _unknown_assignment_fraction(player_tracks, {})
+                        )
+                        if cache_path:
+                            save_cache(cache_path, player_assignment)
+                        return player_assignment
+                    for player_id, team_id in fashion_clip["track_assignments"].items():
+                        self.player_team_dict[player_id] = team_id
+                        self.player_team_votes[player_id] = [team_id]
+                    self.assignment_metadata["track_assignments"] = {
+                        str(int(player_id)): {
+                            "team_id": team_id,
+                            "reason": "fashion_clip_cluster",
+                        }
+                        for player_id, team_id in fashion_clip["track_assignments"].items()
+                    }
+                    logger.info(
+                        "FashionCLIP resolved uncertain jersey colors on %s: %s",
+                        fashion_clip.get("device", self.model_device),
+                        fashion_clip["confidence"],
+                    )
+                    player_assignment = [
+                        {
+                            player_id: self.player_team_dict.get(player_id, -1)
+                            for player_id in frame_tracks
+                        }
+                        for frame_tracks in player_tracks
+                    ]
+                    unknown_fraction = _unknown_assignment_fraction(
+                        player_tracks,
+                        self.player_team_dict,
+                    )
+                    self.assignment_metadata["unknown_observation_fraction"] = (
+                        unknown_fraction
+                    )
+                    if unknown_fraction > MAXIMUM_UNKNOWN_OBSERVATION_FRACTION:
+                        combined_confidence["unknown_observation_fraction"] = (
+                            unknown_fraction
+                        )
+                        if not self.allow_uncertain_teams:
+                            raise NeedsTeamColorsError(
+                                "too_many_unknown_team_observations",
+                                combined_confidence,
+                            )
+                        self._record_uncertain_continuation(
+                            "too_many_unknown_team_observations",
+                            combined_confidence,
+                        )
+                    if cache_path:
+                        save_cache(cache_path, player_assignment)
+                    return player_assignment
                 discovered_colors = discovery["prototypes"]
                 self.team_colors = {1: discovered_colors[0], 2: discovered_colors[1]}
                 logger.info(
@@ -273,6 +395,34 @@ class TeamAssigner:
             self.load_model()
 
         self._bootstrap_player_teams(video_frames, player_tracks)
+        if self.assignment_mode == "automatic":
+            self._resolve_unknown_tracks_with_fashion_clip(
+                video_frames,
+                player_tracks,
+            )
+            unknown_fraction = _unknown_assignment_fraction(
+                player_tracks,
+                self.player_team_dict,
+            )
+            self.assignment_metadata["unknown_observation_fraction"] = unknown_fraction
+            if unknown_fraction > MAXIMUM_UNKNOWN_OBSERVATION_FRACTION:
+                confidence = {
+                    **(self.assignment_metadata.get("discovery_confidence") or {}),
+                    "unknown_observation_fraction": unknown_fraction,
+                    "individual_fashion_clip": self.assignment_metadata.get(
+                        "individual_fashion_clip_fallback",
+                        {},
+                    ),
+                }
+                if not self.allow_uncertain_teams:
+                    raise NeedsTeamColorsError(
+                        "too_many_unknown_team_observations",
+                        confidence,
+                    )
+                self._record_uncertain_continuation(
+                    "too_many_unknown_team_observations",
+                    confidence,
+                )
         player_assignment = []
 
         for frame_num, player_track in enumerate(player_tracks):
@@ -289,6 +439,201 @@ class TeamAssigner:
             save_cache(cache_path, player_assignment)
 
         return player_assignment
+
+    def _record_uncertain_continuation(self, reason, confidence):
+        self.assignment_metadata.update(
+            {
+                "proceeded_with_uncertain_teams": True,
+                "uncertainty_reason": reason,
+                "uncertainty_confidence": confidence,
+                "uncertainty_warning": (
+                    "Team colors were skipped after uncertain automatic assignment. "
+                    "Unknown players remain unclassified and team possession, pass, "
+                    "and interception totals may be inaccurate."
+                ),
+            }
+        )
+        logger.warning(
+            "Continuing with uncertain team assignments (%s); team-level events may "
+            "be inaccurate",
+            reason,
+        )
+
+    def _discover_teams_with_fashion_clip(
+        self,
+        video_frames,
+        player_tracks,
+        max_samples_per_track=4,
+        max_total_samples=128,
+    ):
+        """Cluster persistent player tracks using FashionCLIP jersey embeddings."""
+        try:
+            import torch
+
+            self.load_model()
+            samples = []
+            sample_track_ids = []
+            per_track_counts = {}
+            frame_step = max(1, len(video_frames) // 24)
+            for frame_index in range(
+                0,
+                min(len(video_frames), len(player_tracks)),
+                frame_step,
+            ):
+                for player_id, track in player_tracks[frame_index].items():
+                    if per_track_counts.get(player_id, 0) >= max_samples_per_track:
+                        continue
+                    crop = _crop_player_jersey(
+                        video_frames[frame_index],
+                        track["bbox"],
+                    )
+                    if crop is None:
+                        continue
+                    samples.append(crop)
+                    sample_track_ids.append(player_id)
+                    per_track_counts[player_id] = per_track_counts.get(player_id, 0) + 1
+                    if len(samples) >= max_total_samples:
+                        break
+                if len(samples) >= max_total_samples:
+                    break
+
+            eligible_tracks = {
+                player_id
+                for player_id, count in per_track_counts.items()
+                if count >= 2
+            }
+            if len(eligible_tracks) < 4:
+                return {
+                    "status": "needs_team_colors",
+                    "reason": "insufficient_fashion_clip_tracks",
+                    "device": self.model_device,
+                    "track_assignments": {},
+                    "confidence": {
+                        "sample_count": len(samples),
+                        "eligible_track_count": len(eligible_tracks),
+                    },
+                }
+
+            embeddings = []
+            batch_size = 16
+            for start in range(0, len(samples), batch_size):
+                inputs = self.processor(
+                    images=samples[start : start + batch_size],
+                    return_tensors="pt",
+                    padding=True,
+                )
+                pixel_values = inputs["pixel_values"].to(self.model_device)
+                with torch.inference_mode():
+                    batch_embeddings = self.model.get_image_features(
+                        pixel_values=pixel_values,
+                    )
+                    if hasattr(batch_embeddings, "pooler_output"):
+                        batch_embeddings = batch_embeddings.pooler_output
+                    batch_embeddings = torch.nn.functional.normalize(
+                        batch_embeddings,
+                        dim=1,
+                    )
+                embeddings.extend(batch_embeddings.detach().cpu().tolist())
+
+            filtered_embeddings = [
+                embedding
+                for embedding, player_id in zip(embeddings, sample_track_ids)
+                if player_id in eligible_tracks
+            ]
+            filtered_track_ids = [
+                player_id
+                for player_id in sample_track_ids
+                if player_id in eligible_tracks
+            ]
+            result = _cluster_fashion_clip_embeddings(
+                filtered_embeddings,
+                filtered_track_ids,
+            )
+            result["device"] = self.model_device
+            return result
+        except Exception as error:
+            logger.exception("FashionCLIP fallback could not run")
+            return {
+                "status": "needs_team_colors",
+                "reason": "fashion_clip_unavailable",
+                "device": self.model_device,
+                "track_assignments": {},
+                "confidence": {"error": str(error)},
+            }
+
+    def _resolve_unknown_tracks_with_fashion_clip(self, video_frames, player_tracks):
+        unknown_track_ids = {
+            player_id
+            for player_id, team_id in self.player_team_dict.items()
+            if team_id not in (1, 2)
+        }
+        if not unknown_track_ids:
+            return
+
+        fashion_clip = self._discover_teams_with_fashion_clip(
+            video_frames,
+            player_tracks,
+        )
+        fallback_metadata = {
+            "attempted_track_ids": sorted(int(value) for value in unknown_track_ids),
+            "fashion_clip": fashion_clip,
+            "resolved_track_ids": [],
+            "color_evidence_overrides": [],
+            "unresolved_conflicts": [],
+        }
+        self.assignment_metadata["individual_fashion_clip_fallback"] = fallback_metadata
+        if fashion_clip["status"] != "confident":
+            return
+
+        mapping = _map_fashion_clip_clusters_to_teams(
+            fashion_clip["track_assignments"],
+            self.player_team_dict,
+        )
+        fallback_metadata["mapping"] = mapping
+        if mapping["status"] != "confident":
+            return
+
+        track_metadata = self.assignment_metadata.get("track_assignments", {})
+        for player_id in unknown_track_ids:
+            cluster_id = fashion_clip["track_assignments"].get(player_id)
+            fashion_team_id = mapping["cluster_to_team"].get(cluster_id)
+            existing = track_metadata.get(str(int(player_id)), {})
+            arbitration = _arbitrate_track_assignment(
+                existing,
+                fashion_team_id,
+            )
+            team_id = arbitration["team_id"]
+            if team_id not in (1, 2):
+                track_metadata[str(int(player_id))] = {
+                    **existing,
+                    "status": "unknown",
+                    "team_id": None,
+                    "reason": arbitration["reason"],
+                    "original_reason": existing.get("reason"),
+                    "fashion_clip_team_id": fashion_team_id,
+                }
+                fallback_metadata["unresolved_conflicts"].append(int(player_id))
+                continue
+            self.player_team_dict[player_id] = team_id
+            self.player_team_votes[player_id] = [team_id]
+            track_metadata[str(int(player_id))] = {
+                **existing,
+                "status": "assigned",
+                "team_id": team_id,
+                "reason": arbitration["reason"],
+                "original_reason": existing.get("reason"),
+                "fashion_clip_team_id": fashion_team_id,
+            }
+            fallback_metadata["resolved_track_ids"].append(int(player_id))
+            if arbitration["reason"] == "weighted_color_over_fashion_clip_conflict":
+                fallback_metadata["color_evidence_overrides"].append(int(player_id))
+
+        self.assignment_metadata["track_assignments"] = track_metadata
+        logger.info(
+            "FashionCLIP resolved %d/%d individually uncertain tracks",
+            len(fallback_metadata["resolved_track_ids"]),
+            len(unknown_track_ids),
+        )
 
     def _bootstrap_player_teams(self, video_frames, player_tracks):
         """Assign each offline track from all of its usable jersey observations."""
@@ -317,6 +662,7 @@ class TeamAssigner:
             decision = _track_team_decision(
                 player_observations,
                 self.team_colors,
+                allow_guided_fallback=self.assignment_mode == "user_colors",
             )
             team_id = decision["team_id"]
             self.player_team_dict[player_id] = team_id if team_id is not None else -1
@@ -361,6 +707,288 @@ def _crop_player(frame, bbox):
         return None
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return Image.fromarray(rgb_image)
+
+
+def _crop_player_jersey(frame, bbox):
+    """Return the torso region used for FashionCLIP fallback evidence."""
+    try:
+        from PIL import Image
+    except ImportError as error:
+        raise RuntimeError(
+            "FashionCLIP team fallback requires Pillow. Install "
+            "backend/requirements.txt."
+        ) from error
+
+    frame_height, frame_width = frame.shape[:2]
+    x1, y1, x2, y2 = (int(value) for value in bbox)
+    width = x2 - x1
+    height = y2 - y1
+    if width <= 0 or height <= 0:
+        return None
+    torso_x1 = max(0, x1 + width // 5)
+    torso_x2 = min(frame_width, x2 - width // 5)
+    torso_y1 = max(0, y1 + height // 5)
+    torso_y2 = min(frame_height, y1 + height * 3 // 5)
+    image = frame[torso_y1:torso_y2, torso_x1:torso_x2]
+    if image.size == 0:
+        return None
+    return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+
+def _cluster_fashion_clip_embeddings(embeddings, sample_track_ids):
+    """Cluster normalized FashionCLIP samples and reject weak two-team splits."""
+    by_track = {}
+    for embedding, player_id in zip(embeddings, sample_track_ids):
+        by_track.setdefault(player_id, []).append([float(value) for value in embedding])
+    track_ids = sorted(by_track)
+    if len(track_ids) < 4:
+        return {
+            "status": "needs_team_colors",
+            "reason": "insufficient_fashion_clip_tracks",
+            "track_assignments": {},
+            "confidence": {"eligible_track_count": len(track_ids)},
+        }
+
+    representatives = [
+        _normalize_vector(_mean_vectors(by_track[player_id]))
+        for player_id in track_ids
+    ]
+    first_index, second_index = max(
+        (
+            (first, second)
+            for first in range(len(track_ids))
+            for second in range(first + 1, len(track_ids))
+        ),
+        key=lambda pair: 1 - _dot(
+            representatives[pair[0]],
+            representatives[pair[1]],
+        ),
+    )
+    if first_index == second_index:
+        return {
+            "status": "needs_team_colors",
+            "reason": "indistinct_fashion_clip_embeddings",
+            "track_assignments": {},
+            "confidence": {"eligible_track_count": len(track_ids)},
+        }
+    if track_ids[first_index] > track_ids[second_index]:
+        first_index, second_index = second_index, first_index
+    centroids = [representatives[first_index], representatives[second_index]]
+
+    labels = None
+    for _ in range(12):
+        similarities = [
+            [_dot(vector, centroid) for centroid in centroids]
+            for vector in representatives
+        ]
+        next_labels = [
+            0 if row[0] >= row[1] else 1
+            for row in similarities
+        ]
+        if any(next_labels.count(cluster) == 0 for cluster in (0, 1)):
+            break
+        next_centroids = [
+            _normalize_vector(
+                _mean_vectors(
+                    [
+                        vector
+                        for vector, label in zip(representatives, next_labels)
+                        if label == cluster
+                    ]
+                )
+            )
+            for cluster in (0, 1)
+        ]
+        labels = next_labels
+        if all(
+            max(abs(left - right) for left, right in zip(new, old)) <= 1e-5
+            for new, old in zip(next_centroids, centroids)
+        ):
+            centroids = next_centroids
+            break
+        centroids = next_centroids
+
+    if labels is None:
+        return {
+            "status": "needs_team_colors",
+            "reason": "indistinct_fashion_clip_embeddings",
+            "track_assignments": {},
+            "confidence": {"eligible_track_count": len(track_ids)},
+        }
+
+    similarities = [
+        [_dot(vector, centroid) for centroid in centroids]
+        for vector in representatives
+    ]
+    labels = [0 if row[0] >= row[1] else 1 for row in similarities]
+    margins = [abs(row[0] - row[1]) for row in similarities]
+    support = [labels.count(cluster) for cluster in (0, 1)]
+    separation = 1 - _dot(centroids[0], centroids[1])
+    track_labels = {
+        player_id: labels[index]
+        for index, player_id in enumerate(track_ids)
+    }
+    sample_agreement = []
+    for embedding, player_id in zip(embeddings, sample_track_ids):
+        normalized_embedding = _normalize_vector(embedding)
+        sample_similarities = [
+            _dot(normalized_embedding, centroid)
+            for centroid in centroids
+        ]
+        sample_label = 0 if sample_similarities[0] >= sample_similarities[1] else 1
+        sample_agreement.append(sample_label == track_labels[player_id])
+    agreement = sum(sample_agreement) / max(1, len(sample_agreement))
+    mean_margin = sum(margins) / len(margins)
+    confidence = {
+        "sample_count": len(embeddings),
+        "eligible_track_count": len(track_ids),
+        "cluster_support": support,
+        "centroid_separation": round(separation, 4),
+        "mean_assignment_margin": round(mean_margin, 4),
+        "sample_track_agreement": round(agreement, 4),
+    }
+    reason = None
+    if min(support) < 2:
+        reason = "insufficient_fashion_clip_cluster_support"
+    elif separation < 0.04:
+        reason = "indistinct_fashion_clip_embeddings"
+    elif mean_margin < 0.03:
+        reason = "weak_fashion_clip_assignment_margin"
+    elif agreement < 0.75:
+        reason = "unstable_fashion_clip_track_evidence"
+    if reason:
+        return {
+            "status": "needs_team_colors",
+            "reason": reason,
+            "track_assignments": {},
+            "confidence": confidence,
+        }
+    return {
+        "status": "confident",
+        "reason": None,
+        "track_assignments": {
+            int(player_id): track_labels[player_id] + 1
+            for player_id in track_ids
+        },
+        "confidence": confidence,
+    }
+
+
+def _dot(left, right):
+    return sum(a * b for a, b in zip(left, right))
+
+
+def _normalize_vector(vector):
+    magnitude = math.sqrt(max(0.0, _dot(vector, vector)))
+    if magnitude <= 1e-12:
+        return [0.0 for _ in vector]
+    return [value / magnitude for value in vector]
+
+
+def _mean_vectors(vectors):
+    return [
+        sum(vector[index] for vector in vectors) / len(vectors)
+        for index in range(len(vectors[0]))
+    ]
+
+
+def _map_fashion_clip_clusters_to_teams(
+    fashion_clip_assignments,
+    color_assignments,
+):
+    """Align arbitrary FashionCLIP cluster ids with established display teams."""
+    anchors = [
+        (fashion_clip_assignments[player_id], team_id)
+        for player_id, team_id in color_assignments.items()
+        if team_id in (1, 2)
+        and fashion_clip_assignments.get(player_id) in (1, 2)
+    ]
+    cluster_support = {
+        cluster_id: sum(cluster == cluster_id for cluster, _ in anchors)
+        for cluster_id in (1, 2)
+    }
+    if len(anchors) < 4 or min(cluster_support.values()) < 1:
+        return {
+            "status": "needs_team_colors",
+            "reason": "insufficient_fashion_clip_mapping_anchors",
+            "cluster_to_team": {},
+            "confidence": {
+                "anchor_count": len(anchors),
+                "cluster_anchor_support": cluster_support,
+            },
+        }
+    candidates = [
+        {1: 1, 2: 2},
+        {1: 2, 2: 1},
+    ]
+    scored = [
+        sum(mapping[cluster] == team for cluster, team in anchors)
+        for mapping in candidates
+    ]
+    best_index = 0 if scored[0] >= scored[1] else 1
+    agreement = scored[best_index] / len(anchors)
+    confidence = {
+        "anchor_count": len(anchors),
+        "cluster_anchor_support": cluster_support,
+        "mapping_agreement": round(agreement, 4),
+    }
+    if agreement < 0.75:
+        return {
+            "status": "needs_team_colors",
+            "reason": "unstable_fashion_clip_team_mapping",
+            "cluster_to_team": {},
+            "confidence": confidence,
+        }
+    return {
+        "status": "confident",
+        "reason": None,
+        "cluster_to_team": candidates[best_index],
+        "confidence": confidence,
+    }
+
+
+def _arbitrate_track_assignment(color_decision, fashion_team_id):
+    """Resolve per-track color/FashionCLIP conflicts conservatively."""
+    if fashion_team_id not in (1, 2):
+        return {"team_id": None, "reason": "missing_fashion_clip_track_assignment"}
+
+    weights = {
+        int(team_id): float(weight)
+        for team_id, weight in color_decision.get("team_vote_weights", {}).items()
+        if int(team_id) in (1, 2)
+    }
+    confident_count = int(color_decision.get("confident_observation_count") or 0)
+    color_team_id = None
+    if len(weights) == 2 and weights[1] != weights[2]:
+        color_team_id = max(weights, key=weights.get)
+    weight_share = float(color_decision.get("weight_share") or 0.0)
+
+    if color_team_id is None or confident_count < MINIMUM_COLOR_CONFLICT_EVIDENCE:
+        return {"team_id": fashion_team_id, "reason": "fashion_clip_track_fallback"}
+    if color_team_id == fashion_team_id:
+        return {
+            "team_id": fashion_team_id,
+            "reason": "fashion_clip_confirms_weighted_color",
+        }
+    if weight_share >= MINIMUM_COLOR_CONFLICT_WEIGHT_SHARE:
+        return {
+            "team_id": color_team_id,
+            "reason": "weighted_color_over_fashion_clip_conflict",
+        }
+    return {"team_id": None, "reason": "color_fashion_clip_conflict"}
+
+
+def _unknown_assignment_fraction(player_tracks, assignments):
+    total_observations = sum(len(frame_tracks) for frame_tracks in player_tracks)
+    if total_observations == 0:
+        return 0.0
+    unknown_observations = sum(
+        1
+        for frame_tracks in player_tracks
+        for player_id in frame_tracks
+        if assignments.get(player_id) not in (1, 2)
+    )
+    return round(unknown_observations / total_observations, 4)
 
 
 def _discover_team_colors(
@@ -709,7 +1337,23 @@ def _confident_nearest_team(
     return min(distances, key=distances.get)
 
 
-def _track_team_decision(observations, team_colors):
+def _track_team_decision(
+    observations,
+    team_colors,
+    allow_guided_fallback=False,
+):
+    decision = _strict_track_team_decision(observations, team_colors)
+    if decision["team_id"] is not None or not allow_guided_fallback:
+        return decision
+    guided = _guided_track_team_decision(observations, team_colors)
+    if guided is None:
+        return decision
+    guided["automatic_rejection_reason"] = decision["reason"]
+    guided["guidance"] = "user_colors_relaxed_nearest"
+    return guided
+
+
+def _strict_track_team_decision(observations, team_colors):
     """Aggregate temporally distributed, confidence-weighted track evidence."""
     if len(team_colors) != 2:
         return _empty_track_decision(
@@ -800,6 +1444,83 @@ def _track_team_decision(observations, team_colors):
         selected,
         team_id,
         reason,
+        counts=counts,
+        weights=weights,
+        agreement=agreement,
+        weight_share=weight_share,
+    )
+
+
+def _guided_track_team_decision(observations, team_colors):
+    """Use explicit user colors to classify any track with usable jersey evidence."""
+    if len(team_colors) != 2:
+        return None
+    team_ids = list(team_colors)
+    prototype_separation = _color_distance(
+        team_colors[team_ids[0]],
+        team_colors[team_ids[1]],
+    )
+    if prototype_separation <= 0:
+        return None
+
+    evidence = []
+    for observation in observations:
+        feature = observation.get("feature")
+        if feature is None:
+            continue
+        distances = _team_distances(feature, team_colors)
+        if len(distances) != 2 or any(value is None for value in distances.values()):
+            continue
+        team_id = min(distances, key=distances.get)
+        quality_score = max(0.05, float(observation.get("quality_score", 1.0)))
+        distance_ratio = distances[team_id] / prototype_separation
+        weight = quality_score / (1.0 + distance_ratio)
+        evidence.append(
+            {
+                "frame": int(observation.get("frame", len(evidence))),
+                "team_id": int(team_id),
+                "quality_score": round(quality_score, 4),
+                "margin_ratio": round(
+                    abs(distances[team_ids[0]] - distances[team_ids[1]])
+                    / prototype_separation,
+                    4,
+                ),
+                "nearest_distance_ratio": round(distance_ratio, 4),
+                "weight": round(weight, 4),
+            }
+        )
+    selected = _temporally_diverse_evidence(
+        evidence,
+        MAXIMUM_TRACK_EVIDENCE_SAMPLES,
+    )
+    if not selected:
+        return None
+    counts = {
+        team_id: sum(item["team_id"] == team_id for item in selected)
+        for team_id in team_ids
+    }
+    weights = {
+        team_id: sum(
+            item["weight"] for item in selected if item["team_id"] == team_id
+        )
+        for team_id in team_ids
+    }
+    highest_weight = max(weights.values())
+    leaders = [team_id for team_id, value in weights.items() if value == highest_weight]
+    if len(leaders) != 1:
+        highest_count = max(counts.values())
+        leaders = [team_id for team_id, value in counts.items() if value == highest_count]
+    if len(leaders) != 1:
+        return None
+    team_id = leaders[0]
+    agreement = counts[team_id] / len(selected)
+    total_weight = sum(weights.values())
+    weight_share = weights[team_id] / total_weight if total_weight > 0 else 0.0
+    return _track_decision_result(
+        observations,
+        selected,
+        team_id,
+        None,
         counts=counts,
         weights=weights,
         agreement=agreement,
