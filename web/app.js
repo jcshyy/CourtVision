@@ -4,6 +4,8 @@
   const config = Object.assign(
     {
       apiBaseUrl: "/api",
+      publicPreview: false,
+      analysisAvailable: true,
       localRuntime: false,
       maxDurationSeconds: 30,
       maxUploadBytes: 500 * 1024 * 1024,
@@ -79,8 +81,9 @@
     { id: "event-1", type: "pass", timeSeconds: 4.2, status: "candidate", fromTeamId: 1, toTeamId: 1 },
     { id: "event-2", type: "pass", timeSeconds: 8.4, status: "candidate", fromTeamId: 1, toTeamId: 1 },
     { id: "event-3", type: "interception", timeSeconds: 14.7, status: "unknown", fromTeamId: 2, toTeamId: null },
-    { id: "event-4", type: "pass", timeSeconds: 22.3, status: "unknown", fromTeamId: null, toTeamId: null },
-    { id: "event-5", type: "interception", timeSeconds: 29.1, status: "candidate", fromTeamId: 1, toTeamId: 2 },
+    { id: "event-4", type: "shot_attempt", timeSeconds: 18.2, status: "candidate", fromTeamId: 1, toTeamId: 1 },
+    { id: "event-5", type: "pass", timeSeconds: 22.3, status: "unknown", fromTeamId: null, toTeamId: null },
+    { id: "event-6", type: "interception", timeSeconds: 29.1, status: "candidate", fromTeamId: 1, toTeamId: 2 },
   ];
 
   const demoAnalysis = {
@@ -91,7 +94,7 @@
     source: { fps: 15, frameCount: 450, durationSeconds: 30 },
     court: { width: 300, height: 161 },
     events: demoEvents,
-    frames: [0, 4.2, 8.4, 14.7, 22.3, 29.1].map((time, index) => makeDemoFrame(time, index)),
+    frames: [0, 4.2, 8.4, 14.7, 18.2, 22.3, 29.1].map((time, index) => makeDemoFrame(time, index)),
     diagnostics: {
       tacticalView: { fallback_used: [126, 127] },
       teamAssignment: { discovery_confidence: null },
@@ -184,6 +187,13 @@
       } else {
         state.view = "upload";
       }
+      render();
+      return;
+    }
+
+    if (config.publicPreview && !config.analysisAvailable) {
+      state.session = { preview: true };
+      state.view = "upload";
       render();
       return;
     }
@@ -407,11 +417,12 @@
         <main class="workspace-view view" aria-labelledby="upload-title">
           <header class="workspace-heading">
             <div>
-              <h1 id="upload-title">Put one clip on the desk.</h1>
-              <p>Use a bounded game segment. CourtVision will preserve unknowns when evidence is weak.</p>
+              <h1 id="upload-title">Analyze one play.</h1>
+              <p>Choose a bounded game segment. CourtVision checks the clip locally before any upload begins.</p>
             </div>
             ${limitStrip()}
           </header>
+          ${capacityNoticeMarkup()}
           ${messageMarkup()}
           <form id="upload-form" class="upload-desk" novalidate>
             <section class="upload-monitor" aria-labelledby="drop-title">
@@ -419,7 +430,7 @@
                 <div class="drop-zone-inner">
                   <div class="drop-symbol">${icon("upload")}</div>
                   <h2 id="drop-title">Choose a basketball clip</h2>
-                  <p>MP4, MOV, or WebM. CourtVision reads the first bounded selection and rejects clips outside the beta profile.</p>
+                  <p>MP4, MOV, or WebM. CourtVision checks duration, format, and size on this device before analysis.</p>
                   <label class="button button-primary" for="video-file">${icon("folder")}<span>Choose video</span></label>
                   <input class="file-input" id="video-file" name="video" type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm" required />
                 </div>
@@ -429,9 +440,9 @@
               <h2 class="panel-title" id="upload-rundown-title"><span>Job rundown</span><span class="timecode">00:30 max</span></h2>
               ${selectedFileMarkup()}
               <button class="button button-primary" id="analyze-button" type="submit" ${!state.selectedFile || state.busy ? "disabled" : ""}>
-                ${icon("arrow")}<span>${state.busy ? "Preparing upload…" : "Analyze clip"}</span>
+                ${icon("arrow")}<span>${state.busy ? "Checking capacity…" : "Analyze video"}</span>
               </button>
-              <p class="field-hint">Beta analytics are experimental. Review every result against the source play.</p>
+              <p class="field-hint">${config.analysisAvailable ? "Analysis is experimental. Review every result against the source play." : "Processing is not available yet. Preview videos are not uploaded."}</p>
             </aside>
           </form>
         </main>
@@ -486,7 +497,7 @@
         <dl class="file-facts">
           <dt>Duration</dt><dd>${formatTime(state.selectedFileDuration, true)}</dd>
           <dt>Size</dt><dd>${formatBytes(state.selectedFile.size)}</dd>
-          <dt>${config.localRuntime ? "Storage" : "Retention"}</dt><dd>${config.localRuntime ? "This computer" : `${config.resultRetentionHours} hours`}</dd>
+          <dt>${config.publicPreview && !config.analysisAvailable ? "Upload" : config.localRuntime ? "Storage" : "Retention"}</dt><dd>${config.publicPreview && !config.analysisAvailable ? "Not started" : config.localRuntime ? "This computer" : `${config.resultRetentionHours} hours`}</dd>
         </dl>
         ${
           state.busy
@@ -549,6 +560,14 @@
   async function createAndUploadJob(event) {
     event.preventDefault();
     if (!state.selectedFile || state.busy) return;
+    if (config.publicPreview && !config.analysisAvailable) {
+      state.message = {
+        type: "error",
+        text: "Live analysis is waiting on GPU capacity. This video was not uploaded. Review the working sample or try again after service status changes.",
+      };
+      renderUpload();
+      return;
+    }
     state.busy = true;
     state.uploadProgress = 0;
     state.message = null;
@@ -911,7 +930,9 @@
         </header>
       `;
     }
-    const expiration = state.job?.expiresAt
+    const expiration = config.publicPreview && !config.analysisAvailable
+      ? "No video leaves your device"
+      : state.job?.expiresAt
       ? `${config.localRuntime ? "Expires" : "Deletes"} ${relativeExpiration(state.job.expiresAt)}`
       : `${config.resultRetentionHours}-hour ${config.localRuntime ? "local session" : "retention"}`;
     const canDownload = review && state.downloads?.videoUrl;
@@ -920,7 +941,7 @@
         <div class="brand-lockup">
           <a class="brand" href="./" aria-label="CourtVision home">CourtVision</a>
           <span class="brand-divider" aria-hidden="true"></span>
-          <span class="status-chip">${config.localRuntime ? "Local analysis" : "Beta analysis"}</span>
+          <span class="status-chip">${config.publicPreview ? "Public preview" : config.localRuntime ? "Local analysis" : "Beta analysis"}</span>
         </div>
         <div class="topbar-center">
           ${icon("clock")}
@@ -938,9 +959,11 @@
           }
           ${review ? `<button class="button button-secondary" id="report-issue" type="button">${icon("flag")}<span>Report issue</span></button>` : ""}
           ${
-            config.localRuntime
-              ? ""
-              : `<button class="button button-quiet" id="sign-out" type="button">${icon("signout")}<span>Sign out</span></button>`
+            config.publicPreview
+              ? `<a class="button button-secondary" href="demo.html?v=video-2-tactical-fixed-4">${icon("play")}<span>View sample</span></a>`
+              : config.localRuntime
+                ? ""
+                : `<button class="button button-quiet" id="sign-out" type="button">${icon("signout")}<span>Sign out</span></button>`
           }
         </nav>
       </header>
@@ -959,6 +982,38 @@
     `;
   }
 
+  function capacityNoticeMarkup() {
+    if (!config.publicPreview || config.analysisAvailable) return "";
+    return `
+      <aside class="capacity-notice" aria-labelledby="capacity-title">
+        <span class="capacity-marker" aria-hidden="true"></span>
+        <div><strong id="capacity-title">Analysis capacity pending</strong><span>The upload desk is open for preview. GPU processing is awaiting approval, so selected videos remain on this device.</span></div>
+        <a href="demo.html?v=video-2-tactical-fixed-4">View working sample</a>
+      </aside>
+    `;
+  }
+
+  async function continueWithUncertainTeams() {
+    state.busy = true;
+    renderTeamColors();
+    try {
+      if (demoMode) state.job = demoJob("processing", "Queued with uncertain teams");
+      else {
+        const response = await api(`/jobs/${state.job.id}/continue-with-uncertain-teams`, {
+          method: "POST",
+          body: {},
+        });
+        state.job = response.job;
+      }
+      state.view = "processing";
+    } catch (error) {
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
   function summaryDockMarkup(analysis) {
     const summary = summaryAtTime(analysis, state.currentTime);
     return `
@@ -969,6 +1024,7 @@
           <tbody>
             <tr><th scope="row">Pass candidates</th><td id="team-1-passes">${summary.passes[1]}</td><td id="team-2-passes">${summary.passes[2]}</td></tr>
             <tr><th scope="row">Interception candidates</th><td id="team-1-interceptions">${summary.interceptions[1]}</td><td id="team-2-interceptions">${summary.interceptions[2]}</td></tr>
+            <tr><th scope="row">Shot-attempt candidates</th><td id="team-1-shots">${summary.shots[1]}</td><td id="team-2-shots">${summary.shots[2]}</td></tr>
             <tr><th scope="row">Ball control estimate</th><td id="team-1-control">${summary.control[1]}</td><td id="team-2-control">${summary.control[2]}</td></tr>
           </tbody>
         </table>
@@ -980,9 +1036,10 @@
   function summaryAtTime(analysis, time) {
     const passes = { 1: 0, 2: 0 };
     const interceptions = { 1: 0, 2: 0 };
+    const shots = { 1: 0, 2: 0 };
     (analysis.events || []).forEach((event) => {
       if (Number(event.timeSeconds) > time || ![1, 2].includes(Number(event.toTeamId))) return;
-      const totals = event.type === "pass" ? passes : event.type === "interception" ? interceptions : null;
+      const totals = event.type === "pass" ? passes : event.type === "interception" ? interceptions : event.type === "shot_attempt" ? shots : null;
       if (totals) totals[Number(event.toTeamId)] += 1;
     });
 
@@ -1001,6 +1058,7 @@
     return {
       passes,
       interceptions,
+      shots,
       control,
       note: knownFrames
         ? `Based on ${knownFrames} frames with an estimated team holder.`
@@ -1063,12 +1121,12 @@
     return `
       <details class="evidence-drawer">
         <summary>${icon("evidence")}<span>Evidence and unknowns</span>${icon("chevron")}</summary>
-        <div class="evidence-content" id="evidence-content">${evidenceContentMarkup(event, unavailable)}</div>
+        <div class="evidence-content" id="evidence-content">${evidenceContentMarkup(event, unavailable, analysis)}</div>
       </details>
     `;
   }
 
-  function evidenceContentMarkup(event, unavailable) {
+  function evidenceContentMarkup(event, unavailable, analysis) {
     const tacticalState = unavailable
       ? `Estimated court positions are unavailable for ${unavailable} replay ${unavailable === 1 ? "frame" : "frames"}`
       : event
@@ -1077,9 +1135,35 @@
     return `
       <div><strong>Selected cue</strong><span>${event ? `${escapeHtml(eventLabel(event))} at ${formatTime(event.timeSeconds)}` : "No cue selected"}</span></div>
       <div><strong>Review state</strong><span>${event ? (event.status === "unknown" ? "Unknown—insufficient evidence" : "Candidate—requires video review") : "No reliable event candidate"}</span></div>
-      <div><strong>Evidence state</strong><span>${event ? "Qualitative candidate or unknown state; requires video review" : "No pass or interception transition met the review threshold"}</span></div>
+      <div><strong>Evidence state</strong><span>${event ? "Qualitative candidate or unknown state; requires video review" : "No pass, interception, or shot attempt met the review threshold"}</span></div>
       <div><strong>Tactical availability</strong><span>${escapeHtml(tacticalState)}</span></div>
+      ${trajectoryEvidenceMarkup(event, analysis)}
     `;
+  }
+
+  function trajectoryEvidenceMarkup(event, analysis) {
+    if (event?.type !== "shot_attempt") return "";
+    const trajectory = event.evidence?.trajectory_evidence || event.evidence?.trajectoryEvidence;
+    if (!trajectory) {
+      return '<div><strong>Trajectory detail</strong><span>Not included in this manifest; review the replay at the selected cue.</span></div>';
+    }
+    const observed = Number(trajectory.observed_ball_frames ?? trajectory.observedBallFrames);
+    const interpolated = Number(trajectory.interpolated_ball_frames ?? trajectory.interpolatedBallFrames);
+    const rise = evidenceNumber(trajectory.rise_player_heights ?? trajectory.risePlayerHeights);
+    const approach = evidenceNumber(trajectory.rim_approach_player_heights ?? trajectory.rimApproachPlayerHeights);
+    const rimDistance = evidenceNumber(trajectory.rim_distance_player_heights ?? trajectory.rimDistancePlayerHeights);
+    const strength = evidenceNumber(trajectory.trajectory_strength ?? trajectory.trajectoryStrength);
+    const threshold = evidenceNumber(analysis?.diagnostics?.detectors?.shotThresholds?.minimumTrajectoryStrength);
+    return `
+      <div><strong>Ball observations</strong><span>${Number.isFinite(observed) ? Math.max(0, Math.round(observed)) : "—"} observed · ${Number.isFinite(interpolated) ? Math.max(0, Math.round(interpolated)) : "—"} interpolated frames</span></div>
+      <div><strong>Measured release path</strong><span>Rise ${rise} player heights · rim approach ${approach}</span></div>
+      <div><strong>Rim proximity signal</strong><span>Closest rim ${rimDistance} player heights · strength ${strength}${threshold === "—" ? "" : ` / ${threshold} threshold`}</span></div>
+    `;
+  }
+
+  function evidenceNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toFixed(2) : "—";
   }
 
   function eventListMarkup(events, selected) {
@@ -1115,7 +1199,7 @@
           </header>
           <div class="dialog-body form-stack">
             <div class="field"><label class="field-label" for="report-time">Timecode</label><input class="input" id="report-time" name="timeSeconds" type="number" min="0" max="${state.analysis?.source?.durationSeconds || 30}" step="0.1" value="${Number(state.currentTime).toFixed(1)}" required /></div>
-            <div class="field"><label class="field-label" for="report-category">What failed?</label><select class="select" id="report-category" name="category" required><option value="">Choose a category</option><option value="ball_tracking">Ball tracking</option><option value="player_tracking">Player tracking</option><option value="team_assignment">Team assignment</option><option value="possession">Possession</option><option value="event_detection">Pass or interception</option><option value="tactical_view">Tactical court</option><option value="rendering">Rendered overlay</option><option value="processing">Processing reliability</option><option value="other">Other</option></select></div>
+            <div class="field"><label class="field-label" for="report-category">What failed?</label><select class="select" id="report-category" name="category" required><option value="">Choose a category</option><option value="ball_tracking">Ball tracking</option><option value="player_tracking">Player tracking</option><option value="team_assignment">Team assignment</option><option value="possession">Possession</option><option value="event_detection">Pass, interception, or shot attempt</option><option value="tactical_view">Tactical court</option><option value="rendering">Rendered overlay</option><option value="processing">Processing reliability</option><option value="other">Other</option></select></div>
             <div class="field"><label class="field-label" for="report-notes">What should a reviewer see?</label><textarea class="textarea" id="report-notes" name="notes" rows="5" maxlength="2000" required placeholder="Describe the visible failure and the expected interpretation."></textarea><p class="field-hint">Do not include personal data or confidential team information.</p></div>
             <input id="report-event-id" type="hidden" name="eventId" value="${escapeHtml(selected?.id || "")}" />
           </div>
@@ -1229,7 +1313,11 @@
     const evidence = app.querySelector("#evidence-content");
     const reportEvent = app.querySelector("#report-event-id");
     const announcement = app.querySelector("#sync-announcement");
-    if (evidence) evidence.innerHTML = evidenceContentMarkup(event, tacticalUnavailableCount(state.analysis || demoAnalysis));
+    if (evidence) evidence.innerHTML = evidenceContentMarkup(
+      event,
+      tacticalUnavailableCount(state.analysis || demoAnalysis),
+      state.analysis || demoAnalysis,
+    );
     if (reportEvent) reportEvent.value = event.id;
     if (announcement) announcement.textContent = `${eventLabel(event)} selected at ${formatTime(event.timeSeconds)}.`;
     updateCourtAndTimeline();
@@ -1318,6 +1406,8 @@
       "team-2-passes": summary.passes[2],
       "team-1-interceptions": summary.interceptions[1],
       "team-2-interceptions": summary.interceptions[2],
+      "team-1-shots": summary.shots[1],
+      "team-2-shots": summary.shots[2],
       "team-1-control": summary.control[1],
       "team-2-control": summary.control[2],
       "summary-note": summary.note,
@@ -1473,6 +1563,7 @@
     const labels = {
       pass: "Pass candidate",
       interception: "Interception candidate",
+      shot_attempt: "Shot-attempt candidate",
     };
     return labels[event.type] || "Event candidate";
   }

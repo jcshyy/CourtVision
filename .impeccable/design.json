@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-25T01:44:57.473Z",
+  "title": "Design System: CourtVision",
+  "extensions": {
+    "colorMeta": {
+      "monitor": { "role": "neutral", "displayName": "Monitor Black", "canonical": "#111417", "tonalRamp": ["oklch(15% 0.008 248.2)", "oklch(26% 0.008 248.2)", "oklch(38% 0.008 248.2)", "oklch(50% 0.008 248.2)", "oklch(62% 0.008 248.2)", "oklch(74% 0.008 248.2)", "oklch(86% 0.008 248.2)", "oklch(95% 0.008 248.2)"] },
+      "monitor-deep": { "role": "neutral", "displayName": "Deep Monitor Black", "canonical": "#090b0d", "tonalRamp": ["oklch(15% 0.006 247.8)", "oklch(26% 0.006 247.8)", "oklch(38% 0.006 247.8)", "oklch(50% 0.006 247.8)", "oklch(62% 0.006 247.8)", "oklch(74% 0.006 247.8)", "oklch(86% 0.006 247.8)", "oklch(95% 0.006 247.8)"] },
+      "monitor-raised": { "role": "neutral", "displayName": "Raised Monitor Black", "canonical": "#1a1f24", "tonalRamp": ["oklch(15% 0.012 248.3)", "oklch(26% 0.012 248.3)", "oklch(38% 0.012 248.3)", "oklch(50% 0.012 248.3)", "oklch(62% 0.012 248.3)", "oklch(74% 0.012 248.3)", "oklch(86% 0.012 248.3)", "oklch(95% 0.012 248.3)"] },
+      "ink": { "role": "neutral", "displayName": "Rundown Ink", "canonical": "#0f1419", "tonalRamp": ["oklch(15% 0.013 248.5)", "oklch(26% 0.013 248.5)", "oklch(38% 0.013 248.5)", "oklch(50% 0.013 248.5)", "oklch(62% 0.013 248.5)", "oklch(74% 0.013 248.5)", "oklch(86% 0.013 248.5)", "oklch(95% 0.013 248.5)"] },
+      "paper": { "role": "neutral", "displayName": "Rundown Paper", "canonical": "#e8ecef", "tonalRamp": ["oklch(15% 0.006 239.8)", "oklch(26% 0.006 239.8)", "oklch(38% 0.006 239.8)", "oklch(50% 0.006 239.8)", "oklch(62% 0.006 239.8)", "oklch(74% 0.006 239.8)", "oklch(86% 0.006 239.8)", "oklch(95% 0.006 239.8)"] },
+      "paper-bright": { "role": "neutral", "displayName": "Bright Paper", "canonical": "#f8fafb", "tonalRamp": ["oklch(15% 0.003 228.8)", "oklch(26% 0.003 228.8)", "oklch(38% 0.003 228.8)", "oklch(50% 0.003 228.8)", "oklch(62% 0.003 228.8)", "oklch(74% 0.003 228.8)", "oklch(86% 0.003 228.8)", "oklch(95% 0.003 228.8)"] },
+      "paper-muted": { "role": "neutral", "displayName": "Muted Paper", "canonical": "#cbd2d8", "tonalRamp": ["oklch(15% 0.011 243.7)", "oklch(26% 0.011 243.7)", "oklch(38% 0.011 243.7)", "oklch(50% 0.011 243.7)", "oklch(62% 0.011 243.7)", "oklch(74% 0.011 243.7)", "oklch(86% 0.011 243.7)", "oklch(95% 0.011 243.7)"] },
+      "rule": { "role": "neutral", "displayName": "Dark Rule", "canonical": "#313a42", "tonalRamp": ["oklch(15% 0.019 245.2)", "oklch(26% 0.019 245.2)", "oklch(38% 0.019 245.2)", "oklch(50% 0.019 245.2)", "oklch(62% 0.019 245.2)", "oklch(74% 0.019 245.2)", "oklch(86% 0.019 245.2)", "oklch(95% 0.019 245.2)"] },
+      "rule-light": { "role": "neutral", "displayName": "Light Rule", "canonical": "#aeb7bf", "tonalRamp": ["oklch(15% 0.015 244.8)", "oklch(26% 0.015 244.8)", "oklch(38% 0.015 244.8)", "oklch(50% 0.015 244.8)", "oklch(62% 0.015 244.8)", "oklch(74% 0.015 244.8)", "oklch(86% 0.015 244.8)", "oklch(95% 0.015 244.8)"] },
+      "cobalt": { "role": "primary", "displayName": "Grease-Pencil Cobalt", "canonical": "#2d6bff", "tonalRamp": ["oklch(15% 0.229 263.6)", "oklch(26% 0.229 263.6)", "oklch(38% 0.229 263.6)", "oklch(50% 0.229 263.6)", "oklch(62% 0.229 263.6)", "oklch(74% 0.229 263.6)", "oklch(86% 0.229 263.6)", "oklch(95% 0.229 263.6)"] },
+      "cobalt-strong": { "role": "primary", "displayName": "Pressed Cobalt", "canonical": "#1e55d6", "tonalRamp": ["oklch(15% 0.206 263.3)", "oklch(26% 0.206 263.3)", "oklch(38% 0.206 263.3)", "oklch(50% 0.206 263.3)", "oklch(62% 0.206 263.3)", "oklch(74% 0.206 263.3)", "oklch(86% 0.206 263.3)", "oklch(95% 0.206 263.3)"] },
+      "cobalt-soft": { "role": "primary", "displayName": "Selection Wash", "canonical": "#dfe8ff", "tonalRamp": ["oklch(15% 0.033 268.7)", "oklch(26% 0.033 268.7)", "oklch(38% 0.033 268.7)", "oklch(50% 0.033 268.7)", "oklch(62% 0.033 268.7)", "oklch(74% 0.033 268.7)", "oklch(86% 0.033 268.7)", "oklch(95% 0.033 268.7)"] },
+      "amber": { "role": "secondary", "displayName": "Uncertainty Amber", "canonical": "#f3b51b", "tonalRamp": ["oklch(15% 0.162 82.8)", "oklch(26% 0.162 82.8)", "oklch(38% 0.162 82.8)", "oklch(50% 0.162 82.8)", "oklch(62% 0.162 82.8)", "oklch(74% 0.162 82.8)", "oklch(86% 0.162 82.8)", "oklch(95% 0.162 82.8)"] },
+      "amber-ink": { "role": "secondary", "displayName": "Uncertainty Ink", "canonical": "#382600", "tonalRamp": ["oklch(15% 0.058 81.5)", "oklch(26% 0.058 81.5)", "oklch(38% 0.058 81.5)", "oklch(50% 0.058 81.5)", "oklch(62% 0.058 81.5)", "oklch(74% 0.058 81.5)", "oklch(86% 0.058 81.5)", "oklch(95% 0.058 81.5)"] },
+      "amber-soft": { "role": "secondary", "displayName": "Uncertainty Wash", "canonical": "#fff0bf", "tonalRamp": ["oklch(15% 0.065 93.1)", "oklch(26% 0.065 93.1)", "oklch(38% 0.065 93.1)", "oklch(50% 0.065 93.1)", "oklch(62% 0.065 93.1)", "oklch(74% 0.065 93.1)", "oklch(86% 0.065 93.1)", "oklch(95% 0.065 93.1)"] },
+      "danger": { "role": "tertiary", "displayName": "Failure Red", "canonical": "#d74b4b", "tonalRamp": ["oklch(15% 0.176 24)", "oklch(26% 0.176 24)", "oklch(38% 0.176 24)", "oklch(50% 0.176 24)", "oklch(62% 0.176 24)", "oklch(74% 0.176 24)", "oklch(86% 0.176 24)", "oklch(95% 0.176 24)"] },
+      "danger-soft": { "role": "tertiary", "displayName": "Failure Wash", "canonical": "#ffe3e3", "tonalRamp": ["oklch(15% 0.031 17.7)", "oklch(26% 0.031 17.7)", "oklch(38% 0.031 17.7)", "oklch(50% 0.031 17.7)", "oklch(62% 0.031 17.7)", "oklch(74% 0.031 17.7)", "oklch(86% 0.031 17.7)", "oklch(95% 0.031 17.7)"] },
+      "success": { "role": "tertiary", "displayName": "Completion Green", "canonical": "#2e8b65", "tonalRamp": ["oklch(15% 0.106 162.4)", "oklch(26% 0.106 162.4)", "oklch(38% 0.106 162.4)", "oklch(50% 0.106 162.4)", "oklch(62% 0.106 162.4)", "oklch(74% 0.106 162.4)", "oklch(86% 0.106 162.4)", "oklch(95% 0.106 162.4)"] },
+      "success-soft": { "role": "tertiary", "displayName": "Completion Wash", "canonical": "#dff4ea", "tonalRamp": ["oklch(15% 0.026 165.6)", "oklch(26% 0.026 165.6)", "oklch(38% 0.026 165.6)", "oklch(50% 0.026 165.6)", "oklch(62% 0.026 165.6)", "oklch(74% 0.026 165.6)", "oklch(86% 0.026 165.6)", "oklch(95% 0.026 165.6)"] },
+      "text": { "role": "neutral", "displayName": "Monitor Text", "canonical": "#f5f7f8", "tonalRamp": ["oklch(15% 0.003 228.8)", "oklch(26% 0.003 228.8)", "oklch(38% 0.003 228.8)", "oklch(50% 0.003 228.8)", "oklch(62% 0.003 228.8)", "oklch(74% 0.003 228.8)", "oklch(86% 0.003 228.8)", "oklch(95% 0.003 228.8)"] },
+      "text-muted": { "role": "neutral", "displayName": "Muted Monitor Text", "canonical": "#aeb8c1", "tonalRamp": ["oklch(15% 0.017 245.1)", "oklch(26% 0.017 245.1)", "oklch(38% 0.017 245.1)", "oklch(50% 0.017 245.1)", "oklch(62% 0.017 245.1)", "oklch(74% 0.017 245.1)", "oklch(86% 0.017 245.1)", "oklch(95% 0.017 245.1)"] },
+      "paper-text-muted": { "role": "neutral", "displayName": "Muted Paper Text", "canonical": "#53616d", "tonalRamp": ["oklch(15% 0.026 244.2)", "oklch(26% 0.026 244.2)", "oklch(38% 0.026 244.2)", "oklch(50% 0.026 244.2)", "oklch(62% 0.026 244.2)", "oklch(74% 0.026 244.2)", "oklch(86% 0.026 244.2)", "oklch(95% 0.026 244.2)"] },
+      "pure-white": { "role": "neutral", "displayName": "Pure White", "canonical": "#ffffff", "tonalRamp": ["oklch(15% 0 0)", "oklch(26% 0 0)", "oklch(38% 0 0)", "oklch(50% 0 0)", "oklch(62% 0 0)", "oklch(74% 0 0)", "oklch(86% 0 0)", "oklch(95% 0 0)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Broadcast Display", "purpose": "High-impact state headlines and upload or recovery prompts." },
+      "landing-display": { "displayName": "Landing Broadcast Display", "purpose": "Uppercase public hero and major capability-section statements." },
+      "headline": { "displayName": "Broadcast Headline", "purpose": "Panel and form headings." },
+      "title": { "displayName": "Local Title", "purpose": "Compact group and empty-state headings." },
+      "body": { "displayName": "Working Copy", "purpose": "Instructions, evidence explanations, and operational copy." },
+      "label": { "displayName": "Rundown Label", "purpose": "Uppercase field labels, panel titles, and metadata." },
+      "timecode": { "displayName": "Exact Timecode", "purpose": "Tabular event cues, replay position, and duration." }
+    },
+    "shadows": [
+      { "name": "desk-lift", "value": "0 18px 44px rgba(0, 0, 0, 0.28)", "purpose": "Major upload and processing desks." },
+      { "name": "dock-lift", "value": "0 14px 34px rgba(0, 0, 0, 0.36)", "purpose": "Tactical docks and toast notices." },
+      { "name": "dialog-lift", "value": "0 30px 80px rgba(0, 0, 0, 0.5)", "purpose": "Modal failure reporting." },
+      { "name": "action-lift", "value": "0 8px 20px rgba(0, 0, 0, 0.22)", "purpose": "Button hover response." },
+      { "name": "demo-frame-lift", "value": "0 24px 70px rgba(0, 0, 0, 0.38)", "purpose": "Dominant embedded synthetic interface frame on the public landing." }
+    ],
+    "motion": [
+      { "name": "state-fast", "value": "160ms ease", "purpose": "Color and border state changes." },
+      { "name": "lift-fast", "value": "160ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "One-pixel interactive lifts." },
+      { "name": "desk-reveal", "value": "480ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Bounded view entry when reduced motion is not requested." },
+      { "name": "processing-scan", "value": "2.6s linear infinite", "purpose": "Processing ruler beam only." },
+      { "name": "court-reveal", "value": "900ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Authored landing-court geometry reveal when reduced motion is not requested." }
+    ],
+    "breakpoints": [
+      { "name": "desk-tight", "value": "1080px" },
+      { "name": "stacked", "value": "820px" },
+      { "name": "compact", "value": "560px" },
+      { "name": "landing-tight", "value": "980px" },
+      { "name": "landing-stacked", "value": "760px" },
+      { "name": "landing-compact", "value": "520px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Cobalt action control for the next bounded step.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12h14m-5-5 5 5-5 5\"/></svg><span>Analyze clip</span></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;min-height:2.75rem;padding:.65rem 1rem;border:1px solid transparent;border-radius:var(--radius-small,9px);background:var(--cobalt,#2d6bff);color:#fff;font:600 1rem/1.1 Barlow,sans-serif;transition:background-color 160ms ease,box-shadow 160ms ease,transform 160ms cubic-bezier(.16,1,.3,1)}.ds-btn-primary svg{width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.8}.ds-btn-primary:hover{background:var(--cobalt-strong,#1e55d6);box-shadow:0 8px 20px rgba(0,0,0,.22);transform:translateY(-1px)}.ds-btn-primary:focus-visible{outline:3px solid var(--amber,#f3b51b);outline-offset:3px}.ds-btn-primary:active{transform:translateY(0)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined monitor control for reporting and alternate actions.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">Report issue</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:2.75rem;padding:.65rem 1rem;border:1px solid #66727d;border-radius:var(--radius-small,9px);background:transparent;color:var(--text,#f5f7f8);font:600 1rem/1.1 Barlow,sans-serif;transition:background-color 160ms ease,border-color 160ms ease,transform 160ms cubic-bezier(.16,1,.3,1)}.ds-btn-secondary:hover{background:var(--monitor-raised,#1a1f24);border-color:var(--paper-muted,#cbd2d8);transform:translateY(-1px)}.ds-btn-secondary:focus-visible{outline:3px solid var(--amber,#f3b51b);outline-offset:3px}.ds-btn-secondary:active{transform:translateY(0)}"
+    },
+    {
+      "name": "Rundown Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Paper-stock input with broadcast label and dual focus treatment.",
+      "html": "<label class=\"ds-field\"><span>Approved email</span><input type=\"email\" placeholder=\"you@example.com\"></label>",
+      "css": ".ds-field{display:grid;gap:.4rem;color:var(--ink,#0f1419);font-family:Barlow,sans-serif}.ds-field>span{font:700 .86rem/1 Barlow Condensed,sans-serif;letter-spacing:.055em;text-transform:uppercase}.ds-field input{width:100%;min-height:3rem;padding:.72rem .85rem;border:1px solid #7b8791;border-radius:var(--radius-small,9px);background:var(--paper-bright,#f8fafb);color:var(--ink,#0f1419);font:400 1rem/1.5 Barlow,sans-serif}.ds-field input::placeholder{color:#5f6b75}.ds-field input:hover{border-color:#5f6b75}.ds-field input:focus{border-color:var(--cobalt,#2d6bff)}.ds-field input:focus-visible{outline:3px solid var(--amber,#f3b51b);outline-offset:3px}"
+    },
+    {
+      "name": "Operational Status Chip",
+      "kind": "chip",
+      "refersTo": "beta-chip",
+      "description": "Amber operational-state pill for public preview, beta, capacity, and uncertainty context.",
+      "html": "<span class=\"ds-status-chip\">Public preview</span>",
+      "css": ".ds-status-chip{display:inline-flex;align-items:center;gap:.4rem;min-height:1.75rem;padding:.25rem .55rem;border-radius:999px;background:var(--amber,#f3b51b);color:var(--amber-ink,#382600);font:700 .78rem/1 Barlow Condensed,sans-serif;letter-spacing:.055em;text-transform:uppercase;white-space:nowrap}.ds-status-chip::before{width:.4rem;height:.4rem;border-radius:50%;background:currentColor;content:\"\"}"
+    },
+    {
+      "name": "Status Rail",
+      "kind": "nav",
+      "description": "Compact utility rail for identity, retention timing, and session actions.",
+      "html": "<header class=\"ds-status-rail\"><strong>CourtVision</strong><span class=\"ds-status-beta\">Public preview</span><span class=\"ds-status-time\">● Analysis capacity pending</span><a href=\"demo.html\">View sample</a></header>",
+      "css": ".ds-status-rail{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:1rem;min-height:4.25rem;padding:.65rem 1.25rem;border-bottom:1px solid var(--rule,#313a42);background:var(--monitor-deep,#090b0d);color:var(--text,#f5f7f8);font-family:Barlow,sans-serif}.ds-status-rail strong{font:700 1.75rem/1 Barlow Condensed,sans-serif;letter-spacing:.025em;text-transform:uppercase}.ds-status-beta{padding-left:1rem;border-left:1px solid var(--rule,#313a42);font:700 .78rem/1 Barlow Condensed,sans-serif;letter-spacing:.055em;text-transform:uppercase}.ds-status-time{justify-self:center;color:var(--text-muted,#aeb8c1);font-variant-numeric:tabular-nums}.ds-status-rail a{min-height:2.75rem;padding:.65rem 1rem;border:1px solid #66727d;border-radius:9px;background:transparent;color:inherit;font-weight:600;text-decoration:none}.ds-status-rail a:hover{background:var(--monitor-raised,#1a1f24);border-color:var(--paper-muted,#cbd2d8)}.ds-status-rail a:focus-visible{outline:3px solid var(--amber,#f3b51b);outline-offset:3px}@media(max-width:620px){.ds-status-rail{grid-template-columns:1fr auto}.ds-status-time{grid-column:1/-1;grid-row:2;justify-self:start}.ds-status-beta{display:none}}"
+    },
+    {
+      "name": "Event Rundown Cue",
+      "kind": "custom",
+      "refersTo": "event-row-selected",
+      "description": "Exact-time evidence cue with candidate and unknown states in visible text and shape.",
+      "html": "<div class=\"ds-rundown\"><button class=\"ds-event\" aria-current=\"true\"><time>00:08.4</time><i aria-hidden=\"true\">▶</i><span>Pass candidate</span><b>Candidate</b></button><button class=\"ds-event ds-event-unknown\"><time>00:22.3</time><i aria-hidden=\"true\">?</i><span>Interception candidate</span><b>Unknown</b></button></div>",
+      "css": ".ds-rundown{width:min(100%,32rem);border:1px solid var(--rule-light,#aeb7bf);background:var(--paper,#e8ecef);color:var(--ink,#0f1419);font-family:Barlow,sans-serif}.ds-event{display:grid;grid-template-columns:4.3rem 1.2rem minmax(0,1fr) auto;gap:.65rem;align-items:center;width:100%;min-height:4rem;padding:.75rem 1rem;border:0;border-bottom:1px solid var(--rule-light,#aeb7bf);background:transparent;color:inherit;text-align:left}.ds-event:hover,.ds-event[aria-current=\"true\"]{background:var(--cobalt-soft,#dfe8ff)}.ds-event[aria-current=\"true\"]{box-shadow:inset 1px 0 var(--cobalt,#2d6bff)}.ds-event:focus-visible{outline:3px solid var(--amber,#f3b51b);outline-offset:-3px}.ds-event time{font:600 1.08rem/1 Barlow Condensed,sans-serif;font-variant-numeric:tabular-nums}.ds-event i{display:grid;place-items:center;width:1.15rem;height:1.15rem;border-radius:50%;background:var(--cobalt,#2d6bff);color:#fff;font:700 .68rem/1 sans-serif;font-style:normal}.ds-event span{font-weight:600}.ds-event small{display:block;color:var(--paper-text-muted,#53616d);font-size:.78rem;font-weight:400}.ds-event b{color:var(--paper-text-muted,#53616d);font-size:.72rem;letter-spacing:.04em;text-transform:uppercase}.ds-event-unknown i{border-radius:2px;background:var(--amber,#f3b51b);color:var(--amber-ink,#382600)}"
+    },
+    {
+      "name": "Evidence Timeline",
+      "kind": "custom",
+      "description": "Bounded replay ruler with candidate, unknown, and active-playhead marks.",
+      "html": "<div class=\"ds-timeline\"><span class=\"ds-timeline-event\" style=\"left:28%\"></span><span class=\"ds-timeline-event ds-timeline-unknown\" style=\"left:62%\"></span><span class=\"ds-playhead\" style=\"left:42%\"></span><input type=\"range\" min=\"0\" max=\"30\" value=\"12.6\" aria-label=\"Replay position\"><div><span>00:00</span><span>00:15</span><span>00:30</span></div></div>",
+      "css": ".ds-timeline{position:relative;width:min(100%,44rem);height:3.1rem;padding-top:.6rem;color:var(--text-muted,#aeb8c1);font:400 .75rem/1 Barlow Condensed,sans-serif;font-variant-numeric:tabular-nums}.ds-timeline::before{position:absolute;inset-inline:0;top:.6rem;height:1px;background:var(--rule-light,#aeb7bf);content:\"\"}.ds-timeline input{position:absolute;inset:0;width:100%;margin:0;opacity:.001}.ds-timeline input:focus-visible{opacity:.12;outline:3px solid var(--amber,#f3b51b);outline-offset:3px}.ds-timeline-event{position:absolute;top:.28rem;width:.55rem;height:.55rem;border:1px solid var(--monitor-deep,#090b0d);border-radius:50%;background:var(--cobalt,#2d6bff);transform:translateX(-50%)}.ds-timeline-unknown{border-radius:1px;background:var(--amber,#f3b51b)}.ds-playhead{position:absolute;top:.15rem;bottom:.15rem;width:2px;background:var(--cobalt,#2d6bff)}.ds-playhead::before{position:absolute;left:50%;top:0;width:.7rem;height:.7rem;border-radius:50%;background:inherit;content:\"\";transform:translate(-50%,-50%)}.ds-timeline>div{position:absolute;inset-inline:0;bottom:0;display:flex;justify-content:space-between}"
+    },
+    {
+      "name": "Tactical Marker Set",
+      "kind": "custom",
+      "description": "Redundant team, unknown, and possible-holder marker states from the tactical court.",
+      "html": "<div class=\"ds-marker-set\"><span class=\"ds-player ds-team-one\">T1</span><span class=\"ds-player ds-team-two\">T2</span><span class=\"ds-player ds-unknown\">T3</span><span class=\"ds-player ds-team-one ds-holder\">T4</span></div>",
+      "css": ".ds-marker-set{display:flex;align-items:center;gap:1.25rem;padding:1.5rem;border:1px solid #69747d;border-radius:var(--radius-small,9px);background:var(--monitor,#111417);box-shadow:0 14px 34px rgba(0,0,0,.36)}.ds-player{display:grid;place-items:center;width:1.35rem;height:1.35rem;border:2px solid var(--monitor-deep,#090b0d);border-radius:50%;background:var(--paper-bright,#f8fafb);color:var(--ink,#0f1419);font:700 .68rem/1 Barlow Condensed,sans-serif}.ds-team-one{border-color:var(--cobalt,#2d6bff);background:var(--cobalt,#2d6bff);color:#fff}.ds-team-two{border-radius:3px}.ds-unknown{border-style:dashed;border-color:var(--amber-ink,#382600);background:var(--amber-soft,#fff0bf)}.ds-holder{box-shadow:0 0 0 3px var(--amber,#f3b51b),0 6px 14px rgba(0,0,0,.3)}.ds-player:hover{transform:scale(1.08)}.ds-player:focus-visible{outline:3px solid var(--amber,#f3b51b);outline-offset:3px}"
+    },
+    {
+      "name": "Evidence & Unknowns",
+      "kind": "card",
+      "description": "Subordinate disclosure for candidate state, review requirements, and tactical availability.",
+      "html": "<details class=\"ds-evidence\"><summary>Evidence &amp; Unknowns <span>⌄</span></summary><div><section><strong>Selected candidate</strong><small>Interception candidate at 00:08.4</small></section><section><strong>Assignment state</strong><small>Unknown—insufficient evidence</small></section><section><strong>Review requirement</strong><small>Compare this estimate with the source play</small></section></div></details>",
+      "css": ".ds-evidence{width:min(100%,48rem);border-top:1px solid var(--rule,#313a42);background:var(--monitor,#111417);color:var(--text,#f5f7f8);font-family:Barlow,sans-serif}.ds-evidence summary{display:flex;align-items:center;justify-content:space-between;min-height:3.2rem;padding:.65rem 1.5rem;color:var(--text-muted,#aeb8c1);font-weight:600;cursor:pointer}.ds-evidence summary:hover,.ds-evidence[open] summary{color:var(--text,#f5f7f8)}.ds-evidence summary:focus-visible{outline:3px solid var(--amber,#f3b51b);outline-offset:-3px}.ds-evidence>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;border-top:1px solid var(--rule,#313a42);background:var(--rule,#313a42)}.ds-evidence section{min-height:6rem;padding:1rem 1.25rem;background:var(--monitor-deep,#090b0d)}.ds-evidence strong,.ds-evidence small{display:block}.ds-evidence small{margin-top:.25rem;color:var(--text-muted,#aeb8c1);font-size:.88rem}@media(max-width:620px){.ds-evidence>div{grid-template-columns:1fr}}"
+    },
+    {
+      "name": "Public Landing Hero",
+      "kind": "custom",
+      "refersTo": "landing-button-primary",
+      "description": "Exact evidence-first hero with authored court geometry, Analyze video as the primary action, and the permanent synthetic demo as secondary proof.",
+      "html": "<section class=\"ds-landing-hero\"><div class=\"ds-hero-copy\"><h1>Review every candidate against the play.</h1><p>CourtVision analyzes short basketball clips and produces an annotated replay, tactical court view, possession estimates, and timecoded pass and interception candidates. Results are experimental and require video review.</p><div class=\"ds-hero-actions\"><a class=\"ds-hero-action\" href=\"app.html\">Analyze video</a><a class=\"ds-hero-action ds-hero-secondary\" href=\"#interface-demo\">Explore sample analysis</a></div><small><i aria-hidden=\"true\"></i><strong>Public preview is open.</strong> Live processing is waiting on GPU capacity; the sample analysis is fully interactive.</small></div><div class=\"ds-hero-court\" aria-hidden=\"true\"><i class=\"ds-court-ring ds-ring-one\"></i><i class=\"ds-court-ring ds-ring-two\"></i><i class=\"ds-court-lane\"></i><i class=\"ds-court-path\"></i></div></section>",
+      "css": ".ds-landing-hero{position:relative;display:grid;grid-template-columns:minmax(0,.58fr) minmax(20rem,.42fr);min-height:38rem;overflow:hidden;border-bottom:1px solid var(--rule,#313a42);background:var(--monitor-deep,#090b0d);color:var(--text,#f5f7f8)}.ds-hero-copy{position:relative;z-index:2;display:flex;flex-direction:column;justify-content:center;padding:clamp(4rem,9vw,8rem) clamp(1rem,3vw,3rem)}.ds-hero-copy h1{max-width:12ch;margin:0;font:700 clamp(3.6rem,7.4vw,6rem)/.92 Barlow Condensed,sans-serif;letter-spacing:-.03em;text-transform:uppercase;text-wrap:balance}.ds-hero-copy>p{max-width:43rem;margin:1.5rem 0 0;color:var(--text-muted,#aeb8c1);font:400 clamp(1rem,1.5vw,1.22rem)/1.5 Barlow,sans-serif}.ds-hero-actions{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.8rem}.ds-hero-action{padding:.72rem 1rem;border:1px solid var(--cobalt,#2d6bff);border-radius:var(--radius-small,9px);background:var(--cobalt,#2d6bff);color:#fff;font:700 1rem/1.4 Barlow Condensed,sans-serif;letter-spacing:.055em;text-decoration:none;text-transform:uppercase;transition:background-color 180ms ease,transform 180ms ease,box-shadow 180ms ease}.ds-hero-secondary{border-color:#66727d;background:transparent}.ds-hero-action:hover{background:var(--cobalt-strong,#1e55d6);transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.22)}.ds-hero-action:focus-visible{outline:3px solid var(--amber,#f3b51b);outline-offset:3px}.ds-hero-copy small{display:flex;align-items:center;gap:.5rem;max-width:43rem;margin-top:1.3rem;color:var(--text-muted,#aeb8c1);font:400 .88rem/1.4 Barlow,sans-serif}.ds-hero-copy small i{width:.52rem;height:.52rem;border-radius:50%;background:var(--amber,#f3b51b)}.ds-hero-copy small strong{color:var(--text,#f5f7f8);font-family:Barlow Condensed,sans-serif;text-transform:uppercase}.ds-hero-court{position:relative;overflow:hidden;border-left:1px solid var(--rule,#313a42);background:var(--monitor,#111417)}.ds-hero-court::before,.ds-hero-court::after,.ds-court-ring,.ds-court-lane,.ds-court-path{position:absolute;border:1px solid #43505b;content:\"\"}.ds-hero-court::before{inset:12% -28% 12% 16%}.ds-hero-court::after{top:50%;left:16%;width:170%;border-right:0;border-bottom:0;border-left:0}.ds-court-ring{border-radius:50%}.ds-ring-one{top:16%;left:33%;width:62%;aspect-ratio:1}.ds-ring-two{top:38%;left:54%;width:22%;aspect-ratio:1}.ds-court-lane{top:15%;left:49%;width:32%;height:49%}.ds-court-path{top:30%;left:17%;width:72%;height:42%;border:0;border-bottom:1px dashed #68747e;border-radius:50%;transform:rotate(-12deg)}@media(max-width:760px){.ds-landing-hero{grid-template-columns:1fr;min-height:44rem}.ds-hero-copy{padding-right:clamp(1rem,3vw,3rem)}.ds-hero-court{position:absolute;inset:48% -25% 0 40%;opacity:.32}.ds-hero-actions{flex-direction:column}.ds-hero-action{text-align:center}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Replay Rundown / Immersive Replay",
+    "overview": "CourtVision is a live production desk for interrogating a model result against the footage that produced it. Matte monitor black lets the annotated replay dominate; cool-gray rundown stock gives events, forms, capability bands, and recovery steps the familiar order of a broadcast control sheet. Cobalt behaves like a digital grease pencil—an active annotation, synchronized position, or available action—not ambient brand decoration.\n\nThe system is dense, exact, and deliberately non-authoritative across three separated surfaces: the official public site, a public upload-preview desk whose live-analysis path is runtime-controlled, and a permanent API-independent synthetic demo. Amber makes beta status, capacity limits, and unresolved evidence conspicuous, while tabular timecodes make every cue recoverable. Narrow broadcast lettering gives the interface urgency without imitating a scoreboard or turning experimental output into a settled game record.",
+    "keyCharacteristics": [
+      "Immersive replay on a matte monitor-black working field.",
+      "Cool-gray rundown stock for ordered controls and evidence lists.",
+      "Cobalt grease-pencil marks for actions, selection, and synchronization.",
+      "Amber uncertainty that remains visible instead of being averaged away.",
+      "Narrow broadcast lettering with exact, tabular timecodes.",
+      "Evidence-first language that labels model output as candidate, unknown, or experimental.",
+      "Public education, local upload preview, permanent synthetic demonstration, and live real-clip analysis remain visibly and technically explicit."
+    ],
+    "rules": [
+      { "name": "The Grease-Pencil Economy Rule", "body": "Cobalt marks an action, selection, synchronized cue, or tracked subject; it does not wash large passive surfaces.", "section": "colors" },
+      { "name": "The Amber Means Uncertainty Rule", "body": "Amber always signals beta status, unknown state, possible possession, or keyboard focus. Never use it as generic decoration.", "section": "colors" },
+      { "name": "The Two Stocks Rule", "body": "Monitor neutrals hold the replay and its instrumentation; paper neutrals hold ordered lists, forms, recovery steps, and disclosures.", "section": "colors" },
+      { "name": "The Timecode Rule", "body": "A precise cue is always `MM:SS.t`; bounded duration and ruler labels use compact `MM:SS`. Keep leading zeroes and tabular numerals, and never extend the first-profile ruler beyond the real clip duration or 30 seconds.", "section": "typography" },
+      { "name": "The Broadcast Narrow Rule", "body": "Use Barlow Condensed for headlines, labels, brand lettering, status chips, panel titles, and timecodes; use regular-width Barlow for explanatory prose and controls.", "section": "typography" },
+      { "name": "The Replay Leads Rule", "body": "On a review surface, the annotated video remains the largest evidence region; the tactical court, timeline, Event Rundown, and Evidence & Unknowns explain it rather than competing with it.", "section": "layout" },
+      { "name": "The Surface Separation Rule", "body": "Public explanation, local upload preview, permanent synthetic demonstration, and live real-clip analysis never blur their service state or imply that a local or synthetic video was uploaded or analyzed.", "section": "layout" },
+      { "name": "The Flat Evidence Rule", "body": "Rows, rulers, and evidence cells stay flat and separated by rules; shadows are reserved for whole desks, overlays, and transient lift.", "section": "elevation" },
+      { "name": "The Shape Carries State Rule", "body": "Candidate and unknown states must differ by silhouette or border style as well as color.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do keep replay footage dominant and make every candidate recoverable by an exact timecode.",
+      "Do describe every result as a candidate or estimate that requires video review; use `Candidate` or `Unknown` as Event Rundown state text.",
+      "Do keep the official public site, local upload preview, permanent API-independent synthetic demo, and live analysis states visibly and technically explicit.",
+      "Do validate preview format, size, and duration on-device, stop before network upload while capacity is pending, and say plainly that the video was not uploaded.",
+      "Do use authored court geometry as quiet composition on the landing and the live synthetic interface as its dominant demonstration.",
+      "Do keep landing capability bands to annotated player/ball tracking, team/possession estimates, tactical player positions, annotated video, and pass/interception candidates.",
+      "Do label all tactical players with internal `T`-prefixed track IDs.",
+      "Do preserve shape and border redundancy for team and uncertainty states.",
+      "Do use cobalt for actions and synchronized evidence, amber for uncertainty and focus, and neutral stocks for structure.",
+      "Do preserve keyboard-visible amber focus and reduced-motion behavior on every interactive state."
+    ],
+    "donts": [
+      "Don't turn CourtVision into an authoritative KPI dashboard or present experimental analysis as a settled game record.",
+      "Don't fabricate events, player positions, tactical data, or analysis detail when the pipeline supplies none.",
+      "Don't add trust indicators, decision claims, or analysis categories beyond the repository capability contract.",
+      "Don't add any Event Rundown label beyond `Pass candidate` and `Interception candidate`.",
+      "Don't use jersey-looking bare numbers for player markers.",
+      "Don't imply that local validation uploaded, processed, or analyzed the selected video.",
+      "Don't use amber as a decorative accent or cobalt as a broad passive background.",
+      "Don't hide uncertainty inside Evidence & Unknowns; the Event Rundown itself must say when a cue is `Unknown`.",
+      "Don't wrap the authenticated bounded upload-to-review flow in global product navigation."
+    ]
+  }
+}

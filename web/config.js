@@ -1,7 +1,9 @@
 window.COURTVISION_CONFIG = Object.freeze({
   apiBaseUrl: "/api",
-  appUrl: "",
+  appUrl: "app.html",
   authConnected: false,
+  publicPreview: true,
+  analysisAvailable: false,
   localRuntime: false,
   maxDurationSeconds: 30,
   maxUploadBytes: 524288000,
