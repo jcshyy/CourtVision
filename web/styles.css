@@ -588,6 +588,43 @@ dialog .button-secondary:hover:not([disabled]) {
   color: var(--text-muted);
 }
 
+.capacity-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border-block: 1px solid #c59418;
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+}
+
+.capacity-marker {
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.capacity-notice div {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.capacity-notice strong,
+.capacity-notice a {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.capacity-notice span:not(.capacity-marker) { font-size: 0.88rem; }
+.capacity-notice a { color: var(--cobalt-strong); text-underline-offset: 0.22rem; }
+.workspace-view > .form-message { margin-bottom: 1rem; }
+
 .limit-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(7.5rem, 1fr));
@@ -1362,6 +1399,11 @@ dialog .button-secondary:hover:not([disabled]) {
   background: var(--monitor-deep);
 }
 
+.evidence-content > div:last-child:nth-child(3n + 1) {
+  grid-column: 1 / -1;
+  min-height: 4.75rem;
+}
+
 .evidence-content strong,
 .evidence-content span {
   display: block;
@@ -1990,6 +2032,14 @@ dialog::backdrop {
     font-size: 2.7rem;
   }
 
+  .capacity-notice {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .capacity-marker { margin-top: 0.35rem; }
+  .capacity-notice a { grid-column: 2; }
+
   .limit-strip {
     grid-template-columns: 1fr;
   }
@@ -2077,6 +2127,10 @@ dialog::backdrop {
 
   .evidence-content {
     grid-template-columns: 1fr;
+  }
+
+  .evidence-content > div:last-child:nth-child(3n + 1) {
+    grid-column: auto;
   }
 
   .event-button {

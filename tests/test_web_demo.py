@@ -34,8 +34,13 @@ class WebDemoTests(unittest.TestCase):
         )
         self.assertTrue(analysis["events"])
         self.assertTrue(
-            all(event["type"] in {"pass", "interception"} for event in analysis["events"])
+            all(
+                event["type"] in {"pass", "interception", "shot_attempt"}
+                for event in analysis["events"]
+            )
         )
+        self.assertIn("shot_attempt", {event["type"] for event in analysis["events"]})
+        self.assertTrue(all("outcome" not in event.get("evidence", {}) for event in analysis["events"]))
         self.assertTrue(
             all(
                 0 <= event["timeSeconds"] <= analysis["source"]["durationSeconds"]
@@ -106,7 +111,7 @@ class WebDemoTests(unittest.TestCase):
         self.assertIn(
             "demo.html?embedded=1&amp;v=video-2-tactical-fixed-4", landing
         )
-        self.assertIn("app.js?v=video-2-tactical-fixed-4", demo)
+        self.assertIn("app.js?v=official-preview-1", demo)
         self.assertIn(
             'videoUrl: "assets/courtvision-demo-tactical-fixed.webm"', client
         )
@@ -118,7 +123,12 @@ class WebDemoTests(unittest.TestCase):
         self.assertIn('id="new-analysis"', client)
         self.assertIn("Analyze another clip?", client)
         self.assertIn("No reliable event candidate", client)
-        self.assertIn("No pass or interception transition met the review threshold", client)
+        self.assertIn("No pass, interception, or shot attempt met the review threshold", client)
+        self.assertIn("Shot-attempt candidate", client)
+        self.assertIn("Ball observations", client)
+        self.assertIn("Measured release path", client)
+        self.assertIn("Rim proximity signal", client)
+        self.assertNotIn("Shot outcome", client)
         self.assertIn("The previous result remains stored until its expiry.", client)
         self.assertIn("targetFps: 30", client)
         self.assertIn("maxWidth: 1280", client)
@@ -126,16 +136,20 @@ class WebDemoTests(unittest.TestCase):
         self.assertNotIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
         self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json"', client)
 
-    def test_landing_exposes_honest_private_beta_entry(self):
+    def test_landing_exposes_honest_public_preview_entry(self):
         root = Path(__file__).resolve().parents[1]
         landing = (root / "web" / "index.html").read_text(encoding="utf-8")
         config = (root / "web" / "config.js").read_text(encoding="utf-8")
+        client = (root / "web" / "app.js").read_text(encoding="utf-8")
 
-        self.assertIn('id="private-beta"', landing)
-        self.assertIn("Upload after approved-email sign-in.", landing)
-        self.assertIn("Open Upload Desk", landing)
-        self.assertIn("Private beta access", landing)
-        self.assertNotIn("Public analyzer not connected yet.", landing)
+        self.assertIn('id="analyze"', landing)
+        self.assertIn("Analyze video", landing)
+        self.assertIn("The review desk is live. New analysis is not.", landing)
+        self.assertIn("Selected preview videos stay on your device", landing)
+        self.assertIn("publicPreview: true", config)
+        self.assertIn("analysisAvailable: false", config)
+        self.assertIn("This video was not uploaded", client)
+        self.assertIn("Analysis capacity pending", client)
         self.assertIn("targetFps: 30", config)
         self.assertIn("maxWidth: 1280", config)
 

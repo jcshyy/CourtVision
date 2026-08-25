@@ -4,29 +4,36 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#090b0d" />
-    <meta name="description" content="CourtVision analyzes short basketball clips into experimental annotated replays, tactical views, possession estimates, and timecoded pass and interception candidates." />
+    <meta name="description" content="CourtVision turns short basketball videos into inspectable annotated replays, tactical views, possession estimates, and timecoded event candidates." />
+    <link rel="canonical" href="https://courtvision.video/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CourtVision" />
+    <meta property="og:title" content="CourtVision — Inspectable basketball video analysis" />
+    <meta property="og:description" content="Analyze a basketball clip, inspect the annotated replay, and review every experimental candidate against the source play." />
+    <meta property="og:url" content="https://courtvision.video/" />
+    <meta property="og:image" content="https://courtvision.video/assets/courtvision-demo-poster.webp" />
     <link rel="icon" href="assets/mark.svg" type="image/svg+xml" />
     <link rel="preload" href="assets/fonts/barlow-400.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="preload" href="assets/fonts/barlow-condensed-700.ttf" as="font" type="font/ttf" crossorigin />
-    <link rel="stylesheet" href="landing.css?v=4" />
-    <script src="config.js?v=1"></script>
-    <script src="landing.js?v=3" defer></script>
-    <title>CourtVision — Experimental Basketball Video Analysis</title>
+    <link rel="stylesheet" href="landing.css?v=official-preview-1" />
+    <script src="config.js?v=official-preview-1"></script>
+    <script src="landing.js?v=official-preview-1" defer></script>
+    <title>CourtVision — Basketball Video Analysis</title>
   </head>
   <body>
     <!--
     THESIS: The product proves its relevance by letting visitors inspect a candidate in the real interface; this page refuses unsupported accuracy, officiating, and coaching claims.
     OWN-WORLD: Matte monitor black and cool-gray rundown paper, cobalt actions, amber unknowns, narrow broadcast lettering, exact timecodes, and faint authored court geometry.
-    STORY: A coach, analyst, or researcher understands the bounded analyzer, reviews a preprocessed sample analysis, then may enter the connected private beta.
-    FIRST VIEWPORT: Exact hero copy occupies the left half, court geometry holds the right, and the dominant interactive review desk begins immediately below both actions.
+    STORY: A coach, analyst, or researcher understands the bounded analyzer, can open the public upload desk, and can inspect a complete preprocessed sample while live GPU capacity is pending.
+    FIRST VIEWPORT: Exact hero copy occupies the left half, court geometry holds the right, and Analyze video leads directly to the public upload desk.
     FORM: Supported-Capabilities Live Film Room with a 30-second cue spine; seed ea9de4d5; approved comp .impeccable/mocks/landing-supported-capabilities.png.
     FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
     -->
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="landing-nav">
       <a class="landing-brand" href="./" aria-label="CourtVision home"><img src="assets/mark.svg" alt="" /><span>CourtVision</span></a>
-      <nav aria-label="Landing page"><a href="#interface-demo">Interface demo</a><a href="#capabilities">Capabilities</a><a href="#workflow">How it works</a></nav>
-      <div class="landing-nav-actions"><span class="beta-pill">Beta analysis</span><a class="nav-signin" href="#private-beta">Analyze a clip</a></div>
+      <nav aria-label="Landing page"><a href="#interface-demo">Live demo</a><a href="#capabilities">What it analyzes</a><a href="#workflow">How it works</a></nav>
+      <div class="landing-nav-actions"><span class="beta-pill">Experimental analysis</span><a class="nav-signin" data-analyze-link href="app.html">Analyze video</a></div>
     </header>
 
     <main id="main">
@@ -34,7 +41,8 @@
         <div class="hero-copy">
           <h1 id="hero-title">Review every candidate against the play.</h1>
           <p>CourtVision analyzes short basketball clips and produces an annotated replay, tactical court view, possession estimates, and timecoded pass and interception candidates. Results are experimental and require video review.</p>
-          <div class="hero-actions"><a class="landing-button primary" href="#interface-demo">View Interface Demo</a><a class="landing-button secondary" href="#private-beta">Analyze a Clip</a></div>
+          <div class="hero-actions"><a class="landing-button primary" data-analyze-link href="app.html">Analyze video</a><a class="landing-button secondary" href="#interface-demo">Explore sample analysis</a></div>
+          <p class="hero-availability"><span class="hero-status-dot" aria-hidden="true"></span><strong>Public preview is open.</strong><span class="hero-status-copy">Live processing is waiting on GPU capacity; the sample analysis is fully interactive.</span></p>
         </div>
         <div class="hero-court" aria-hidden="true">
           <span class="court-ring ring-one"></span><span class="court-ring ring-two"></span><span class="court-lane"></span><span class="court-path"></span><span class="court-signal"></span>
@@ -45,6 +53,14 @@
         <header class="demo-heading"><div><h2 id="demo-title">Sample CourtVision analysis</h2><p>Review a preprocessed OKC vs. Timberwolves game sample. Select a detected pass or interception candidate to synchronize the annotated replay and tactical view.</p></div><span class="synthetic-badge">Preprocessed sample</span></header>
         <div class="demo-browser"><div class="demo-browser-bar" aria-hidden="true"><span></span><strong>courtvision / sample analysis</strong><em>Experimental results</em></div><iframe title="Interactive CourtVision sample analysis" src="demo.html?embedded=1&amp;v=video-2-tactical-fixed-4" loading="eager"></iframe></div>
       </section>
+
+      <aside class="service-status" aria-labelledby="service-status-title">
+        <div>
+          <span class="status-light" aria-hidden="true"></span>
+          <div><h2 id="service-status-title">The review desk is live. New analysis is not.</h2><p>You can select and validate a clip in the public upload desk. Until GPU capacity is approved, CourtVision stops before upload and keeps the video on your device.</p></div>
+        </div>
+        <a class="status-link" href="demo.html?v=video-2-tactical-fixed-4">Open the working sample <span aria-hidden="true">→</span></a>
+      </aside>
 
       <section class="cue-section" id="capabilities" aria-labelledby="capabilities-title">
         <header class="section-heading"><h2 id="capabilities-title">One short clip. Three synchronized views.</h2><p>The interface keeps model output close to the source play and leaves unresolved states visible.</p></header>
@@ -62,9 +78,9 @@
         <ol><li><strong>Upload one clip</strong><span>Choose a supported video up to the current 30-second profile.</span></li><li><strong>Run experimental analysis</strong><span>The worker detects and tracks, estimates teams and possession, projects tactical positions, and renders the result.</span></li><li><strong>Review every candidate</strong><span>Seek from the Event Rundown, compare the replay and court view, then report visible failures.</span></li></ol>
       </section>
 
-      <section class="closing-cta" id="private-beta" aria-labelledby="closing-title"><div><h2 id="closing-title">Upload after approved-email sign-in.</h2><p>The private beta emails a one-time code to allowlisted addresses, then opens the real 30 FPS analysis desk. Uploaded clips and results expire after 24 hours.</p></div><div class="beta-entry"><div class="hero-actions"><a class="landing-button primary" data-auth-link href="app.html">Open Upload Desk</a><a class="landing-button secondary" href="demo.html?v=video-2-tactical-fixed-4">View Sample Analysis</a></div><p class="deployment-note" data-auth-unavailable><strong>Private beta access</strong><span>Sign-in is limited to approved email addresses. The public sample remains available without an account.</span></p></div></section>
+      <section class="closing-cta" id="analyze" aria-labelledby="closing-title"><div><h2 id="closing-title">Bring one play. Inspect every candidate.</h2><p>Open the public upload desk to check a short clip against the current analysis profile, or review the working sample from end to end. Live processing will switch on after GPU capacity is approved.</p></div><div class="beta-entry"><div class="hero-actions"><a class="landing-button primary" data-analyze-link href="app.html">Analyze video</a><a class="landing-button secondary" href="demo.html?v=video-2-tactical-fixed-4">View sample analysis</a></div><p class="deployment-note"><strong>Capacity status</strong><span>Selected preview videos stay on your device and are not uploaded while processing is unavailable.</span></p></div></section>
     </main>
 
-    <footer class="landing-footer" id="site-footer"><a class="landing-brand" href="./"><img src="assets/mark.svg" alt="" /><span>CourtVision</span></a><p>Experimental basketball-video analysis. Every candidate and estimate requires video review.</p><div class="footer-meta"><a class="footer-github" href="https://github.com/jcshyy" aria-label="jcshyy on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 .7a11.3 11.3 0 0 0-3.6 22c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.3-1.6-1.3-1.6-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.3 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.6 0-1.2.4-2.2 1.2-3-.1-.3-.5-1.5.1-3 0 0 1-.3 3.1 1.2.9-.3 1.9-.4 2.8-.4 1 0 2 .1 2.8.4 2.2-1.5 3.1-1.2 3.1-1.2.6 1.5.2 2.7.1 3 .8.8 1.2 1.8 1.2 3 0 4.3-2.7 5.3-5.3 5.6.4.3.7 1 .7 2v3c0 .4.2.7.8.6A11.3 11.3 0 0 0 12 .7Z" /></svg><span>GitHub</span></a><span>© <span id="current-year">2026</span></span></div></footer>
+    <footer class="landing-footer" id="site-footer"><a class="landing-brand" href="./"><img src="assets/mark.svg" alt="" /><span>CourtVision</span></a><p>Experimental basketball-video analysis. Every candidate and estimate requires video review.</p><div class="footer-meta"><a class="footer-github" href="https://github.com/jcshyy/CourtVision" aria-label="CourtVision on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 .7a11.3 11.3 0 0 0-3.6 22c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.3-1.6-1.3-1.6-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.3 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.6 0-1.2.4-2.2 1.2-3-.1-.3-.5-1.5.1-3 0 0 1-.3 3.1 1.2.9-.3 1.9-.4 2.8-.4 1 0 2 .1 2.8.4 2.2-1.5 3.1-1.2 3.1-1.2.6 1.5.2 2.7.1 3 .8.8 1.2 1.8 1.2 3 0 4.3-2.7 5.3-5.3 5.6.4.3.7 1 .7 2v3c0 .4.2.7.8.6A11.3 11.3 0 0 0 12 .7Z" /></svg><span>Source</span></a><span>courtvision.video</span><span>© <span id="current-year">2026</span></span></div></footer>
   </body>
 </html>

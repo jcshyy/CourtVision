@@ -128,7 +128,7 @@ components:
 
 CourtVision is a live production desk for interrogating a model result against the footage that produced it. Matte monitor black lets the annotated replay dominate; cool-gray rundown stock gives events, forms, capability bands, and recovery steps the familiar order of a broadcast control sheet. Cobalt behaves like a digital grease pencil—an active annotation, synchronized position, or available action—not ambient brand decoration.
 
-The system is dense, exact, and deliberately non-authoritative across three separated surfaces: a public landing page, a permanent API-independent synthetic demo, and the authenticated beta application. Amber makes beta status and unresolved evidence conspicuous, while tabular timecodes make every cue recoverable. Narrow broadcast lettering gives the interface urgency without imitating a scoreboard or turning experimental output into a settled game record.
+The system is dense, exact, and deliberately non-authoritative across three separated surfaces: the official public site, a public upload-preview desk whose live-analysis path is runtime-controlled, and a permanent API-independent synthetic demo. Amber makes beta status, capacity limits, and unresolved evidence conspicuous, while tabular timecodes make every cue recoverable. Narrow broadcast lettering gives the interface urgency without imitating a scoreboard or turning experimental output into a settled game record.
 
 **Key Characteristics:**
 
@@ -138,7 +138,7 @@ The system is dense, exact, and deliberately non-authoritative across three sepa
 - Amber uncertainty that remains visible instead of being averaged away.
 - Narrow broadcast lettering with exact, tabular timecodes.
 - Evidence-first language that labels model output as candidate, unknown, or experimental.
-- Public education, synthetic demonstration, and authenticated real-clip analysis remain visibly and technically separate.
+- Public education, local upload preview, permanent synthetic demonstration, and live real-clip analysis remain visibly and technically explicit.
 
 ## Colors
 
@@ -210,9 +210,9 @@ The palette separates the replay desk from its paper rundown, then reserves chro
 
 ## Layout
 
-The public landing page uses a direct split hero: exact evidence-first copy on the left and faint authored court geometry on the right. The geometry is compositional structure, never tracked data. The permanent synthetic interface demo begins immediately below the hero and remains the dominant object on the page, followed by a 30-second cue spine, three capability bands, a bounded three-step workflow, and a closing invitation.
+The official public site at `/` uses a direct split hero: exact evidence-first copy on the left and faint authored court geometry on the right. The geometry is compositional structure, never tracked data. `Analyze video` is the visible primary action and opens `/app.html`; the permanent synthetic interface demo begins immediately below the hero and remains the dominant proof object, followed by a capacity-status band, 30-second cue spine, three capability bands, a bounded three-step workflow, and a closing invitation.
 
-The three surfaces stay separate by route and responsibility. `/` explains the implemented capability contract; `/demo.html` is permanent, synthetic, and independent of the analysis API; `/app.html` is the allowlisted authenticated application for real clips. The public landing hides every `Private Beta Sign In` link on localhost and non-HTTPS origins. That action appears only on a non-local HTTPS deployment.
+The three surfaces stay separate by route and responsibility. `/` is the official public site and explains the implemented capability contract. `/app.html` is a public local-validation preview while `publicPreview=true` and `analysisAvailable=false`: it checks format, size, and duration without sending the selected video, stops before network upload, and returns a capacity-pending recovery state that explicitly says the video was not uploaded. `/demo.html` remains the permanent, fully interactive, preprocessed sample independent of the analysis API. When live GPU capacity becomes available, runtime configuration may restore the authenticated live-analysis path without changing this visual world.
 
 The desktop review is an immersive two-column desk: the replay takes the fluid column and the persistent rundown rail clamps between 19rem and 27rem. A 4.25rem status rail keeps identity, beta state, deletion deadline, download, report, and sign-out controls visible without becoming global navigation. The tactical court docks over the replay at up to 40% of its width, while the timeline and Evidence & Unknowns stay attached below the monitor.
 
@@ -224,7 +224,7 @@ Landing behavior follows its own observed thresholds. At 980px, navigation ancho
 
 **The Replay Leads Rule.** On a review surface, the annotated video remains the largest evidence region; the tactical court, timeline, Event Rundown, and Evidence & Unknowns explain it rather than competing with it.
 
-**The Surface Separation Rule.** Public explanation, permanent synthetic demonstration, and authenticated real-clip analysis never share session assumptions or imply that synthetic output came from an uploaded clip.
+**The Surface Separation Rule.** Public explanation, local upload preview, permanent synthetic demonstration, and live real-clip analysis never blur their service state or imply that a local or synthetic video was uploaded or analyzed.
 
 ## Elevation & Depth
 
@@ -263,7 +263,7 @@ Buttons are compact, tactile controls that lift by one pixel on hover while pres
 
 ### Status Chips
 
-The beta chip is a compact amber pill with uppercase condensed type and a leading current-color dot. It communicates operational state, never marketing promotion.
+The operational-status chip is a compact amber pill with uppercase condensed type and a leading current-color dot. It communicates public preview, beta, capacity, or uncertainty state, never marketing promotion.
 
 ### Cards / Containers
 
@@ -282,15 +282,21 @@ The beta chip is a compact amber pill with uppercase condensed type and a leadin
 
 ### Navigation
 
-The authenticated top status rail is utility navigation, not a dashboard shell. CourtVision and the beta chip sit left, retention timing centers, and session actions sit right. Below 560px, action labels become visually hidden while icons preserve the same accessible names.
+The app top status rail is utility navigation, not a dashboard shell. CourtVision and the current operational-status chip sit left, timing or service status centers, and available session actions sit right. Below 560px, action labels become visually hidden while icons preserve the same accessible names.
 
-The public landing uses a separate sticky 4.5rem navigation rail with brand, section anchors, demo access, beta state, and a conditionally rendered `Private Beta Sign In` link. Section anchors collapse below 980px. Local and non-HTTPS contexts hide the sign-in link entirely; they do not leave a disabled or misleading placeholder.
+The public landing uses a separate sticky 4.5rem navigation rail with brand, section anchors, experimental-analysis state, and a visible `Analyze video` action to `/app.html`. Section anchors collapse below 980px; the analysis action remains available.
 
 ### Public Landing Hero
 
-The public hero uses the exact headline **“Review every candidate against the play.”** and the exact supporting paragraph **“CourtVision analyzes short basketball clips and produces an annotated replay, tactical court view, possession estimates, and timecoded pass and interception candidates. Results are experimental and require video review.”** The synthetic demo is the primary action. The private-beta sign-in action follows the deployment rule in Navigation.
+The public hero uses the exact headline **“Review every candidate against the play.”** and the exact supporting paragraph **“CourtVision analyzes short basketball clips and produces an annotated replay, tactical court view, possession estimates, and timecoded pass and interception candidates. Results are experimental and require video review.”** `Analyze video` is the primary action and `Explore sample analysis` is the secondary action. A compact availability line states that the public preview is open, live processing is waiting on GPU capacity, and the sample remains fully interactive.
 
 Authored one-pixel court lines, rings, lane geometry, and a dashed arc organize the hero’s negative space. They are faint, unlabeled, and `aria-hidden`; never render track markers or claim that this geometry is an analysis result.
+
+### Public Upload Preview
+
+While public preview is enabled and analysis is unavailable, the upload desk keeps its existing paper-and-monitor composition but replaces authenticated-processing assumptions with explicit service truth. It validates the selected video's format, size, and duration locally, shows an amber **Analysis capacity pending** notice, and stops before any network upload. The terminal recovery message must include **“This video was not uploaded.”** and point to the working sample; a successful local validation must never be styled or worded as completed analysis.
+
+When runtime configuration enables analysis again, the same route may restore authentication, upload, processing, and review. This is a state change within the established system, not a separate visual identity.
 
 ### Permanent Interface Demo
 
@@ -322,7 +328,8 @@ Evidence & Unknowns is a native disclosure attached below the timeline. Its dark
 
 - **Do** keep replay footage dominant and make every candidate recoverable by an exact timecode.
 - **Do** describe every result as a candidate or estimate that requires video review; use `Candidate` or `Unknown` as Event Rundown state text.
-- **Do** keep the public landing, permanent API-independent synthetic demo, and authenticated app visibly and technically separate.
+- **Do** keep the official public site, local upload preview, permanent API-independent synthetic demo, and live analysis states visibly and technically explicit.
+- **Do** validate preview format, size, and duration on-device, stop before network upload while capacity is pending, and say plainly that the video was not uploaded.
 - **Do** use authored court geometry as quiet composition on the landing and the live synthetic interface as its dominant demonstration.
 - **Do** keep landing capability bands to annotated player/ball tracking, team/possession estimates, tactical player positions, annotated video, and pass/interception candidates.
 - **Do** label all tactical players with internal `T`-prefixed track IDs.
@@ -337,7 +344,7 @@ Evidence & Unknowns is a native disclosure attached below the timeline. Its dark
 - **Don't** add trust indicators, decision claims, or analysis categories beyond the repository capability contract.
 - **Don't** add any Event Rundown label beyond `Pass candidate` and `Interception candidate`.
 - **Don't** use jersey-looking bare numbers for player markers.
-- **Don't** show `Private Beta Sign In` on localhost, another local hostname, or a non-HTTPS deployment.
+- **Don't** imply that local validation uploaded, processed, or analyzed the selected video.
 - **Don't** use amber as a decorative accent or cobalt as a broad passive background.
 - **Don't** hide uncertainty inside Evidence & Unknowns; the Event Rundown itself must say when a cue is `Unknown`.
 - **Don't** wrap the authenticated bounded upload-to-review flow in global product navigation.
