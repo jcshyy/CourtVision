@@ -887,81 +887,1115 @@
           "weight_share": 1.0
         }
       }
+    },
+    "shotAttemptTimeline": {
+      "candidates": [
+        {
+          "evidence": {
+            "apex_frame": 26,
+            "confirmed": true,
+            "holder_release_frame": 13,
+            "inferred_release_frame": 13,
+            "interpolated_ball_frames": 3,
+            "observed_ball_frames": 13,
+            "observed_pre_rim_frames": 11,
+            "player_height_pixels": 155.415,
+            "reason": "release_arc_rim_approach",
+            "rim_approach_frame": 26,
+            "rim_approach_player_heights": 0.8479,
+            "rim_bbox": [
+              794.27,
+              108.03,
+              853.49,
+              177.4
+            ],
+            "rim_distance_player_heights": 1.6416,
+            "rise_player_heights": 0.9008,
+            "trajectory_strength": 1.7487
+          },
+          "evidence_end_frame": 28,
+          "evidence_start_frame": 13,
+          "holder_release_frame": 13,
+          "receiver_player_id": 3,
+          "rim_seed_frame": null,
+          "source_player_id": 8,
+          "transition_status": "rejected"
+        },
+        {
+          "evidence": {
+            "apex_frame": 56,
+            "confirmed": true,
+            "holder_release_frame": 30,
+            "inferred_release_frame": 47,
+            "interpolated_ball_frames": 4,
+            "observed_ball_frames": 34,
+            "observed_pre_rim_frames": 31,
+            "player_height_pixels": 161.218,
+            "reason": "release_arc_rim_approach",
+            "rim_approach_frame": 64,
+            "rim_approach_player_heights": 1.7227,
+            "rim_bbox": [
+              819.98,
+              150.68,
+              883.83,
+              225.19
+            ],
+            "rim_distance_player_heights": 1.2836,
+            "rise_player_heights": 0.1258,
+            "trajectory_strength": 1.8485
+          },
+          "evidence_end_frame": 67,
+          "evidence_start_frame": 30,
+          "holder_release_frame": 30,
+          "receiver_player_id": 5,
+          "rim_seed_frame": null,
+          "source_player_id": 3,
+          "transition_status": "confirmed"
+        },
+        {
+          "evidence": {
+            "confirmed": false,
+            "observed_ball_frames": 15,
+            "observed_pre_rim_frames": 1,
+            "reason": "insufficient_pre_rim_flight",
+            "total_pre_rim_frames": 1
+          },
+          "evidence_end_frame": 107,
+          "evidence_start_frame": 93,
+          "holder_release_frame": 93,
+          "receiver_player_id": 11,
+          "rim_seed_frame": null,
+          "source_player_id": 5,
+          "transition_status": "confirmed"
+        },
+        {
+          "evidence": {
+            "apex_frame": 137,
+            "confirmed": true,
+            "holder_release_frame": 109,
+            "inferred_release_frame": 127,
+            "interpolated_ball_frames": 4,
+            "observed_ball_frames": 13,
+            "observed_pre_rim_frames": 13,
+            "player_height_pixels": 238.619,
+            "reason": "release_arc_rim_approach",
+            "rim_approach_frame": 137,
+            "rim_approach_player_heights": 0.4643,
+            "rim_bbox": [
+              798.88,
+              180.6,
+              855.34,
+              244.45
+            ],
+            "rim_distance_player_heights": 0.5281,
+            "rise_player_heights": 0.3015,
+            "trajectory_strength": 0.7657
+          },
+          "evidence_end_frame": 137,
+          "evidence_start_frame": 109,
+          "holder_release_frame": 109,
+          "receiver_player_id": 5,
+          "rim_seed_frame": null,
+          "source_player_id": 11,
+          "transition_status": "rejected"
+        },
+        {
+          "evidence": {
+            "apex_frame": 157,
+            "confirmed": true,
+            "holder_release_frame": 146,
+            "inferred_release_frame": 146,
+            "interpolated_ball_frames": 3,
+            "observed_ball_frames": 19,
+            "observed_pre_rim_frames": 14,
+            "player_height_pixels": 161.519,
+            "reason": "release_arc_rim_approach",
+            "rim_approach_frame": 159,
+            "rim_approach_player_heights": 0.3305,
+            "rim_bbox": [
+              738.22,
+              164.53,
+              797.12,
+              233.94
+            ],
+            "rim_distance_player_heights": 0.0475,
+            "rise_player_heights": 0.5669,
+            "trajectory_strength": 0.8974
+          },
+          "evidence_end_frame": 167,
+          "evidence_start_frame": 146,
+          "holder_release_frame": 146,
+          "receiver_player_id": 1,
+          "rim_seed_frame": 159,
+          "source_player_id": 5,
+          "transition_status": "rejected"
+        }
+      ],
+      "events": [
+        {
+          "frame_index": 152,
+          "from_player_id": 5,
+          "from_team_id": 2,
+          "release_frame": 146,
+          "sequence_id": 3,
+          "team_resolution": {
+            "from": "frame_assignment"
+          },
+          "to_player_id": null,
+          "to_team_id": 2,
+          "trajectory_evidence": {
+            "apex_frame": 157,
+            "confirmed": true,
+            "holder_release_frame": 146,
+            "inferred_release_frame": 146,
+            "interpolated_ball_frames": 3,
+            "observed_ball_frames": 19,
+            "observed_pre_rim_frames": 14,
+            "player_height_pixels": 161.519,
+            "reason": "release_arc_rim_approach",
+            "rim_approach_frame": 159,
+            "rim_approach_player_heights": 0.3305,
+            "rim_bbox": [
+              738.22,
+              164.53,
+              797.12,
+              233.94
+            ],
+            "rim_distance_player_heights": 0.0475,
+            "rise_player_heights": 0.5669,
+            "trajectory_strength": 0.8974
+          },
+          "type": "shot_attempt"
+        }
+      ],
+      "frames": [
+        {
+          "frame_index": 0,
+          "state": "possession"
+        },
+        {
+          "frame_index": 1,
+          "state": "possession"
+        },
+        {
+          "frame_index": 2,
+          "state": "possession"
+        },
+        {
+          "frame_index": 3,
+          "state": "possession"
+        },
+        {
+          "frame_index": 4,
+          "state": "possession"
+        },
+        {
+          "frame_index": 5,
+          "state": "possession"
+        },
+        {
+          "frame_index": 6,
+          "state": "possession"
+        },
+        {
+          "frame_index": 7,
+          "state": "possession"
+        },
+        {
+          "frame_index": 8,
+          "state": "possession"
+        },
+        {
+          "frame_index": 9,
+          "state": "possession"
+        },
+        {
+          "frame_index": 10,
+          "state": "possession"
+        },
+        {
+          "frame_index": 11,
+          "state": "possession"
+        },
+        {
+          "frame_index": 12,
+          "state": "possession"
+        },
+        {
+          "frame_index": 13,
+          "state": "possession"
+        },
+        {
+          "frame_index": 14,
+          "state": "possession"
+        },
+        {
+          "frame_index": 15,
+          "state": "possession"
+        },
+        {
+          "frame_index": 16,
+          "state": "possession"
+        },
+        {
+          "frame_index": 17,
+          "state": "possession"
+        },
+        {
+          "frame_index": 18,
+          "state": "possession"
+        },
+        {
+          "frame_index": 19,
+          "state": "possession"
+        },
+        {
+          "frame_index": 20,
+          "state": "possession"
+        },
+        {
+          "frame_index": 21,
+          "state": "possession"
+        },
+        {
+          "frame_index": 22,
+          "state": "possession"
+        },
+        {
+          "frame_index": 23,
+          "state": "possession"
+        },
+        {
+          "frame_index": 24,
+          "state": "possession"
+        },
+        {
+          "frame_index": 25,
+          "state": "possession"
+        },
+        {
+          "frame_index": 26,
+          "state": "possession"
+        },
+        {
+          "frame_index": 27,
+          "state": "possession"
+        },
+        {
+          "frame_index": 28,
+          "state": "possession"
+        },
+        {
+          "frame_index": 29,
+          "state": "possession"
+        },
+        {
+          "frame_index": 30,
+          "state": "possession"
+        },
+        {
+          "frame_index": 31,
+          "state": "possession"
+        },
+        {
+          "frame_index": 32,
+          "state": "possession"
+        },
+        {
+          "frame_index": 33,
+          "state": "possession"
+        },
+        {
+          "frame_index": 34,
+          "state": "possession"
+        },
+        {
+          "frame_index": 35,
+          "state": "possession"
+        },
+        {
+          "frame_index": 36,
+          "state": "possession"
+        },
+        {
+          "frame_index": 37,
+          "state": "possession"
+        },
+        {
+          "frame_index": 38,
+          "state": "possession"
+        },
+        {
+          "frame_index": 39,
+          "state": "possession"
+        },
+        {
+          "frame_index": 40,
+          "state": "possession"
+        },
+        {
+          "frame_index": 41,
+          "state": "possession"
+        },
+        {
+          "frame_index": 42,
+          "state": "possession"
+        },
+        {
+          "frame_index": 43,
+          "state": "possession"
+        },
+        {
+          "frame_index": 44,
+          "state": "possession"
+        },
+        {
+          "frame_index": 45,
+          "state": "possession"
+        },
+        {
+          "frame_index": 46,
+          "state": "possession"
+        },
+        {
+          "frame_index": 47,
+          "state": "possession"
+        },
+        {
+          "frame_index": 48,
+          "state": "possession"
+        },
+        {
+          "frame_index": 49,
+          "state": "possession"
+        },
+        {
+          "frame_index": 50,
+          "state": "possession"
+        },
+        {
+          "frame_index": 51,
+          "state": "possession"
+        },
+        {
+          "frame_index": 52,
+          "state": "possession"
+        },
+        {
+          "frame_index": 53,
+          "state": "possession"
+        },
+        {
+          "frame_index": 54,
+          "state": "possession"
+        },
+        {
+          "frame_index": 55,
+          "state": "possession"
+        },
+        {
+          "frame_index": 56,
+          "state": "possession"
+        },
+        {
+          "frame_index": 57,
+          "state": "possession"
+        },
+        {
+          "frame_index": 58,
+          "state": "possession"
+        },
+        {
+          "frame_index": 59,
+          "state": "possession"
+        },
+        {
+          "frame_index": 60,
+          "state": "possession"
+        },
+        {
+          "frame_index": 61,
+          "state": "possession"
+        },
+        {
+          "frame_index": 62,
+          "state": "possession"
+        },
+        {
+          "frame_index": 63,
+          "state": "possession"
+        },
+        {
+          "frame_index": 64,
+          "state": "possession"
+        },
+        {
+          "frame_index": 65,
+          "state": "possession"
+        },
+        {
+          "frame_index": 66,
+          "state": "possession"
+        },
+        {
+          "frame_index": 67,
+          "state": "possession"
+        },
+        {
+          "frame_index": 68,
+          "state": "possession"
+        },
+        {
+          "frame_index": 69,
+          "state": "possession"
+        },
+        {
+          "frame_index": 70,
+          "state": "possession"
+        },
+        {
+          "frame_index": 71,
+          "state": "possession"
+        },
+        {
+          "frame_index": 72,
+          "state": "possession"
+        },
+        {
+          "frame_index": 73,
+          "state": "possession"
+        },
+        {
+          "frame_index": 74,
+          "state": "possession"
+        },
+        {
+          "frame_index": 75,
+          "state": "possession"
+        },
+        {
+          "frame_index": 76,
+          "state": "possession"
+        },
+        {
+          "frame_index": 77,
+          "state": "possession"
+        },
+        {
+          "frame_index": 78,
+          "state": "possession"
+        },
+        {
+          "frame_index": 79,
+          "state": "possession"
+        },
+        {
+          "frame_index": 80,
+          "state": "possession"
+        },
+        {
+          "frame_index": 81,
+          "state": "possession"
+        },
+        {
+          "frame_index": 82,
+          "state": "possession"
+        },
+        {
+          "frame_index": 83,
+          "state": "possession"
+        },
+        {
+          "frame_index": 84,
+          "state": "possession"
+        },
+        {
+          "frame_index": 85,
+          "state": "possession"
+        },
+        {
+          "frame_index": 86,
+          "state": "possession"
+        },
+        {
+          "frame_index": 87,
+          "state": "possession"
+        },
+        {
+          "frame_index": 88,
+          "state": "possession"
+        },
+        {
+          "frame_index": 89,
+          "state": "possession"
+        },
+        {
+          "frame_index": 90,
+          "state": "possession"
+        },
+        {
+          "frame_index": 91,
+          "state": "possession"
+        },
+        {
+          "frame_index": 92,
+          "state": "possession"
+        },
+        {
+          "frame_index": 93,
+          "state": "possession"
+        },
+        {
+          "frame_index": 94,
+          "state": "possession"
+        },
+        {
+          "frame_index": 95,
+          "state": "possession"
+        },
+        {
+          "frame_index": 96,
+          "state": "possession"
+        },
+        {
+          "frame_index": 97,
+          "state": "possession"
+        },
+        {
+          "frame_index": 98,
+          "state": "possession"
+        },
+        {
+          "frame_index": 99,
+          "state": "possession"
+        },
+        {
+          "frame_index": 100,
+          "state": "possession"
+        },
+        {
+          "frame_index": 101,
+          "state": "possession"
+        },
+        {
+          "frame_index": 102,
+          "state": "possession"
+        },
+        {
+          "frame_index": 103,
+          "state": "possession"
+        },
+        {
+          "frame_index": 104,
+          "state": "possession"
+        },
+        {
+          "frame_index": 105,
+          "state": "possession"
+        },
+        {
+          "frame_index": 106,
+          "state": "possession"
+        },
+        {
+          "frame_index": 107,
+          "state": "possession"
+        },
+        {
+          "frame_index": 108,
+          "state": "possession"
+        },
+        {
+          "frame_index": 109,
+          "state": "possession"
+        },
+        {
+          "frame_index": 110,
+          "state": "possession"
+        },
+        {
+          "frame_index": 111,
+          "state": "possession"
+        },
+        {
+          "frame_index": 112,
+          "state": "possession"
+        },
+        {
+          "frame_index": 113,
+          "state": "possession"
+        },
+        {
+          "frame_index": 114,
+          "state": "possession"
+        },
+        {
+          "frame_index": 115,
+          "state": "possession"
+        },
+        {
+          "frame_index": 116,
+          "state": "possession"
+        },
+        {
+          "frame_index": 117,
+          "state": "possession"
+        },
+        {
+          "frame_index": 118,
+          "state": "possession"
+        },
+        {
+          "frame_index": 119,
+          "state": "possession"
+        },
+        {
+          "frame_index": 120,
+          "state": "possession"
+        },
+        {
+          "frame_index": 121,
+          "state": "possession"
+        },
+        {
+          "frame_index": 122,
+          "state": "possession"
+        },
+        {
+          "frame_index": 123,
+          "state": "possession"
+        },
+        {
+          "frame_index": 124,
+          "state": "possession"
+        },
+        {
+          "frame_index": 125,
+          "state": "possession"
+        },
+        {
+          "frame_index": 126,
+          "state": "possession"
+        },
+        {
+          "frame_index": 127,
+          "state": "possession"
+        },
+        {
+          "frame_index": 128,
+          "state": "possession"
+        },
+        {
+          "frame_index": 129,
+          "state": "possession"
+        },
+        {
+          "frame_index": 130,
+          "state": "possession"
+        },
+        {
+          "frame_index": 131,
+          "state": "possession"
+        },
+        {
+          "frame_index": 132,
+          "state": "possession"
+        },
+        {
+          "frame_index": 133,
+          "state": "possession"
+        },
+        {
+          "frame_index": 134,
+          "state": "possession"
+        },
+        {
+          "frame_index": 135,
+          "state": "possession"
+        },
+        {
+          "frame_index": 136,
+          "state": "possession"
+        },
+        {
+          "frame_index": 137,
+          "state": "possession"
+        },
+        {
+          "frame_index": 138,
+          "state": "possession"
+        },
+        {
+          "frame_index": 139,
+          "state": "possession"
+        },
+        {
+          "frame_index": 140,
+          "state": "possession"
+        },
+        {
+          "frame_index": 141,
+          "state": "possession"
+        },
+        {
+          "frame_index": 142,
+          "state": "possession"
+        },
+        {
+          "frame_index": 143,
+          "state": "possession"
+        },
+        {
+          "frame_index": 144,
+          "state": "possession"
+        },
+        {
+          "frame_index": 145,
+          "state": "possession"
+        },
+        {
+          "frame_index": 146,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_attempt"
+        },
+        {
+          "frame_index": 147,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 148,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 149,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 150,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 151,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 152,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 153,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 154,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 155,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 156,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 157,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 158,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 159,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "state": "shot_in_flight"
+        },
+        {
+          "frame_index": 160,
+          "state": "possession"
+        },
+        {
+          "frame_index": 161,
+          "state": "possession"
+        },
+        {
+          "frame_index": 162,
+          "state": "possession"
+        },
+        {
+          "frame_index": 163,
+          "state": "possession"
+        },
+        {
+          "frame_index": 164,
+          "state": "possession"
+        },
+        {
+          "frame_index": 165,
+          "state": "possession"
+        },
+        {
+          "frame_index": 166,
+          "state": "possession"
+        },
+        {
+          "frame_index": 167,
+          "state": "possession"
+        },
+        {
+          "frame_index": 168,
+          "state": "possession"
+        },
+        {
+          "frame_index": 169,
+          "state": "possession"
+        },
+        {
+          "frame_index": 170,
+          "state": "possession"
+        },
+        {
+          "frame_index": 171,
+          "state": "possession"
+        },
+        {
+          "frame_index": 172,
+          "state": "possession"
+        },
+        {
+          "frame_index": 173,
+          "state": "possession"
+        }
+      ],
+      "sequences": [
+        {
+          "evidence": {
+            "apex_frame": 157,
+            "confirmed": true,
+            "holder_release_frame": 146,
+            "inferred_release_frame": 146,
+            "interpolated_ball_frames": 3,
+            "observed_ball_frames": 19,
+            "observed_pre_rim_frames": 14,
+            "player_height_pixels": 161.519,
+            "reason": "release_arc_rim_approach",
+            "rim_approach_frame": 159,
+            "rim_approach_player_heights": 0.3305,
+            "rim_bbox": [
+              738.22,
+              164.53,
+              797.12,
+              233.94
+            ],
+            "rim_distance_player_heights": 0.0475,
+            "rise_player_heights": 0.5669,
+            "trajectory_strength": 0.8974
+          },
+          "holder_release_frame": 146,
+          "pending_end_frame": 173,
+          "post_shot_control_frame": null,
+          "post_shot_control_holder_id": null,
+          "release_frame": 146,
+          "rim_frame": 159,
+          "sequence_id": 3,
+          "shooter_id": 5,
+          "shooter_team_id": 2,
+          "status": "confirmed_attempt"
+        }
+      ]
     }
   },
   "disclaimer": "Experimental analysis. Review every result against the source play; do not treat it as an authoritative coaching decision.",
   "events": [
     {
       "evidence": {
-        "catch_frame": 45,
+        "catch_frame": 43,
         "confirmation_frames": 1,
-        "from_player_id": 7,
-        "gap_frames": 19,
-        "release_frame": 25,
-        "to_player_id": 1,
-        "transition_frame": 45
+        "detection_source": "fused_ball_corroboration",
+        "from_player_id": 3,
+        "gap_frames": 1,
+        "player_separation_heights": 2.0296,
+        "possession_evidence": {
+          "interpolated_flight_frames": 0,
+          "observed_flight_frames": 1,
+          "observed_loose_frames": 1,
+          "receiver_support_frames": 10,
+          "source_support_frames": 6
+        },
+        "release_frame": 41,
+        "team_resolution": {
+          "from": "high_consensus_event_hint",
+          "to": "frame_assignment"
+        },
+        "to_player_id": 4,
+        "transition_frame": 43
       },
-      "frameIndex": 45,
-      "fromTeamId": 1,
+      "frameIndex": 43,
+      "fromTeamId": 2,
       "id": "event-1",
       "status": "candidate",
-      "timeSeconds": 1.5,
-      "toTeamId": 1,
+      "timeSeconds": 1.433,
+      "toTeamId": 2,
       "type": "pass"
     },
     {
       "evidence": {
         "catch_frame": 64,
         "confirmation_frames": 1,
-        "from_player_id": 1,
-        "gap_frames": 8,
-        "release_frame": 55,
-        "to_player_id": 3,
+        "detection_source": "fused_ball_corroboration",
+        "from_player_id": 4,
+        "gap_frames": 1,
+        "player_separation_heights": 2.4025,
+        "possession_evidence": {
+          "interpolated_flight_frames": 0,
+          "observed_flight_frames": 1,
+          "observed_loose_frames": 1,
+          "receiver_support_frames": 16,
+          "source_support_frames": 11
+        },
+        "release_frame": 62,
+        "team_resolution": {
+          "from": "frame_assignment",
+          "to": "frame_assignment"
+        },
+        "to_player_id": 5,
         "transition_frame": 64
       },
       "frameIndex": 64,
-      "fromTeamId": 1,
+      "fromTeamId": 2,
       "id": "event-2",
       "status": "candidate",
       "timeSeconds": 2.133,
-      "toTeamId": 1,
+      "toTeamId": 2,
       "type": "pass"
     },
     {
       "evidence": {
-        "catch_frame": 106,
-        "confirmation_frames": 12,
-        "from_player_id": 3,
-        "gap_frames": 17,
-        "release_frame": 88,
-        "to_player_id": 9,
-        "transition_frame": 95
+        "catch_frame": 107,
+        "confirmation_frames": 1,
+        "detection_source": "semantic_ball",
+        "from_player_id": 5,
+        "gap_frames": 13,
+        "possession_evidence": {
+          "interpolated_flight_frames": 1,
+          "observed_flight_frames": 3,
+          "observed_loose_frames": 0,
+          "receiver_support_frames": 3,
+          "source_support_frames": 24
+        },
+        "release_frame": 93,
+        "team_resolution": {
+          "from": "frame_assignment",
+          "to": "frame_assignment"
+        },
+        "to_player_id": 11,
+        "transition_frame": 107
       },
-      "frameIndex": 106,
-      "fromTeamId": 1,
+      "frameIndex": 107,
+      "fromTeamId": 2,
       "id": "event-3",
       "status": "candidate",
-      "timeSeconds": 3.533,
-      "toTeamId": 1,
+      "timeSeconds": 3.567,
+      "toTeamId": 2,
       "type": "pass"
     },
     {
       "evidence": {
-        "catch_frame": 137,
+        "catch_frame": 133,
         "confirmation_frames": 1,
-        "from_player_id": 9,
-        "gap_frames": 26,
-        "release_frame": 110,
-        "to_player_id": 3,
-        "transition_frame": 137
+        "detection_source": "fused_ball_corroboration",
+        "from_player_id": 11,
+        "gap_frames": 25,
+        "player_separation_heights": 1.9725,
+        "possession_evidence": {
+          "interpolated_flight_frames": 4,
+          "observed_flight_frames": 8,
+          "observed_loose_frames": 2,
+          "receiver_support_frames": 7,
+          "source_support_frames": 2
+        },
+        "release_frame": 107,
+        "team_resolution": {
+          "from": "frame_assignment",
+          "to": "frame_assignment"
+        },
+        "to_player_id": 5,
+        "transition_frame": 133
       },
-      "frameIndex": 137,
-      "fromTeamId": 1,
+      "frameIndex": 133,
+      "fromTeamId": 2,
       "id": "event-4",
       "status": "candidate",
-      "timeSeconds": 4.567,
-      "toTeamId": 1,
+      "timeSeconds": 4.433,
+      "toTeamId": 2,
       "type": "pass"
+    },
+    {
+      "evidence": {
+        "from_player_id": 5,
+        "release_frame": 146,
+        "sequence_id": 3,
+        "team_resolution": {
+          "from": "frame_assignment"
+        },
+        "to_player_id": null,
+        "trajectory_evidence": {
+          "apex_frame": 157,
+          "confirmed": true,
+          "holder_release_frame": 146,
+          "inferred_release_frame": 146,
+          "interpolated_ball_frames": 3,
+          "observed_ball_frames": 19,
+          "observed_pre_rim_frames": 14,
+          "player_height_pixels": 161.519,
+          "reason": "release_arc_rim_approach",
+          "rim_approach_frame": 159,
+          "rim_approach_player_heights": 0.3305,
+          "rim_bbox": [
+            738.22,
+            164.53,
+            797.12,
+            233.94
+          ],
+          "rim_distance_player_heights": 0.0475,
+          "rise_player_heights": 0.5669,
+          "trajectory_strength": 0.8974
+        }
+      },
+      "frameIndex": 152,
+      "fromTeamId": 2,
+      "id": "event-5",
+      "status": "candidate",
+      "timeSeconds": 5.067,
+      "toTeamId": 2,
+      "type": "shot_attempt"
     }
   ],
   "frames": [
