@@ -32,7 +32,7 @@
 
   const state = {
     view: "loading",
-    authStep: "email",
+    authStep: "signin",
     email: "",
     session: null,
     csrfToken: null,
@@ -259,7 +259,15 @@
   }
 
   function renderAuth() {
-    const codeStep = state.authStep === "code";
+    const step = state.authStep;
+    const headings = {
+      signin: ["Sign in", "Use your confirmed email and password to continue."],
+      signup: ["Create your account", "Confirm your email before CourtVision accepts a video."],
+      confirm: ["Confirm your email", `Enter the six-digit code sent to <strong>${escapeHtml(state.email)}</strong>.`],
+      forgot: ["Reset your password", "Enter your account email and we’ll send a reset code."],
+      reset: ["Choose a new password", `Enter the reset code sent to <strong>${escapeHtml(state.email)}</strong>.`],
+    };
+    const [heading, intro] = headings[step] || headings.signin;
     app.innerHTML = `
       <main class="auth-view view">
         <section class="auth-scene" aria-labelledby="auth-title">
@@ -273,98 +281,108 @@
             <p>CourtVision turns one basketball clip into an annotated replay, tactical court, and timecoded event rundown built for evidence—not automatic decisions.</p>
           </div>
           <ul class="auth-proof" aria-label="Beta boundaries">
-            <li>Invite-only access</li>
+            <li>Verified account required</li>
             <li>30-second clip limit</li>
             <li>Automatic deletion after 24 hours</li>
           </ul>
         </section>
         <section class="auth-panel" aria-labelledby="signin-heading">
           <div class="auth-form-wrap">
-            <h2 id="signin-heading">${codeStep ? "Check your email" : "Enter your email"}</h2>
-            <p>${
-              codeStep
-                ? `We sent a six-digit sign-in code to <strong>${escapeHtml(state.email)}</strong>.`
-                : "Use the address approved for the CourtVision beta. There is no public signup."
-            }</p>
+            <h2 id="signin-heading">${heading}</h2>
+            <p>${intro}</p>
             ${messageMarkup()}
-            ${codeStep ? codeForm() : emailForm()}
+            ${authForm(step)}
           </div>
         </section>
       </main>
       ${toastRegion()}
     `;
-    if (codeStep) {
-      const form = app.querySelector("#code-form");
-      form.addEventListener("submit", verifyCode);
-      app.querySelector("#change-email").addEventListener("click", () => {
-        state.authStep = "email";
-        state.message = null;
-        render();
-      });
-      app.querySelector("#resend-code").addEventListener("click", requestCode);
-      app.querySelector("#code").focus();
-    } else {
-      app.querySelector("#email-form").addEventListener("submit", requestCode);
-      app.querySelector("#email").focus();
-    }
+    const handlers = { signin: signIn, signup: signUp, confirm: confirmSignUp, forgot: requestPasswordReset, reset: confirmPasswordReset };
+    app.querySelector("form")?.addEventListener("submit", handlers[step] || signIn);
+    app.querySelectorAll("[data-auth-step]").forEach((button) => button.addEventListener("click", () => setAuthStep(button.dataset.authStep)));
+    app.querySelector("#resend-confirmation")?.addEventListener("click", resendConfirmation);
+    app.querySelector(step === "confirm" || step === "reset" ? "#code" : "#email")?.focus();
   }
 
-  function emailForm() {
-    return `
-      <form id="email-form" class="form-stack" novalidate>
-        <div class="field">
-          <label class="field-label" for="email">Approved email</label>
-          <input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="254" value="${escapeHtml(state.email)}" placeholder="you@example.com" />
-        </div>
-        <button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>
-          ${icon("mail")}<span>${state.busy ? "Sending code…" : "Email me a code"}</span>
-        </button>
-        <p class="field-hint">For privacy, CourtVision gives the same response whether or not an address is allowlisted.</p>
-      </form>
-    `;
+  function setAuthStep(step, message = null) {
+    state.authStep = step;
+    state.message = message;
+    render();
   }
 
-  function codeForm() {
-    return `
-      <form id="code-form" class="form-stack" novalidate>
-        <div class="field">
-          <label class="field-label" for="code">Six-digit code</label>
-          <input class="input code-input" id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required aria-describedby="code-hint" />
-          <p class="field-hint" id="code-hint">Codes expire after 10 minutes and work once.</p>
-        </div>
-        <button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>
-          ${icon("lock")}<span>${state.busy ? "Checking code…" : "Enter CourtVision"}</span>
-        </button>
-        <div class="form-actions">
-          <button class="button button-secondary" id="resend-code" type="button" ${state.busy ? "disabled" : ""}>Send another code</button>
-          <button class="button button-quiet" id="change-email" type="button">Use a different email</button>
-        </div>
-      </form>
-    `;
+  function authForm(step) {
+    const emailField = `<div class="field"><label class="field-label" for="email">Email address</label><input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="254" value="${escapeHtml(state.email)}" placeholder="you@example.com" /></div>`;
+    const passwordField = (autocomplete = "current-password", label = "Password") => `<div class="field"><label class="field-label" for="password">${label}</label><input class="input" id="password" name="password" type="password" autocomplete="${autocomplete}" required minlength="10" maxlength="256" aria-describedby="password-hint" /><p class="field-hint" id="password-hint">Use at least 10 characters.</p></div>`;
+    const codeField = `<div class="field"><label class="field-label" for="code">Six-digit confirmation code</label><input class="input code-input" id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required aria-describedby="code-hint" /><p class="field-hint" id="code-hint">Use the newest code in your email.</p></div>`;
+    if (step === "signup") return `<form class="form-stack" novalidate>${emailField}${passwordField("new-password")}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("arrow")}<span>${state.busy ? "Creating account…" : "Create account"}</span></button><p class="auth-switch">Already have an account? <button class="text-action" type="button" data-auth-step="signin">Sign in</button></p></form>`;
+    if (step === "confirm") return `<form class="form-stack" novalidate>${codeField}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("check")}<span>${state.busy ? "Confirming email…" : "Confirm email"}</span></button><div class="form-actions"><button class="button button-secondary" id="resend-confirmation" type="button" ${state.busy ? "disabled" : ""}>Send a new code</button><button class="button button-quiet" type="button" data-auth-step="signin">Back to sign in</button></div></form>`;
+    if (step === "forgot") return `<form class="form-stack" novalidate>${emailField}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("mail")}<span>${state.busy ? "Sending reset code…" : "Send reset code"}</span></button><p class="auth-switch"><button class="text-action" type="button" data-auth-step="signin">Back to sign in</button></p></form>`;
+    if (step === "reset") return `<form class="form-stack" novalidate>${codeField}${passwordField("new-password", "New password")}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("lock")}<span>${state.busy ? "Saving password…" : "Save new password"}</span></button><p class="auth-switch"><button class="text-action" type="button" data-auth-step="signin">Back to sign in</button></p></form>`;
+    return `<form class="form-stack" novalidate>${emailField}${passwordField()}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("arrow")}<span>${state.busy ? "Signing in…" : "Sign in"}</span></button><div class="auth-options"><button class="text-action" type="button" data-auth-step="forgot">Forgot password?</button><span>New to CourtVision? <button class="text-action" type="button" data-auth-step="signup">Create account</button></span></div></form>`;
   }
 
-  async function requestCode(event) {
+  function authValues(event, { code = false, password = false } = {}) {
     event.preventDefault();
-    const emailInput = app.querySelector("#email");
-    if (emailInput) {
-      if (!emailInput.reportValidity()) return;
-      state.email = emailInput.value.trim().toLowerCase();
-    }
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return null;
+    const emailInput = form.querySelector("#email");
+    if (emailInput) state.email = emailInput.value.trim().toLowerCase();
+    return { email: state.email, ...(code ? { code: form.querySelector("#code").value.trim() } : {}), ...(password ? { password: form.querySelector("#password").value } : {}) };
+  }
+
+  async function signUp(event) {
+    const body = authValues(event, { password: true });
+    if (!body) return;
     state.busy = true;
     state.message = null;
     renderAuth();
     try {
       if (demoMode) {
-        state.authStep = "code";
+        state.authStep = "confirm";
         state.message = { type: "success", text: "Local preview: use any six-digit code." };
         return;
       }
-      const result = await api("/auth/request-code", {
-        method: "POST",
-        body: { email: state.email },
-        publicRequest: true,
-      });
-      state.authStep = "code";
+      const result = await api("/auth/sign-up", { method: "POST", body, publicRequest: true });
+      state.authStep = result.confirmationRequired ? "confirm" : "signin";
+      state.message = { type: "success", text: result.message };
+    } catch (error) {
+      if (error.code === "account_exists") state.authStep = "signin";
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function confirmSignUp(event) {
+    const body = authValues(event, { code: true });
+    if (!body) return;
+    state.busy = true;
+    state.message = null;
+    renderAuth();
+    try {
+      if (demoMode) {
+        state.authStep = "signin";
+        state.message = { type: "success", text: "Email confirmed. Sign in to continue." };
+        return;
+      }
+      await api("/auth/confirm-sign-up", { method: "POST", body, publicRequest: true });
+      state.authStep = "signin";
+      state.message = { type: "success", text: "Email confirmed. Sign in to continue." };
+    } catch (error) {
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function resendConfirmation() {
+    state.busy = true;
+    state.message = null;
+    renderAuth();
+    try {
+      const result = demoMode ? { message: "Local preview: a new code is ready." } : await api("/auth/resend-confirmation", { method: "POST", body: { email: state.email }, publicRequest: true });
       state.message = { type: "success", text: result.message };
     } catch (error) {
       state.message = { type: "error", text: error.message };
@@ -374,25 +392,14 @@
     }
   }
 
-  async function verifyCode(event) {
-    event.preventDefault();
-    const input = app.querySelector("#code");
-    if (!input.reportValidity()) return;
+  async function signIn(event) {
+    const body = authValues(event, { password: true });
+    if (!body) return;
     state.busy = true;
     state.message = null;
     renderAuth();
     try {
-      if (demoMode) {
-        state.session = { email: state.email || "coach@example.com" };
-        state.csrfToken = "local-demo";
-        state.view = "upload";
-        return;
-      }
-      const session = await api("/auth/verify-code", {
-        method: "POST",
-        body: { email: state.email, code: input.value },
-        publicRequest: true,
-      });
+      const session = demoMode ? { email: state.email || "coach@example.com", csrfToken: "local-demo" } : await api("/auth/sign-in", { method: "POST", body, publicRequest: true });
       state.session = session;
       state.csrfToken = session.csrfToken;
       const retainedJob = window.localStorage.getItem(activeJobKey);
@@ -1026,6 +1033,43 @@
       }
       state.view = "processing";
     } catch (error) {
+      if (error.code === "confirmation_required") state.authStep = "confirm";
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function requestPasswordReset(event) {
+    const body = authValues(event);
+    if (!body) return;
+    state.busy = true;
+    state.message = null;
+    renderAuth();
+    try {
+      const result = demoMode ? { message: "Local preview: use any six-digit reset code." } : await api("/auth/forgot-password", { method: "POST", body, publicRequest: true });
+      state.authStep = "reset";
+      state.message = { type: "success", text: result.message };
+    } catch (error) {
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function confirmPasswordReset(event) {
+    const body = authValues(event, { code: true, password: true });
+    if (!body) return;
+    state.busy = true;
+    state.message = null;
+    renderAuth();
+    try {
+      if (!demoMode) await api("/auth/confirm-password", { method: "POST", body, publicRequest: true });
+      state.authStep = "signin";
+      state.message = { type: "success", text: "Password updated. Sign in with your new password." };
+    } catch (error) {
       state.message = { type: "error", text: error.message };
     } finally {
       state.busy = false;
@@ -1472,7 +1516,7 @@
     state.analysis = null;
     state.downloads = null;
     state.view = "auth";
-    state.authStep = "email";
+    state.authStep = "signin";
     render();
   }
 
@@ -1502,7 +1546,7 @@
     const response = await fetch(`${config.apiBaseUrl}${path}`, {
       method,
       headers,
-      credentials: "same-origin",
+      credentials: "include",
       cache: "no-store",
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
@@ -1521,7 +1565,7 @@
         state.session = null;
         state.csrfToken = null;
         state.view = "auth";
-        state.authStep = "email";
+        state.authStep = "signin";
         state.message = {
           type: "error",
           text: "Your sign-in expired. Sign in again to recover the retained analysis session.",
