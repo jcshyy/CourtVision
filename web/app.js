@@ -42,6 +42,9 @@
     busy: false,
     message: null,
     job: null,
+    recentJobs: [],
+    recentJobsLoading: false,
+    recentJobsError: null,
     analysis: null,
     downloads: null,
     selectedEventId: null,
@@ -205,6 +208,7 @@
       } else {
         state.session = session;
         state.csrfToken = session.csrfToken;
+        await loadRecentJobs(true);
         const activeJob = window.localStorage.getItem(activeJobKey);
         if (activeJob) {
           const resumed = await loadJob(activeJob, true);
@@ -402,6 +406,7 @@
       const session = demoMode ? { email: state.email || "coach@example.com", csrfToken: "local-demo" } : await api("/auth/sign-in", { method: "POST", body, publicRequest: true });
       state.session = session;
       state.csrfToken = session.csrfToken;
+      await loadRecentJobs(true);
       const retainedJob = window.localStorage.getItem(activeJobKey);
       if (retainedJob) {
         const resumed = await loadJob(retainedJob, true);
@@ -452,6 +457,7 @@
               <p class="field-hint">${config.analysisAvailable ? "Analysis is experimental. Review every result against the source play." : "Processing is not available yet. Preview videos are not uploaded."}</p>
             </aside>
           </form>
+          ${recentAnalysesMarkup()}
         </main>
         ${toastRegion()}
       </div>
@@ -477,6 +483,113 @@
       if (file) selectFile(file);
     });
     app.querySelector("#upload-form").addEventListener("submit", createAndUploadJob);
+    app.querySelector("#refresh-recent")?.addEventListener("click", refreshRecentJobs);
+    app.querySelectorAll("[data-open-job]").forEach((button) =>
+      button.addEventListener("click", () => openRecentJob(button.dataset.openJob)),
+    );
+  }
+
+  function recentAnalysesMarkup() {
+    if (config.publicPreview && !config.analysisAvailable) return "";
+    const jobs = state.recentJobs;
+    let body = "";
+    if (state.recentJobsLoading) {
+      body = `<p class="recent-empty" role="status">Checking your retained analyses…</p>`;
+    } else if (state.recentJobsError) {
+      body = `<p class="recent-empty recent-error" role="alert">${escapeHtml(state.recentJobsError)}</p>`;
+    } else if (!jobs.length) {
+      body = `<div class="recent-empty"><h3>No retained analyses yet</h3><p>Your completed, processing, and failed jobs will appear here until automatic deletion.</p></div>`;
+    } else {
+      body = `<ol class="recent-list">${jobs.map(recentAnalysisRowMarkup).join("")}</ol>`;
+    }
+    return `
+      <section class="recent-analyses" aria-labelledby="recent-analyses-title">
+        <header class="recent-header">
+          <div>
+            <h2 id="recent-analyses-title">Recent analyses</h2>
+            <p>Private to ${escapeHtml(state.session?.email || "this account")}. Jobs disappear automatically after their retention window.</p>
+          </div>
+          <button class="button button-paper" id="refresh-recent" type="button" ${state.recentJobsLoading || state.busy ? "disabled" : ""}>${icon("refresh")}<span>Refresh</span></button>
+        </header>
+        ${body}
+      </section>
+    `;
+  }
+
+  function recentAnalysisRowMarkup(job) {
+    const ready = job.status === "complete";
+    const status = recentJobStatus(job);
+    const created = new Date(job.createdAt);
+    const createdLabel = Number.isNaN(created.getTime())
+      ? "Recently submitted"
+      : created.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return `
+      <li>
+        <button class="recent-job" type="button" data-open-job="${escapeHtml(job.id)}" ${state.busy ? "disabled" : ""} aria-label="${ready ? "View" : "Open"} ${escapeHtml(job.filename || "analysis job")}, ${escapeHtml(status.label)}">
+          <span class="recent-status recent-status-${status.tone}"><i aria-hidden="true"></i>${escapeHtml(status.label)}</span>
+          <span class="recent-file"><strong>${escapeHtml(job.filename || "Uploaded clip")}</strong><span>${escapeHtml(createdLabel)} · ${formatTime(job.durationSeconds || 0, true)} clip</span></span>
+          <span class="recent-expiry"><small>${config.localRuntime ? "Expires" : "Deletes"}</small><strong>${escapeHtml(relativeExpiration(job.expiresAt))}</strong></span>
+          <span class="recent-action">${ready ? "View result" : job.status === "failed" ? "Review issue" : "View progress"}${icon("arrow")}</span>
+        </button>
+      </li>
+    `;
+  }
+
+  function recentJobStatus(job) {
+    if (job.status === "complete") return { label: "Ready", tone: "ready" };
+    if (job.status === "failed") return { label: "Needs attention", tone: "error" };
+    if (job.status === "needs_team_colors") return { label: "Input needed", tone: "attention" };
+    if (job.status === "awaiting_upload") return { label: "Upload pending", tone: "quiet" };
+    return { label: job.stage || "Processing", tone: "active" };
+  }
+
+  async function loadRecentJobs(silent = false) {
+    if (demoMode || (config.publicPreview && !config.analysisAvailable)) return;
+    state.recentJobsLoading = true;
+    state.recentJobsError = null;
+    if (!silent && state.view === "upload") renderUpload();
+    try {
+      const response = await api("/jobs", { method: "GET" });
+      state.recentJobs = Array.isArray(response?.jobs) ? response.jobs : [];
+    } catch (error) {
+      if (!error.authenticationHandled) {
+        state.recentJobsError = "CourtVision could not load your recent analyses. Refresh to try again.";
+      }
+    } finally {
+      state.recentJobsLoading = false;
+    }
+  }
+
+  async function refreshRecentJobs() {
+    const button = app.querySelector("#refresh-recent");
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      const label = button.querySelector("span");
+      if (label) label.textContent = "Refreshing…";
+    }
+    await loadRecentJobs(true);
+    if (state.view === "upload") {
+      renderUpload();
+      requestAnimationFrame(() => app.querySelector("#refresh-recent")?.focus());
+    }
+  }
+
+  async function openRecentJob(jobId) {
+    if (!jobId || state.busy) return;
+    state.busy = true;
+    state.message = null;
+    renderUpload();
+    window.localStorage.setItem(activeJobKey, jobId);
+    const opened = await loadJob(jobId, true);
+    state.busy = false;
+    if (!opened) await loadRecentJobs(true);
+    render();
+  }
+
+  function upsertRecentJob(job) {
+    if (!job?.id) return;
+    state.recentJobs = [job, ...state.recentJobs.filter((item) => item.id !== job.id)].slice(0, 25);
   }
 
   function limitStrip() {
@@ -594,6 +707,7 @@
           },
         });
         state.job = response.job;
+        upsertRecentJob(state.job);
         window.localStorage.setItem(activeJobKey, state.job.id);
         await uploadToS3(response.upload, state.selectedFile, (progress) => {
           state.uploadProgress = progress;
@@ -749,6 +863,7 @@
     try {
       const response = await api(`/jobs/${jobId}`, { method: "GET" });
       state.job = response.job;
+      upsertRecentJob(state.job);
       if (state.job.status === "complete") {
         await loadReviewArtifacts();
       } else if (state.job.status === "needs_team_colors") {
@@ -770,10 +885,13 @@
         if (!silent) render();
         return false;
       }
-      if (!silent) {
-        state.message = { type: "error", text: "CourtVision could not refresh the job. It will try again." };
-        render();
-      }
+      state.message = {
+        type: "error",
+        text: state.job?.status === "complete"
+          ? "CourtVision could not reopen that result. Refresh Recent analyses and try again."
+          : "CourtVision could not refresh the job. It will try again.",
+      };
+      if (!silent) render();
       return true;
     }
   }
@@ -1556,6 +1674,7 @@
 
   function resetJob() {
     clearPoll();
+    upsertRecentJob(state.job);
     window.localStorage.removeItem(activeJobKey);
     state.job = null;
     state.analysis = null;
@@ -1565,7 +1684,7 @@
     state.selectedEventId = null;
     state.currentTime = 0;
     state.inspectorTab = "court";
-    state.message = { type: "success", text: "Ready for another clip. The previous result remains stored until its expiry." };
+    state.message = { type: "success", text: "Ready for another clip. You can reopen the previous result under Recent analyses until it expires." };
     state.view = "upload";
     render();
   }
