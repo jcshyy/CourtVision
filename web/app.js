@@ -73,6 +73,8 @@
     evidence: '<path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-9h.01"/>',
     chevron: '<path d="M8 10l4 4 4-4"/>',
+    profile: '<circle cx="12" cy="8" r="3.5"/><path d="M5.5 20a6.5 6.5 0 0113 0"/>',
+    video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 9l6 3-6 3z"/>',
   };
 
   function icon(name, label = "") {
@@ -254,6 +256,7 @@
     else if (state.view === "colors") renderTeamColors();
     else if (state.view === "review") renderReview();
     else if (state.view === "failure") renderFailure();
+    else if (state.view === "profile") renderProfile();
     else renderUpload();
     app.removeAttribute("aria-busy");
     requestAnimationFrame(() => {
@@ -457,7 +460,7 @@
               <p class="field-hint">${config.analysisAvailable ? "Analysis is experimental. Review every result against the source play." : "Processing is not available yet. Preview videos are not uploaded."}</p>
             </aside>
           </form>
-          ${recentAnalysesMarkup()}
+          ${recentAnalysesShortcutMarkup()}
         </main>
         ${toastRegion()}
       </div>
@@ -483,6 +486,52 @@
       if (file) selectFile(file);
     });
     app.querySelector("#upload-form").addEventListener("submit", createAndUploadJob);
+  }
+
+  function recentAnalysesShortcutMarkup() {
+    if (config.publicPreview && !config.analysisAvailable) return "";
+    const count = state.recentJobs.length;
+    const latest = state.recentJobs[0];
+    const status = latest ? recentJobStatus(latest) : null;
+    const summary = state.recentJobsError
+      ? "History is temporarily unavailable. Open Profile to try again."
+      : count
+        ? `${count} retained ${count === 1 ? "analysis" : "analyses"}. Latest: ${escapeHtml(latest.filename || "Uploaded clip")} · ${escapeHtml(status.label)}.`
+        : "Completed, processing, and failed jobs stay available here for 24 hours.";
+    return `
+      <aside class="recent-shortcut" aria-labelledby="recent-shortcut-title">
+        <div class="recent-shortcut-mark">${icon("evidence")}</div>
+        <div>
+          <h2 id="recent-shortcut-title">Your recent analyses</h2>
+          <p>${summary}</p>
+        </div>
+        <button class="button button-paper" type="button" data-app-view="profile">Open Profile${icon("arrow")}</button>
+      </aside>
+    `;
+  }
+
+  function renderProfile() {
+    app.innerHTML = `
+      <div class="app-shell">
+        ${topbar()}
+        <main class="profile-view view" aria-labelledby="profile-title">
+          <header class="profile-heading">
+            <div>
+              <h1 id="profile-title">Your analysis desk.</h1>
+              <p>Reopen any result that is still inside CourtVision’s private retention window.</p>
+            </div>
+            <dl class="profile-account" aria-label="Account details">
+              <div><dt>Signed in as</dt><dd>${escapeHtml(state.session?.email || "Confirmed account")}</dd></div>
+              <div><dt>Retention</dt><dd>${config.resultRetentionHours} hours</dd></div>
+            </dl>
+          </header>
+          ${messageMarkup()}
+          ${recentAnalysesMarkup()}
+        </main>
+        ${toastRegion()}
+      </div>
+    `;
+    bindGlobalActions();
     app.querySelector("#refresh-recent")?.addEventListener("click", refreshRecentJobs);
     app.querySelectorAll("[data-open-job]").forEach((button) =>
       button.addEventListener("click", () => openRecentJob(button.dataset.openJob)),
@@ -547,7 +596,7 @@
     if (demoMode || (config.publicPreview && !config.analysisAvailable)) return;
     state.recentJobsLoading = true;
     state.recentJobsError = null;
-    if (!silent && state.view === "upload") renderUpload();
+    if (!silent && state.view === "profile") renderProfile();
     try {
       const response = await api("/jobs", { method: "GET" });
       state.recentJobs = Array.isArray(response?.jobs) ? response.jobs : [];
@@ -569,8 +618,8 @@
       if (label) label.textContent = "Refreshing…";
     }
     await loadRecentJobs(true);
-    if (state.view === "upload") {
-      renderUpload();
+    if (state.view === "profile") {
+      renderProfile();
       requestAnimationFrame(() => app.querySelector("#refresh-recent")?.focus());
     }
   }
@@ -579,7 +628,7 @@
     if (!jobId || state.busy) return;
     state.busy = true;
     state.message = null;
-    renderUpload();
+    render();
     window.localStorage.setItem(activeJobKey, jobId);
     const opened = await loadJob(jobId, true);
     state.busy = false;
@@ -1129,6 +1178,7 @@
           </span>
         </div>
         <nav class="topbar-actions" aria-label="Session actions">
+          ${appViewTabsMarkup()}
           ${review ? `<button class="button button-secondary new-analysis" id="new-analysis" type="button" aria-label="Analyze another clip">${icon("upload")}<span>Analyze another clip</span></button>` : ""}
           ${
             canDownload
@@ -1157,6 +1207,17 @@
         </div>
         <ul class="court-legend" aria-label="Tactical court legend"><li><i class="legend-dot one"></i>Display team one</li><li><i class="legend-dot two"></i>Display team two</li><li><i class="legend-dot unknown"></i>Unknown</li></ul>
       </div>
+    `;
+  }
+
+  function appViewTabsMarkup() {
+    if (config.publicPreview || config.localRuntime || permanentDemo) return "";
+    const profileActive = state.view === "profile";
+    return `
+      <span class="topbar-view-tabs" aria-label="Account views">
+        <button class="topbar-view-tab" type="button" data-app-view="upload" ${profileActive ? "" : 'aria-current="page"'}>${icon("video")}<span>Analyze</span></button>
+        <button class="topbar-view-tab" type="button" data-app-view="profile" ${profileActive ? 'aria-current="page"' : ""}>${icon("profile")}<span>Profile</span></button>
+      </span>
     `;
   }
 
@@ -1653,6 +1714,28 @@
   function bindGlobalActions() {
     const signOut = app.querySelector("#sign-out");
     if (signOut) signOut.addEventListener("click", signOutUser);
+    app.querySelectorAll("[data-app-view]").forEach((control) =>
+      control.addEventListener("click", () => switchAppView(control.dataset.appView)),
+    );
+  }
+
+  async function switchAppView(view) {
+    if (state.busy || !["upload", "profile"].includes(view)) return;
+    if (view === "profile") {
+      state.view = "profile";
+      renderProfile();
+      await loadRecentJobs(true);
+      if (state.view === "profile") renderProfile();
+      return;
+    }
+    clearPoll();
+    window.localStorage.removeItem(activeJobKey);
+    state.job = null;
+    state.analysis = null;
+    state.downloads = null;
+    state.message = null;
+    state.view = "upload";
+    renderUpload();
   }
 
   async function signOutUser() {
@@ -1684,7 +1767,7 @@
     state.selectedEventId = null;
     state.currentTime = 0;
     state.inspectorTab = "court";
-    state.message = { type: "success", text: "Ready for another clip. You can reopen the previous result under Recent analyses until it expires." };
+    state.message = { type: "success", text: "Ready for another clip. You can reopen the previous result from Profile until it expires." };
     state.view = "upload";
     render();
   }
