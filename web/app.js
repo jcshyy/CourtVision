@@ -637,13 +637,15 @@
 
   function renderProcessing() {
     const stages = processingStages(state.job);
+    const awaitingStart = state.job?.status === "awaiting_upload";
+    const processingHeading = awaitingStart ? "Ready to start" : state.job?.stage || "Preparing analysis";
     app.innerHTML = `
       <div class="app-shell">
         ${topbar()}
         <main class="workspace-view view" aria-labelledby="processing-title">
           <div class="processing-desk">
             <section class="processing-monitor" aria-live="polite">
-              <h1 id="processing-title">${escapeHtml(state.job?.stage || "Preparing analysis")}</h1>
+              <h1 id="processing-title">${escapeHtml(processingHeading)}</h1>
               <p>${escapeHtml(state.job?.filename || "Uploaded clip")} · results remain available for ${config.resultRetentionHours} hours.</p>
               <div class="processing-ruler" aria-hidden="true"><span class="processing-beam"></span></div>
             </section>
@@ -660,6 +662,17 @@
                   )
                   .join("")}
               </ol>
+              ${
+                awaitingStart
+                  ? `<div class="processing-recovery" role="status">
+                      <strong>Your upload is ready.</strong>
+                      <p>Analysis did not start on the previous attempt. Continue with the uploaded clip—there is no need to upload it again.</p>
+                      <button class="button button-primary" id="start-uploaded-analysis" type="button" ${state.busy ? "disabled" : ""}>
+                        ${icon("arrow")}<span>${state.busy ? "Starting analysis…" : "Start analysis"}</span>
+                      </button>
+                    </div>`
+                  : ""
+              }
               <p class="field-hint">${
                 config.localRuntime
                   ? "You can close this tab while the local server stays running. Reopen this address to recover the active job."
@@ -684,14 +697,35 @@
         render();
       });
     } else {
+      app.querySelector("#start-uploaded-analysis")?.addEventListener("click", startUploadedAnalysis);
       state.pollTimer = window.setTimeout(() => loadJob(state.job.id), config.pollIntervalMs);
+    }
+  }
+
+  async function startUploadedAnalysis() {
+    if (!state.job?.id || state.busy) return;
+    state.busy = true;
+    state.message = null;
+    renderProcessing();
+    try {
+      const started = await api(`/jobs/${state.job.id}/start`, { method: "POST", body: {} });
+      state.job = started.job;
+    } catch (error) {
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
     }
   }
 
   function processingStages(job) {
     const status = job?.status || "queued";
     const stageText = String(job?.stage || "").toLowerCase();
-    const activeIndex = status === "queued" ? 1 : stageText.includes("final") ? 3 : status === "complete" ? 4 : 2;
+    let activeIndex = 2;
+    if (status === "awaiting_upload") activeIndex = 0;
+    else if (["queued", "submitted", "pending", "runnable", "starting"].includes(status)) activeIndex = 1;
+    else if (stageText.includes("final") || stageText.includes("render")) activeIndex = 3;
+    else if (status === "complete") activeIndex = 4;
     const definitions = [
       ["Upload received", "The source clip is stored in the private job prefix."],
       [
