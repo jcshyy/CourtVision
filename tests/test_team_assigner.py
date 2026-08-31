@@ -224,15 +224,15 @@ class TeamDiscoveryTests(unittest.TestCase):
                 team_2_color="#FEFEFE",
             )
 
-    def test_user_colors_reject_shadow_filtered_swatch_actionably(self):
-        with self.assertRaisesRegex(
-            ValueError,
-            r"bright enough.*#202020",
-        ):
-            team_assigner.TeamAssigner(
-                team_1_color="#F0F0F0",
-                team_2_color="#202020",
-            )
+    def test_user_colors_accept_explicit_black_without_weakening_shadow_filter(self):
+        assigner = team_assigner.TeamAssigner(
+            team_1_color="#F0F0F0",
+            team_2_color="#000000",
+        )
+
+        self.assertEqual(assigner.normalized_team_colors, ("#F0F0F0", "#000000"))
+        self.assertEqual(assigner.team_colors[2][3], 38)
+        self.assertIsNone(team_assigner._jersey_feature([(0, 0, 0)]))
 
     def test_assignment_cache_identity_changes_only_with_assignment_inputs(self):
         automatic_a = team_assigner.TeamAssigner()

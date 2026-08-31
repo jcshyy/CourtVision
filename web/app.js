@@ -24,6 +24,7 @@
   const embeddedDemo = permanentDemo && query.get("embedded") === "1";
   const demoMode = permanentDemo ? query.get("state") || "review" : localHost ? query.get("demo") : null;
   const activeJobKey = "courtvision.activeJob";
+  const defaultTeamColors = Object.freeze({ team1Color: "#F4F5F7", team2Color: "#1E55D6" });
   const permanentDemoAssets = {
     videoUrl: "assets/courtvision-demo-updated.mp4",
     analysisUrl: "assets/courtvision-demo-analysis.json",
@@ -53,6 +54,7 @@
     pollTimer: null,
     toastTimer: null,
     syncAnimationTimer: null,
+    teamColors: { ...defaultTeamColors },
   };
 
   const iconPaths = {
@@ -957,6 +959,8 @@
   }
 
   function renderTeamColors() {
+    const team1Color = state.teamColors.team1Color;
+    const team2Color = state.teamColors.team2Color;
     app.innerHTML = `
       <div class="app-shell">
         ${topbar()}
@@ -975,7 +979,7 @@
                 <div class="drop-zone-inner">
                   <div class="drop-symbol">${icon("evidence")}</div>
                   <h2>Confirm the two jersey colors</h2>
-                  <p>Automatic color analysis and FashionCLIP could not classify every player reliably. Adding one color for each team is the best way to finish this clip accurately.</p>
+                  <p>Choose each team's primary jersey fabric color. Black and very dark jerseys are supported; avoid sampling a shadow or the court background.</p>
                 </div>
               </div>
             </section>
@@ -983,8 +987,8 @@
               <h2 class="panel-title"><span>Team cue</span><span class="timecode">Recommended</span></h2>
               <form id="color-form" class="color-form">
                 <div class="color-fields">
-                  <div class="field"><label class="field-label" for="team-1-color">Team one</label><input class="color-input" id="team-1-color" name="team1Color" type="color" value="#F4F5F7" /></div>
-                  <div class="field"><label class="field-label" for="team-2-color">Team two</label><input class="color-input" id="team-2-color" name="team2Color" type="color" value="#1E55D6" /></div>
+                  <div class="field"><label class="field-label" for="team-1-color">Team one</label><input class="color-input" id="team-1-color" name="team1Color" type="color" value="${team1Color}" /></div>
+                  <div class="field"><label class="field-label" for="team-2-color">Team two</label><input class="color-input" id="team-2-color" name="team2Color" type="color" value="${team2Color}" /></div>
                 </div>
                 <p class="uncertainty-warning" role="note"><strong>If you skip this step:</strong> unresolved players will remain green and marked Unknown. Team possession, pass, and interception totals may be inaccurate.</p>
                 <div class="form-actions">
@@ -1008,6 +1012,7 @@
     const data = new FormData(event.currentTarget);
     const team1Color = String(data.get("team1Color")).toUpperCase();
     const team2Color = String(data.get("team2Color")).toUpperCase();
+    state.teamColors = { team1Color, team2Color };
     if (team1Color === team2Color) {
       state.message = { type: "error", text: "Choose two distinct primary jersey colors." };
       render();
@@ -1034,6 +1039,13 @@
   }
 
   function renderFailure() {
+    const canChangeTeamColors = Boolean(state.job?.canChangeTeamColors) || isTeamColorFailure();
+    const primaryAction = canChangeTeamColors
+      ? `<button class="button button-primary" id="change-team-colors" type="button">${icon("refresh")}<span>Change team colors</span></button>`
+      : `<button class="button button-primary" id="retry-job" type="button">${icon("refresh")}<span>Retry analysis</span></button>`;
+    const recoveryCopy = canChangeTeamColors
+      ? "The uploaded clip is still private and ready. Choose the jersey colors again to re-run this same clip—no new upload is required."
+      : "The uploaded clip remains private until its deletion deadline. Retrying reuses the same bounded source.";
     app.innerHTML = `
       <div class="app-shell">
         ${topbar()}
@@ -1043,14 +1055,14 @@
               <h1 id="failure-title">This run stopped before review.</h1>
               <p>${escapeHtml(state.job?.errorMessage || "CourtVision could not complete the bounded analysis job.")}</p>
               <div class="form-actions">
-                <button class="button button-primary" id="retry-job" type="button">${icon("refresh")}<span>Retry analysis</span></button>
+                ${primaryAction}
                 <button class="button button-secondary" id="new-upload" type="button">Choose another clip</button>
               </div>
             </section>
             <aside class="processing-sheet">
               <h2 class="panel-title"><span>Recovery</span><span>Beta</span></h2>
-              <p>The uploaded clip remains private until its deletion deadline. Retrying reuses the same bounded source.</p>
-              <p class="field-hint">If the failure repeats, choose another clip and include the processing failure in your beta feedback.</p>
+              <p>${recoveryCopy}</p>
+              <p class="field-hint">${canChangeTeamColors ? "Pure black is a valid jersey choice. Select the fabric color, then continue with the saved upload." : "If the failure repeats, choose another clip and include the processing failure in your beta feedback."}</p>
             </aside>
           </div>
         </main>
@@ -1059,7 +1071,20 @@
     `;
     bindGlobalActions();
     app.querySelector("#new-upload").addEventListener("click", resetJob);
-    app.querySelector("#retry-job").addEventListener("click", retryJob);
+    if (canChangeTeamColors) app.querySelector("#change-team-colors").addEventListener("click", changeTeamColors);
+    else app.querySelector("#retry-job").addEventListener("click", retryJob);
+  }
+
+  function isTeamColorFailure() {
+    const error = String(state.job?.errorMessage || "").toLowerCase();
+    return error.includes("invalid team-color configuration") || error.includes("team jersey colors must");
+  }
+
+  function changeTeamColors() {
+    state.message = null;
+    state.view = "colors";
+    render();
+    requestAnimationFrame(() => app.querySelector("#colors-title")?.focus());
   }
 
   async function retryJob() {
@@ -1733,6 +1758,7 @@
     state.job = null;
     state.analysis = null;
     state.downloads = null;
+    state.teamColors = { ...defaultTeamColors };
     state.message = null;
     state.view = "upload";
     renderUpload();
@@ -1750,6 +1776,7 @@
     state.job = null;
     state.analysis = null;
     state.downloads = null;
+    state.teamColors = { ...defaultTeamColors };
     state.view = "auth";
     state.authStep = "signin";
     render();
@@ -1767,6 +1794,7 @@
     state.selectedEventId = null;
     state.currentTime = 0;
     state.inspectorTab = "court";
+    state.teamColors = { ...defaultTeamColors };
     state.message = { type: "success", text: "Ready for another clip. You can reopen the previous result from Profile until it expires." };
     state.view = "upload";
     render();

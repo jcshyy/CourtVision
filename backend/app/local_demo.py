@@ -32,6 +32,7 @@ from backend.app.web_api import (
     ApiError,
     _extension_for,
     _format_bytes,
+    _can_change_team_colors,
     _iso,
     _positive_int,
     _positive_number,
@@ -251,7 +252,7 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
     def team_colors(job_id):
         require_csrf()
         job = store.read(job_id)
-        if job["status"] != "needs_team_colors":
+        if not _can_change_team_colors(job):
             raise ApiError(409, "Team colors are not required for this job.", code="colors_not_required")
         body = request.get_json(silent=False) or {}
         first = str(body.get("team1Color", "")).upper()
@@ -505,6 +506,7 @@ def _public_job(job):
         "expiresAt": _iso(int(job["expiresAt"])),
         "errorMessage": job.get("errorMessage"),
         "teamColorReason": job.get("teamColorReason"),
+        "canChangeTeamColors": _can_change_team_colors(job),
     }
 
 

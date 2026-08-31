@@ -115,6 +115,44 @@ class WebApiTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, "job_not_found")
 
+    def test_failed_invalid_color_job_can_be_resubmitted_with_black(self):
+        job = {
+            "jobId": "job-id",
+            "status": "failed",
+            "errorMessage": "Invalid team-color configuration: rejected: #000000",
+        }
+        expected = {"statusCode": 202}
+
+        with patch.object(web_api, "_owned_job", return_value=job), patch.object(
+            web_api, "_submit_batch", return_value=expected
+        ) as submit:
+            response = web_api._submit_team_colors(
+                {"email": "analyst@example.com"},
+                "job-id",
+                {"team1Color": "#000000", "team2Color": "#FFFFFF"},
+            )
+
+        self.assertEqual(response, expected)
+        self.assertEqual(submit.call_args.args[0]["team1Color"], "#000000")
+
+    def test_legacy_worker_color_compatibility_preserves_black_semantics(self):
+        self.assertEqual(web_api._worker_compatible_jersey_color("#000000"), "#272727")
+        self.assertEqual(web_api._worker_compatible_jersey_color("#001020"), "#001427")
+        self.assertEqual(web_api._worker_compatible_jersey_color("#1E55D6"), "#1E55D6")
+
+    def test_nearly_identical_black_swatches_are_rejected_after_compatibility_lift(self):
+        job = {"jobId": "job-id", "status": "needs_team_colors"}
+        with patch.object(web_api, "_owned_job", return_value=job), self.assertRaises(
+            web_api.ApiError
+        ) as raised:
+            web_api._submit_team_colors(
+                {"email": "analyst@example.com"},
+                "job-id",
+                {"team1Color": "#000000", "team2Color": "#010101"},
+            )
+
+        self.assertEqual(raised.exception.code, "invalid_team_colors")
+
 
 if __name__ == "__main__":
     unittest.main()

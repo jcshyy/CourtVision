@@ -308,7 +308,7 @@ def _start_job(session, job_id):
 
 def _submit_team_colors(session, job_id, body):
     job = _owned_job(session, job_id)
-    if job["status"] != "needs_team_colors":
+    if not _can_change_team_colors(job):
         raise ApiError(409, "Team colors are not required for this job.", code="colors_not_required")
     color_one = str(body.get("team1Color", "")).upper()
     color_two = str(body.get("team2Color", "")).upper()
@@ -316,6 +316,12 @@ def _submit_team_colors(session, job_id, body):
         raise ApiError(400, "Choose two six-digit jersey colors.", code="invalid_team_colors")
     if color_one == color_two:
         raise ApiError(400, "Choose two distinct jersey colors.", code="invalid_team_colors")
+    if _worker_compatible_jersey_color(color_one) == _worker_compatible_jersey_color(color_two):
+        raise ApiError(
+            400,
+            "Choose two jersey colors with more visible contrast.",
+            code="invalid_team_colors",
+        )
     job["team1Color"] = color_one
     job["team2Color"] = color_two
     return _submit_batch(job)
@@ -336,8 +342,8 @@ def _submit_batch(job):
     if job.get("team1Color") and job.get("team2Color"):
         environment.extend(
             [
-                {"name": "COURTVISION_TEAM_1_COLOR", "value": job["team1Color"]},
-                {"name": "COURTVISION_TEAM_2_COLOR", "value": job["team2Color"]},
+                {"name": "COURTVISION_TEAM_1_COLOR", "value": _worker_compatible_jersey_color(job["team1Color"])},
+                {"name": "COURTVISION_TEAM_2_COLOR", "value": _worker_compatible_jersey_color(job["team2Color"])},
             ]
         )
     result = _client("batch").submit_job(
@@ -348,19 +354,29 @@ def _submit_batch(job):
         tags={"Project": "CourtVision", "CourtVisionJobId": job_id},
     )
     now = int(time.time())
+    set_parts = [
+        "#status = :status",
+        "stage = :stage",
+        "batchJobId = :batch",
+        "updatedAt = :updated",
+    ]
+    remove_parts = ["errorMessage"]
+    values = {
+        ":status": "queued",
+        ":stage": "Queued for analysis",
+        ":batch": result["jobId"],
+        ":updated": now,
+    }
+    if job.get("team1Color") and job.get("team2Color"):
+        set_parts.extend(["team1Color = :team_one", "team2Color = :team_two"])
+        values.update({":team_one": job["team1Color"], ":team_two": job["team2Color"]})
+    else:
+        remove_parts.extend(["team1Color", "team2Color"])
     response = _table("JOBS_TABLE").update_item(
         Key={"jobId": job_id},
-        UpdateExpression=(
-            "SET #status = :status, stage = :stage, batchJobId = :batch, "
-            "updatedAt = :updated REMOVE errorMessage"
-        ),
+        UpdateExpression=f"SET {', '.join(set_parts)} REMOVE {', '.join(remove_parts)}",
         ExpressionAttributeNames={"#status": "status"},
-        ExpressionAttributeValues={
-            ":status": "queued",
-            ":stage": "Queued for analysis",
-            ":batch": result["jobId"],
-            ":updated": now,
-        },
+        ExpressionAttributeValues=values,
         ReturnValues="ALL_NEW",
     )
     return _response(202, {"job": _public_job(response["Attributes"])})
@@ -469,7 +485,37 @@ def _public_job(item):
         "expiresAt": _iso(int(item["expiresAt"])),
         "errorMessage": item.get("errorMessage"),
         "teamColorReason": item.get("teamColorReason"),
+        "canChangeTeamColors": _can_change_team_colors(item),
     }
+
+
+def _can_change_team_colors(job):
+    if job.get("status") == "needs_team_colors":
+        return True
+    if job.get("status") != "failed":
+        return False
+    error = str(job.get("errorMessage", "")).casefold()
+    return "invalid team-color configuration" in error or "team jersey colors must" in error
+
+
+def _worker_compatible_jersey_color(color):
+    """Lift explicit near-black swatches above the legacy worker's shadow floor."""
+    red = int(color[1:3], 16)
+    green = int(color[3:5], 16)
+    blue = int(color[5:7], 16)
+    brightest = max(red, green, blue)
+    minimum_visible_channel = 39
+    if brightest >= minimum_visible_channel:
+        return color
+    if brightest == 0:
+        red = green = blue = minimum_visible_channel
+    else:
+        scale = minimum_visible_channel / brightest
+        red, green, blue = (
+            min(255, int(round(channel * scale)))
+            for channel in (red, green, blue)
+        )
+    return f"#{red:02X}{green:02X}{blue:02X}"
 
 
 def _require_session(request):

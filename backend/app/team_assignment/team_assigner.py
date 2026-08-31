@@ -677,7 +677,25 @@ def _color_prototype(normalized_color):
     red = int(normalized_color[1:3], 16)
     green = int(normalized_color[3:5], 16)
     blue = int(normalized_color[5:7], 16)
-    return _jersey_feature([(blue, green, red)])
+    hue, saturation, value = colorsys.rgb_to_hsv(
+        red / 255.0,
+        green / 255.0,
+        blue / 255.0,
+    )
+    # Observed near-black pixels can be shadows, but an explicit user swatch is
+    # semantic evidence. Lift only its value to the observed-pixel visibility
+    # floor so black jerseys work without weakening automatic shadow rejection.
+    value = max(value, 0.15)
+    hue_radians = hue * math.tau
+    return tuple(
+        int(round(component * 255))
+        for component in (
+            math.cos(hue_radians) * saturation,
+            math.sin(hue_radians) * saturation,
+            saturation,
+            value,
+        )
+    )
 
 
 def _confident_nearest_team(
