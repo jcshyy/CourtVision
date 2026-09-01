@@ -34,9 +34,11 @@ fi
 INPUT_PATH="$ROOT/input/$INPUT_NAME"
 OUTPUT_NAME="${INPUT_NAME%.*}_${JOB_ID}.mp4"
 OUTPUT_PATH="$ROOT/output/$OUTPUT_NAME"
+ANALYSIS_NAME="${INPUT_NAME%.*}_${JOB_ID}_analysis.json"
+ANALYSIS_PATH="$ROOT/output/$ANALYSIS_NAME"
 CACHE_PATH="$ROOT/cache/$JOB_ID"
 
-for model in player_detector.pt ball_detector_model.pt court_keypoint_detector.pt; do
+for model in ebard_yolov8n.pt wasb_basketball_torchscript.pt yolo11n-pose.pt court_keypoint_detector.pt; do
   if [[ ! -f "$ROOT/models/$model" ]]; then
     echo "Missing model: $ROOT/models/$model" >&2
     exit 66
@@ -81,7 +83,11 @@ timeout --signal=TERM --kill-after=2m "${MAX_JOB_MINUTES}m" \
   --duration-seconds "$MAX_DURATION_SECONDS" \
   --target-fps "$TARGET_FPS" \
   --max-width "$MAX_WIDTH" \
+  --player-detector-backend ebard \
+  --ball-detector-backend hybrid \
   --stub-path /data/cache \
-  --output-video "/data/output/$OUTPUT_NAME"
+  --output-video "/data/output/$OUTPUT_NAME" \
+  --output-analysis "/data/output/$ANALYSIS_NAME"
 
 echo "Completed: $OUTPUT_PATH"
+echo "Analysis: $ANALYSIS_PATH"

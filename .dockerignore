@@ -4,6 +4,7 @@
 .codex
 .impeccable
 .venv
+.aws-sam
 __pycache__
 *.pyc
 backend/models/*.pt

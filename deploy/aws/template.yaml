@@ -3,32 +3,59 @@ Transform: AWS::Serverless-2016-10-31
 Description: CourtVision private beta web application and job-control plane
 
 Parameters:
-  SesFromEmail:
-    Type: String
-    Description: SES-verified sender used for one-time sign-in codes.
   ApiRuntime:
     Type: String
-    Default: Flask
+    Default: Lambda
     AllowedValues: [Flask, Lambda]
-    Description: Select the primary Flask API or the Lambda rollback path.
+    Description: Select the cost-optimized Lambda API or the optional always-on Flask service.
   ApiImageUri:
     Type: String
-    Description: ECR image URI built from Dockerfile.api.
+    Default: unused-for-lambda
+    Description: ECR image URI built from Dockerfile.api; required only when ApiRuntime=Flask.
   WorkerImageUri:
     Type: String
     Description: ECR image URI built from Dockerfile.
+  EnableCloudFront:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Create the S3 and CloudFront web tier; disable when the static site is hosted externally.
+  CustomDomainName:
+    Type: String
+    Default: ""
+    Description: Optional CloudFront alias, for example courtvision.video.
+  CloudFrontCertificateArn:
+    Type: String
+    Default: arn:aws:acm:us-east-1:000000000000:certificate/unused
+    AllowedPattern: "^arn:aws[a-zA-Z-]*:acm:us-east-1:[0-9]{12}:certificate/.+$"
+    Description: Optional us-east-1 ACM certificate ARN for CustomDomainName.
+  AllowedWebOrigin:
+    Type: String
+    Default: https://courtvision.video
+    Description: Browser origin allowed to upload and retrieve private artifacts.
+  ApiCustomDomainName:
+    Type: String
+    Default: ""
+    Description: Optional regional API Gateway hostname, for example api.courtvision.video.
+  ApiCertificateArn:
+    Type: String
+    Default: arn:aws:acm:us-east-1:000000000000:certificate/unused
+    AllowedPattern: "^arn:aws[a-zA-Z-]*:acm:us-east-1:[0-9]{12}:certificate/.+$"
+    Description: Optional us-east-1 ACM certificate ARN for ApiCustomDomainName.
   VpcId:
     Type: AWS::EC2::VPC::Id
   PublicSubnetIds:
-    Type: List<AWS::EC2::Subnet::Id>
-    Description: At least two public subnets with internet routing for the ALB and Fargate API.
+    Type: CommaDelimitedList
+    Default: subnet-00000000000000000,subnet-00000000000000001
+    Description: At least two public subnets for ALB/Fargate; used only when ApiRuntime=Flask.
   WorkerSubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
     Description: Subnets with ECR, S3, DynamoDB, and CloudWatch Logs egress for Batch workers.
   CloudFrontOriginPrefixListId:
     Type: String
+    Default: pl-00000000
     AllowedPattern: "^pl-[a-f0-9]+$"
-    Description: Regional ID for the com.amazonaws.global.cloudfront.origin-facing managed prefix list.
+    Description: CloudFront origin-facing prefix-list ID; required only when ApiRuntime=Flask.
   BatchInstanceType:
     Type: String
     Default: g4dn.xlarge
@@ -59,7 +86,7 @@ Parameters:
     Type: String
     Default: hybrid
     AllowedValues: [yolo, wasb, hybrid]
-    Description: Hybrid keeps YOLO semantics while using WASB for ball localization.
+    Description: Hybrid keeps E-BARD semantics while using WASB for ball localization.
   ResultRetentionSeconds:
     Type: Number
     Default: 86400
@@ -71,9 +98,58 @@ Parameters:
     Type: Number
     Default: 7776000
 
+Rules:
+  CustomDomainInputs:
+    Assertions:
+      - Assert:
+          Fn::Or:
+            - Fn::And:
+                - !Equals [!Ref CustomDomainName, ""]
+                - !Equals [!Ref CloudFrontCertificateArn, arn:aws:acm:us-east-1:000000000000:certificate/unused]
+            - Fn::And:
+                - !Not [!Equals [!Ref CustomDomainName, ""]]
+                - !Not [!Equals [!Ref CloudFrontCertificateArn, arn:aws:acm:us-east-1:000000000000:certificate/unused]]
+        AssertDescription: CustomDomainName and CloudFrontCertificateArn must be supplied together.
+  ApiDomainInputs:
+    Assertions:
+      - Assert:
+          Fn::Or:
+            - Fn::And:
+                - !Equals [!Ref ApiCustomDomainName, ""]
+                - !Equals [!Ref ApiCertificateArn, arn:aws:acm:us-east-1:000000000000:certificate/unused]
+            - Fn::And:
+                - !Not [!Equals [!Ref ApiCustomDomainName, ""]]
+                - !Not [!Equals [!Ref ApiCertificateArn, arn:aws:acm:us-east-1:000000000000:certificate/unused]]
+        AssertDescription: ApiCustomDomainName and ApiCertificateArn must be supplied together.
+  FlaskRuntimeInputs:
+    RuleCondition: !Equals [!Ref ApiRuntime, Flask]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref ApiImageUri, unused-for-lambda]]
+        AssertDescription: ApiRuntime=Flask requires a deployable ApiImageUri.
+      - Assert:
+          Fn::Not:
+            - Fn::Contains:
+                - !Ref PublicSubnetIds
+                - subnet-00000000000000000
+        AssertDescription: ApiRuntime=Flask requires real PublicSubnetIds.
+      - Assert: !Not [!Equals [!Ref CloudFrontOriginPrefixListId, pl-00000000]]
+        AssertDescription: ApiRuntime=Flask requires the regional CloudFront origin prefix-list ID.
+  ExternalHostingRuntime:
+    RuleCondition: !Equals [!Ref EnableCloudFront, "false"]
+    Assertions:
+      - Assert: !Equals [!Ref ApiRuntime, Lambda]
+        AssertDescription: External static hosting currently requires the Lambda API runtime.
+
 Conditions:
   UseFlaskApi: !Equals [!Ref ApiRuntime, Flask]
-  UseLambdaApi: !Equals [!Ref ApiRuntime, Lambda]
+  UseLambdaApi: !Not [!Condition UseFlaskApi]
+  UseCloudFront: !Equals [!Ref EnableCloudFront, "true"]
+  UseCustomDomain: !And
+    - !Condition UseCloudFront
+    - !Not [!Equals [!Ref CustomDomainName, ""]]
+  UseApiCustomDomain: !And
+    - !Condition UseLambdaApi
+    - !Not [!Equals [!Ref ApiCustomDomainName, ""]]
 
 Globals:
   Function:
@@ -103,7 +179,7 @@ Resources:
         CorsRules:
           - AllowedHeaders: ["*"]
             AllowedMethods: [POST, GET, HEAD]
-            AllowedOrigins: ["*"]
+            AllowedOrigins: [!Ref AllowedWebOrigin]
             ExposedHeaders: [ETag]
             MaxAge: 900
       LifecycleConfiguration:
@@ -139,6 +215,7 @@ Resources:
 
   WebBucket:
     Type: AWS::S3::Bucket
+    Condition: UseCloudFront
     Properties:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -153,37 +230,6 @@ Resources:
         Rules:
           - ObjectOwnership: BucketOwnerEnforced
 
-  BetaUsersTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: email
-          AttributeType: S
-      KeySchema:
-        - AttributeName: email
-          KeyType: HASH
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      SSESpecification:
-        SSEEnabled: true
-
-  AuthCodesTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: email
-          AttributeType: S
-      KeySchema:
-        - AttributeName: email
-          KeyType: HASH
-      TimeToLiveSpecification:
-        AttributeName: expiresAt
-        Enabled: true
-      SSESpecification:
-        SSEEnabled: true
-
   JobsTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -191,9 +237,22 @@ Resources:
       AttributeDefinitions:
         - AttributeName: jobId
           AttributeType: S
+        - AttributeName: ownerEmail
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: N
       KeySchema:
         - AttributeName: jobId
           KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: OwnerCreatedAtIndex
+          KeySchema:
+            - AttributeName: ownerEmail
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: true
@@ -228,11 +287,70 @@ Resources:
         ExcludePunctuation: true
         PasswordLength: 64
 
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-users
+      UserPoolTier: LITE
+      UsernameAttributes: [email]
+      UsernameConfiguration:
+        CaseSensitive: false
+      AutoVerifiedAttributes: [email]
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailSubject: Confirm your CourtVision account
+        EmailMessage: "Your CourtVision confirmation code is {####}."
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: false
+          RequireUppercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 7
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub ${AWS::StackName}-web
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      PreventUserExistenceErrors: ENABLED
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
   HttpApi:
     Type: AWS::Serverless::HttpApi
     Condition: UseLambdaApi
     Properties:
       StageName: "$default"
+      CorsConfiguration:
+        AllowCredentials: true
+        AllowHeaders:
+          - Content-Type
+          - X-CourtVision-CSRF
+        AllowMethods:
+          - GET
+          - HEAD
+          - OPTIONS
+          - POST
+        AllowOrigins:
+          - !Ref AllowedWebOrigin
+        MaxAge: 600
       AccessLogSettings:
         DestinationArn: !GetAtt ApiAccessLogs.Arn
         Format: '{"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength","integrationError":"$context.integrationErrorMessage"}'
@@ -247,18 +365,17 @@ Resources:
     Type: AWS::Serverless::Function
     Condition: UseLambdaApi
     Properties:
-      CodeUri: ../..
-      Handler: backend.app.web_api.lambda_handler
+      CodeUri: ../../backend/lambda_api
+      Handler: web_api.lambda_handler
       Environment:
         Variables:
           API_PREFIX: /api
+          ALLOWED_WEB_ORIGIN: !Ref AllowedWebOrigin
           ARTIFACT_BUCKET: !Ref ArtifactBucket
-          BETA_USERS_TABLE: !Ref BetaUsersTable
-          AUTH_CODES_TABLE: !Ref AuthCodesTable
+          COGNITO_APP_CLIENT_ID: !Ref UserPoolClient
           JOBS_TABLE: !Ref JobsTable
           REPORTS_TABLE: !Ref ReportsTable
           SESSION_SECRET_ARN: !Ref SessionSecret
-          SES_FROM_EMAIL: !Ref SesFromEmail
           BATCH_JOB_QUEUE: !Ref GpuJobQueue
           BATCH_JOB_DEFINITION: !Ref WorkerJobDefinition
           MAX_UPLOAD_BYTES: !Ref MaxUploadBytes
@@ -269,10 +386,6 @@ Resources:
           REPORT_RETENTION_SECONDS: !Ref ReportRetentionSeconds
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref BetaUsersTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref AuthCodesTable
-        - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref ReportsTable
@@ -280,27 +393,67 @@ Resources:
             BucketName: !Ref ArtifactBucket
         - Statement:
             - Effect: Allow
-              Action: ses:SendEmail
-              Resource: "*"
-            - Effect: Allow
-              Action: batch:SubmitJob
-              Resource: "*"
+              Action:
+                - batch:SubmitJob
+                - batch:TagResource
+              Resource:
+                - !Ref WorkerJobDefinition
+                - !Ref GpuJobQueue
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
               Resource: !Ref SessionSecret
-      Events:
-        ApiProxy:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref HttpApi
-            Path: /api/{proxy+}
-            Method: ANY
-        ApiRoot:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref HttpApi
-            Path: /api
-            Method: ANY
+
+  LambdaApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Condition: UseLambdaApi
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebApiFunction.Arn}/invocations
+      PayloadFormatVersion: "2.0"
+
+  LambdaApiRootRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Condition: UseLambdaApi
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "ANY /api"
+      Target: !Sub integrations/${LambdaApiIntegration}
+
+  LambdaApiProxyRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Condition: UseLambdaApi
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "ANY /api/{proxy+}"
+      Target: !Sub integrations/${LambdaApiIntegration}
+
+  LambdaApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: UseLambdaApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebApiFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+
+  ApiDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: UseApiCustomDomain
+    Properties:
+      DomainName: !Ref ApiCustomDomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ApiCertificateArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+
+  ApiDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: UseApiCustomDomain
+    Properties:
+      ApiId: !Ref HttpApi
+      DomainName: !Ref ApiDomainName
+      Stage: "$default"
 
   BatchInstanceRole:
     Type: AWS::IAM::Role
@@ -419,6 +572,8 @@ Resources:
             Value: models
           - Name: COURTVISION_BALL_DETECTOR_BACKEND
             Value: !Ref BallDetectorBackend
+          - Name: COURTVISION_PLAYER_DETECTOR_BACKEND
+            Value: ebard
         LogConfiguration:
           LogDriver: awslogs
           Options:
@@ -471,8 +626,6 @@ Resources:
                   - dynamodb:PutItem
                   - dynamodb:UpdateItem
                 Resource:
-                  - !GetAtt BetaUsersTable.Arn
-                  - !GetAtt AuthCodesTable.Arn
                   - !GetAtt JobsTable.Arn
                   - !GetAtt ReportsTable.Arn
               - Effect: Allow
@@ -520,18 +673,14 @@ Resources:
               Value: /api
             - Name: ARTIFACT_BUCKET
               Value: !Ref ArtifactBucket
-            - Name: BETA_USERS_TABLE
-              Value: !Ref BetaUsersTable
-            - Name: AUTH_CODES_TABLE
-              Value: !Ref AuthCodesTable
+            - Name: COGNITO_APP_CLIENT_ID
+              Value: !Ref UserPoolClient
             - Name: JOBS_TABLE
               Value: !Ref JobsTable
             - Name: REPORTS_TABLE
               Value: !Ref ReportsTable
             - Name: SESSION_SECRET_ARN
               Value: !Ref SessionSecret
-            - Name: SES_FROM_EMAIL
-              Value: !Ref SesFromEmail
             - Name: BATCH_JOB_QUEUE
               Value: !Ref GpuJobQueue
             - Name: BATCH_JOB_DEFINITION
@@ -644,6 +793,7 @@ Resources:
 
   ApiCachePolicy:
     Type: AWS::CloudFront::CachePolicy
+    Condition: UseCloudFront
     Properties:
       CachePolicyConfig:
         Name: !Sub CourtVision-api-no-cache-${AWS::StackName}
@@ -653,8 +803,8 @@ Resources:
         ParametersInCacheKeyAndForwardedToOrigin:
           CookiesConfig:
             CookieBehavior: none
-          EnableAcceptEncodingBrotli: true
-          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: false
+          EnableAcceptEncodingGzip: false
           HeadersConfig:
             HeaderBehavior: none
           QueryStringsConfig:
@@ -662,6 +812,7 @@ Resources:
 
   WebCachePolicy:
     Type: AWS::CloudFront::CachePolicy
+    Condition: UseCloudFront
     Properties:
       CachePolicyConfig:
         Name: !Sub CourtVision-web-cache-${AWS::StackName}
@@ -680,6 +831,7 @@ Resources:
 
   SecurityHeaders:
     Type: AWS::CloudFront::ResponseHeadersPolicy
+    Condition: UseCloudFront
     Properties:
       ResponseHeadersPolicyConfig:
         Name: !Sub CourtVision-security-${AWS::StackName}
@@ -707,6 +859,7 @@ Resources:
 
   WebOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
+    Condition: UseCloudFront
     Properties:
       OriginAccessControlConfig:
         Name: !Sub CourtVision-web-${AWS::StackName}
@@ -716,6 +869,7 @@ Resources:
 
   Distribution:
     Type: AWS::CloudFront::Distribution
+    Condition: UseCloudFront
     Properties:
       DistributionConfig:
         Enabled: true
@@ -723,6 +877,16 @@ Resources:
         IPV6Enabled: true
         DefaultRootObject: index.html
         PriceClass: PriceClass_100
+        Aliases: !If
+          - UseCustomDomain
+          - [!Ref CustomDomainName]
+          - !Ref AWS::NoValue
+        ViewerCertificate: !If
+          - UseCustomDomain
+          - AcmCertificateArn: !Ref CloudFrontCertificateArn
+            MinimumProtocolVersion: TLSv1.2_2021
+            SslSupportMethod: sni-only
+          - CloudFrontDefaultCertificate: true
         Origins:
           - Id: WebOrigin
             DomainName: !GetAtt WebBucket.RegionalDomainName
@@ -756,6 +920,7 @@ Resources:
             ResponseHeadersPolicyId: !Ref SecurityHeaders
   WebBucketPolicy:
     Type: AWS::S3::BucketPolicy
+    Condition: UseCloudFront
     Properties:
       Bucket: !Ref WebBucket
       PolicyDocument:
@@ -773,21 +938,39 @@ Resources:
 
 Outputs:
   ApplicationUrl:
-    Value: !Sub https://${Distribution.DomainName}
+    Value: !If
+      - UseCloudFront
+      - !If
+        - UseCustomDomain
+        - !Sub https://${CustomDomainName}
+        - !Sub https://${Distribution.DomainName}
+      - !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  CloudFrontDistributionDomainName:
+    Condition: UseCloudFront
+    Value: !GetAtt Distribution.DomainName
   WebBucketName:
+    Condition: UseCloudFront
     Value: !Ref WebBucket
   ArtifactBucketName:
     Value: !Ref ArtifactBucket
   ModelBucketName:
     Value: !Ref ModelBucket
-  BetaUsersTableName:
-    Value: !Ref BetaUsersTable
   JobsTableName:
     Value: !Ref JobsTable
   ReportsTableName:
     Value: !Ref ReportsTable
   SessionSecretArn:
     Value: !Ref SessionSecret
+  CognitoUserPoolId:
+    Value: !Ref UserPool
+  CognitoAppClientId:
+    Value: !Ref UserPoolClient
+  ApiCustomDomainTarget:
+    Condition: UseApiCustomDomain
+    Value: !GetAtt ApiDomainName.RegionalDomainName
+  ApiCustomDomainHostedZoneId:
+    Condition: UseApiCustomDomain
+    Value: !GetAtt ApiDomainName.RegionalHostedZoneId
   BatchJobQueueArn:
     Value: !Ref GpuJobQueue
   BatchJobDefinitionArn:
