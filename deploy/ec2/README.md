@@ -36,9 +36,10 @@ stop afterward.
    sudo mkdir -p /opt/courtvision/{models,input,output,cache}
    ```
 
-7. Copy the three model files into `/opt/courtvision/models`. They are excluded
-   from the Docker image and repository. Copy an input video into
-   `/opt/courtvision/input`.
+7. Copy the four production model files into `/opt/courtvision/models`:
+   `ebard_yolov8n.pt`, `wasb_basketball_torchscript.pt`, `yolo11n-pose.pt`, and
+   `court_keypoint_detector.pt`. They are excluded from the Docker image and
+   repository. Copy an input video into `/opt/courtvision/input`.
 
 ## Verify before processing
 
@@ -62,7 +63,9 @@ chmod +x deploy/ec2/run-job.sh
 sudo -E SHUTDOWN_AFTER_JOB=1 deploy/ec2/run-job.sh clip.mp4
 ```
 
-The result is written to `/opt/courtvision/output` under a unique UTC job ID.
+The annotated video and analysis JSON are written to `/opt/courtvision/output`
+under a unique UTC job ID. The helper explicitly selects the production scene
+detector and hybrid ball detector.
 With `SHUTDOWN_AFTER_JOB=1`, the script stops the instance whether the job
 succeeds, fails, or hits the 90-minute timeout. Run once with
 `SHUTDOWN_AFTER_JOB=0` while initially diagnosing the environment.
@@ -90,6 +93,7 @@ sudo -E MAX_DURATION_SECONDS=30 TARGET_FPS=30 MAX_WIDTH=1280 \
 ## Current limitation
 
 CourtVision still materializes the selected frames and rendered frames in RAM.
-The 30-second/15-FPS/960-width defaults are a bounded deployment profile, not a
-streaming implementation. Longer clips require the planned stateful chunking
-work before raising these limits safely.
+The 30-second/15-FPS/960-width helper defaults are a bounded deployment profile,
+while the AWS private-beta stack defaults to 30 FPS and 1280-pixel width. These
+profiles are not streaming implementations. Longer clips require the planned
+stateful chunking work before raising these limits safely.

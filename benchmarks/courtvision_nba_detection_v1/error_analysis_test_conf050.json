@@ -1,0 +1,1663 @@
+{
+  "confidence": 0.5,
+  "iou_threshold": 0.5,
+  "miss_reason_counts": {
+    "low_confidence": 11,
+    "no_candidate": 11,
+    "poor_localization": 6
+  },
+  "false_positive_reason_counts": {
+    "background": 19,
+    "localization_or_duplicate": 1
+  },
+  "case_count": 38,
+  "cases": [
+    {
+      "image_id": 0,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0145_png.rf.3caa7432f00d7b94ef6aafc1bf33f159.jpg",
+      "missed_truths": [
+        {
+          "id": 18,
+          "bbox": [
+            389.0,
+            291.0,
+            398.5,
+            308.5
+          ],
+          "area": 166.25,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.6857114457360095,
+          "best_candidate_confidence": 0.35870957374572754
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 18,
+          "bbox": [
+            389.0,
+            291.0,
+            398.5,
+            308.5
+          ],
+          "area": 166.25
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 4,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0210_png.rf.b6380878a0a167315cda508f46a3f35c.jpg",
+      "missed_truths": [
+        {
+          "id": 97,
+          "bbox": [
+            375.0,
+            158.0,
+            385.5,
+            174.5
+          ],
+          "area": 173.25,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.5532320737838745
+        }
+      ],
+      "false_positives": [
+        {
+          "image_id": 4,
+          "bbox": [
+            42.570987701416016,
+            63.40087127685547,
+            49.58207321166992,
+            76.22980499267578
+          ],
+          "confidence": 0.5532320737838745,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 97,
+          "bbox": [
+            375.0,
+            158.0,
+            385.5,
+            174.5
+          ],
+          "area": 173.25
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 4,
+          "bbox": [
+            42.570987701416016,
+            63.40087127685547,
+            49.58207321166992,
+            76.22980499267578
+          ],
+          "confidence": 0.5532320737838745
+        }
+      ]
+    },
+    {
+      "image_id": 7,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0150_png.rf.8747038d7d6cc6450800040fd96e307d.jpg",
+      "missed_truths": [
+        {
+          "id": 170,
+          "bbox": [
+            185.0,
+            244.0,
+            193.5,
+            260.0
+          ],
+          "area": 136.0,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.5226845722159076,
+          "best_candidate_confidence": 0.2929873764514923
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 170,
+          "bbox": [
+            185.0,
+            244.0,
+            193.5,
+            260.0
+          ],
+          "area": 136.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 8,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0215_png.rf.2d36af77499c5ba95455935b5bcdb9ce.jpg",
+      "missed_truths": [
+        {
+          "id": 189,
+          "bbox": [
+            374.0,
+            167.0,
+            382.5,
+            180.0
+          ],
+          "area": 110.5,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.660546436461423,
+          "best_candidate_confidence": 0.02699088677763939
+        }
+      ],
+      "false_positives": [
+        {
+          "image_id": 8,
+          "bbox": [
+            42.689208984375,
+            63.533958435058594,
+            49.24408721923828,
+            75.54102325439453
+          ],
+          "confidence": 0.6078504323959351,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 189,
+          "bbox": [
+            374.0,
+            167.0,
+            382.5,
+            180.0
+          ],
+          "area": 110.5
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 8,
+          "bbox": [
+            42.689208984375,
+            63.533958435058594,
+            49.24408721923828,
+            75.54102325439453
+          ],
+          "confidence": 0.6078504323959351
+        }
+      ]
+    },
+    {
+      "image_id": 9,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0135_png.rf.5aed8732f850bed7febae209ae4f6313.jpg",
+      "missed_truths": [
+        {
+          "id": 209,
+          "bbox": [
+            412.0,
+            166.0,
+            421.5,
+            181.5
+          ],
+          "area": 147.25,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.7963382161533893,
+          "best_candidate_confidence": 0.3717493712902069
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 209,
+          "bbox": [
+            412.0,
+            166.0,
+            421.5,
+            181.5
+          ],
+          "area": 147.25
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 10,
+      "file_name": "boston-celtics-new-york-knicks-game-1-q1-07_41-07_34-0090_png.rf.ee05fc257e346a0eb8008c96eaf18a0b.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 10,
+          "bbox": [
+            47.984893798828125,
+            277.4047546386719,
+            56.68849182128906,
+            293.5813903808594
+          ],
+          "confidence": 0.8151191473007202,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 227,
+          "bbox": [
+            507.0,
+            350.0,
+            517.5,
+            369.5
+          ],
+          "area": 204.75
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 10,
+          "bbox": [
+            47.984893798828125,
+            277.4047546386719,
+            56.68849182128906,
+            293.5813903808594
+          ],
+          "confidence": 0.8151191473007202
+        },
+        {
+          "image_id": 10,
+          "bbox": [
+            507.03564453125,
+            348.78240966796875,
+            516.734375,
+            370.18499755859375
+          ],
+          "confidence": 0.6889050602912903
+        }
+      ]
+    },
+    {
+      "image_id": 11,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0131_png.rf.f4a84c428d16bce31f8bf73beeb905bf.jpg",
+      "missed_truths": [
+        {
+          "id": 248,
+          "bbox": [
+            417.0,
+            127.0,
+            427.0,
+            144.0
+          ],
+          "area": 170.0,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.5038150901303572,
+          "best_candidate_confidence": 0.012414533644914627
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 248,
+          "bbox": [
+            417.0,
+            127.0,
+            427.0,
+            144.0
+          ],
+          "area": 170.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 13,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0089_png.rf.33f25a2ef404e33668d41d06c0f3d4eb.jpg",
+      "missed_truths": [
+        {
+          "id": 293,
+          "bbox": [
+            385.0,
+            384.0,
+            397.5,
+            403.0
+          ],
+          "area": 237.5,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.7899641186481307,
+          "best_candidate_confidence": 0.03210599720478058
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 293,
+          "bbox": [
+            385.0,
+            384.0,
+            397.5,
+            403.0
+          ],
+          "area": 237.5
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 14,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0107_png.rf.b64c6722adf069a9cdedde30daa16687.jpg",
+      "missed_truths": [
+        {
+          "id": 309,
+          "bbox": [
+            399.0,
+            115.0,
+            409.5,
+            136.5
+          ],
+          "area": 225.75,
+          "reason": "poor_localization",
+          "best_candidate_iou": 0.4851602756584337,
+          "best_candidate_confidence": 0.7448895573616028
+        }
+      ],
+      "false_positives": [
+        {
+          "image_id": 14,
+          "bbox": [
+            400.46856689453125,
+            119.39515686035156,
+            408.15283203125,
+            133.64830017089844
+          ],
+          "confidence": 0.7448895573616028,
+          "reason": "localization_or_duplicate",
+          "best_truth_iou": 0.4851602756584337
+        }
+      ],
+      "truths": [
+        {
+          "id": 309,
+          "bbox": [
+            399.0,
+            115.0,
+            409.5,
+            136.5
+          ],
+          "area": 225.75
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 14,
+          "bbox": [
+            400.46856689453125,
+            119.39515686035156,
+            408.15283203125,
+            133.64830017089844
+          ],
+          "confidence": 0.7448895573616028
+        }
+      ]
+    },
+    {
+      "image_id": 16,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0101_png.rf.0a859562e6a45fd800f4bbbe9905c0a0.jpg",
+      "missed_truths": [
+        {
+          "id": 356,
+          "bbox": [
+            394.0,
+            188.0,
+            404.0,
+            208.0
+          ],
+          "area": 200.0,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.9426962187066161,
+          "best_candidate_confidence": 0.29959434270858765
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 356,
+          "bbox": [
+            394.0,
+            188.0,
+            404.0,
+            208.0
+          ],
+          "area": 200.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 22,
+      "file_name": "boston-celtics-new-york-knicks-game-1-q1-07_41-07_34-0060_png.rf.a0a79f5f4ee213c4b08f8f52c42f4cda.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 22,
+          "bbox": [
+            90.51841735839844,
+            405.1005859375,
+            97.55648803710938,
+            416.939208984375
+          ],
+          "confidence": 0.5005037784576416,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [],
+      "predictions_at_threshold": [
+        {
+          "image_id": 22,
+          "bbox": [
+            90.51841735839844,
+            405.1005859375,
+            97.55648803710938,
+            416.939208984375
+          ],
+          "confidence": 0.5005037784576416
+        }
+      ]
+    },
+    {
+      "image_id": 24,
+      "file_name": "boston-celtics-new-york-knicks-game-1-q1-07_41-07_34-0201_png.rf.aff7d50ca3f8f8e2d8280ea0292a0a01.jpg",
+      "missed_truths": [
+        {
+          "id": 523,
+          "bbox": [
+            213.0,
+            183.0,
+            228.0,
+            203.5
+          ],
+          "area": 307.5,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.2886972427368164
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 523,
+          "bbox": [
+            213.0,
+            183.0,
+            228.0,
+            203.5
+          ],
+          "area": 307.5
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 26,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0191_png.rf.9eafdc180c140a313945212337213573.jpg",
+      "missed_truths": [
+        {
+          "id": 569,
+          "bbox": [
+            317.0,
+            52.0,
+            326.5,
+            68.0
+          ],
+          "area": 152.0,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.7235594399070574,
+          "best_candidate_confidence": 0.4673888385295868
+        }
+      ],
+      "false_positives": [
+        {
+          "image_id": 26,
+          "bbox": [
+            405.8616638183594,
+            252.41041564941406,
+            414.0966491699219,
+            266.796142578125
+          ],
+          "confidence": 0.6989397406578064,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        },
+        {
+          "image_id": 26,
+          "bbox": [
+            47.85508346557617,
+            61.65618896484375,
+            55.68413162231445,
+            74.41395568847656
+          ],
+          "confidence": 0.5121097564697266,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 569,
+          "bbox": [
+            317.0,
+            52.0,
+            326.5,
+            68.0
+          ],
+          "area": 152.0
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 26,
+          "bbox": [
+            405.8616638183594,
+            252.41041564941406,
+            414.0966491699219,
+            266.796142578125
+          ],
+          "confidence": 0.6989397406578064
+        },
+        {
+          "image_id": 26,
+          "bbox": [
+            47.85508346557617,
+            61.65618896484375,
+            55.68413162231445,
+            74.41395568847656
+          ],
+          "confidence": 0.5121097564697266
+        }
+      ]
+    },
+    {
+      "image_id": 36,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0030_png.rf.1ae6eab6c6e1326737c314b24f53cd1c.jpg",
+      "missed_truths": [
+        {
+          "id": 776,
+          "bbox": [
+            84.0,
+            341.0,
+            93.5,
+            356.0
+          ],
+          "area": 142.5,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.5988804119294909,
+          "best_candidate_confidence": 0.037788718938827515
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 776,
+          "bbox": [
+            84.0,
+            341.0,
+            93.5,
+            356.0
+          ],
+          "area": 142.5
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 37,
+      "file_name": "boston-celtics-new-york-knicks-game-1-q1-07_41-07_34-0204_png.rf.8a2596523d164770d9231663c6a36179.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 37,
+          "bbox": [
+            359.61529541015625,
+            325.89208984375,
+            367.82354736328125,
+            338.7047119140625
+          ],
+          "confidence": 0.7547668218612671,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        },
+        {
+          "image_id": 37,
+          "bbox": [
+            255.60516357421875,
+            516.2962036132812,
+            267.35113525390625,
+            534.0512084960938
+          ],
+          "confidence": 0.6699215769767761,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 792,
+          "bbox": [
+            208.0,
+            214.0,
+            219.5,
+            234.0
+          ],
+          "area": 230.0
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 37,
+          "bbox": [
+            208.35430908203125,
+            215.92581176757812,
+            218.1492919921875,
+            234.18637084960938
+          ],
+          "confidence": 0.8272575736045837
+        },
+        {
+          "image_id": 37,
+          "bbox": [
+            359.61529541015625,
+            325.89208984375,
+            367.82354736328125,
+            338.7047119140625
+          ],
+          "confidence": 0.7547668218612671
+        },
+        {
+          "image_id": 37,
+          "bbox": [
+            255.60516357421875,
+            516.2962036132812,
+            267.35113525390625,
+            534.0512084960938
+          ],
+          "confidence": 0.6699215769767761
+        }
+      ]
+    },
+    {
+      "image_id": 39,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0095_png.rf.b64b8b86cbfd7aa9d48363f34a6afc6c.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 39,
+          "bbox": [
+            387.9259033203125,
+            301.14459228515625,
+            399.8179931640625,
+            320.09271240234375
+          ],
+          "confidence": 0.8059430122375488,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [],
+      "predictions_at_threshold": [
+        {
+          "image_id": 39,
+          "bbox": [
+            387.9259033203125,
+            301.14459228515625,
+            399.8179931640625,
+            320.09271240234375
+          ],
+          "confidence": 0.8059430122375488
+        }
+      ]
+    },
+    {
+      "image_id": 40,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0206_png.rf.a99504a3d9bbd23e2ded6c27bac5fd26.jpg",
+      "missed_truths": [
+        {
+          "id": 868,
+          "bbox": [
+            384.0,
+            155.0,
+            392.0,
+            170.0
+          ],
+          "area": 120.0,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.21013246476650238
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 868,
+          "bbox": [
+            384.0,
+            155.0,
+            392.0,
+            170.0
+          ],
+          "area": 120.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 42,
+      "file_name": "boston-celtics-new-york-knicks-game-1-q1-07_41-07_34-0203_png.rf.28d65422b8eb8901c23a9046ae402cc2.jpg",
+      "missed_truths": [
+        {
+          "id": 901,
+          "bbox": [
+            208.0,
+            203.0,
+            221.5,
+            222.5
+          ],
+          "area": 263.25,
+          "reason": "poor_localization",
+          "best_candidate_iou": 0.3604385936099922,
+          "best_candidate_confidence": 0.10001441836357117
+        }
+      ],
+      "false_positives": [
+        {
+          "image_id": 42,
+          "bbox": [
+            358.5682373046875,
+            326.9423828125,
+            366.17529296875,
+            338.018310546875
+          ],
+          "confidence": 0.6715412735939026,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 901,
+          "bbox": [
+            208.0,
+            203.0,
+            221.5,
+            222.5
+          ],
+          "area": 263.25
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 42,
+          "bbox": [
+            358.5682373046875,
+            326.9423828125,
+            366.17529296875,
+            338.018310546875
+          ],
+          "confidence": 0.6715412735939026
+        }
+      ]
+    },
+    {
+      "image_id": 43,
+      "file_name": "boston-celtics-new-york-knicks-game-1-q1-07_41-07_34-0153_png.rf.e10c66dbccebcb29d4565d165e5913bc.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 43,
+          "bbox": [
+            38.463897705078125,
+            296.3848571777344,
+            47.5482177734375,
+            312.4654235839844
+          ],
+          "confidence": 0.7737514972686768,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 922,
+          "bbox": [
+            484.0,
+            277.0,
+            496.0,
+            299.5
+          ],
+          "area": 270.0
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 43,
+          "bbox": [
+            483.130615234375,
+            278.6099853515625,
+            495.26153564453125,
+            299.87384033203125
+          ],
+          "confidence": 0.8901962637901306
+        },
+        {
+          "image_id": 43,
+          "bbox": [
+            38.463897705078125,
+            296.3848571777344,
+            47.5482177734375,
+            312.4654235839844
+          ],
+          "confidence": 0.7737514972686768
+        }
+      ]
+    },
+    {
+      "image_id": 45,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0209_png.rf.387eca89ee3c5a657ae58498d8cb88c0.jpg",
+      "missed_truths": [
+        {
+          "id": 973,
+          "bbox": [
+            376.0,
+            159.0,
+            387.0,
+            175.5
+          ],
+          "area": 181.5,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.5395845770835876
+        }
+      ],
+      "false_positives": [
+        {
+          "image_id": 45,
+          "bbox": [
+            367.52459716796875,
+            312.65679931640625,
+            379.67999267578125,
+            335.05352783203125
+          ],
+          "confidence": 0.5395845770835876,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        },
+        {
+          "image_id": 45,
+          "bbox": [
+            385.4044189453125,
+            298.35028076171875,
+            393.72930908203125,
+            313.536865234375
+          ],
+          "confidence": 0.5210705399513245,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 973,
+          "bbox": [
+            376.0,
+            159.0,
+            387.0,
+            175.5
+          ],
+          "area": 181.5
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 45,
+          "bbox": [
+            367.52459716796875,
+            312.65679931640625,
+            379.67999267578125,
+            335.05352783203125
+          ],
+          "confidence": 0.5395845770835876
+        },
+        {
+          "image_id": 45,
+          "bbox": [
+            385.4044189453125,
+            298.35028076171875,
+            393.72930908203125,
+            313.536865234375
+          ],
+          "confidence": 0.5210705399513245
+        }
+      ]
+    },
+    {
+      "image_id": 51,
+      "file_name": "boston-celtics-new-york-knicks-game-1-q1-07_41-07_34-0120_png.rf.e063436adf480073751fa3b93082c55d.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 51,
+          "bbox": [
+            49.848960876464844,
+            267.8848876953125,
+            60.4971923828125,
+            286.96875
+          ],
+          "confidence": 0.7125487327575684,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 1094,
+          "bbox": [
+            502.0,
+            388.0,
+            513.5,
+            406.5
+          ],
+          "area": 212.75
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 51,
+          "bbox": [
+            501.304931640625,
+            388.18389892578125,
+            512.536376953125,
+            408.21490478515625
+          ],
+          "confidence": 0.8758707046508789
+        },
+        {
+          "image_id": 51,
+          "bbox": [
+            49.848960876464844,
+            267.8848876953125,
+            60.4971923828125,
+            286.96875
+          ],
+          "confidence": 0.7125487327575684
+        }
+      ]
+    },
+    {
+      "image_id": 52,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0133_png.rf.6bd6dfd7e21717ea455791da4cbef009.jpg",
+      "missed_truths": [
+        {
+          "id": 1121,
+          "bbox": [
+            419.0,
+            143.0,
+            427.5,
+            156.5
+          ],
+          "area": 114.75,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.12133444100618362
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1121,
+          "bbox": [
+            419.0,
+            143.0,
+            427.5,
+            156.5
+          ],
+          "area": 114.75
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 54,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0188_png.rf.a73d5545c3bc5f572967169d01ff3d90.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 54,
+          "bbox": [
+            407.62213134765625,
+            253.76104736328125,
+            414.96966552734375,
+            265.7890625
+          ],
+          "confidence": 0.8042106628417969,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 1154,
+          "bbox": [
+            303.0,
+            45.0,
+            309.5,
+            58.5
+          ],
+          "area": 87.75
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 54,
+          "bbox": [
+            407.62213134765625,
+            253.76104736328125,
+            414.96966552734375,
+            265.7890625
+          ],
+          "confidence": 0.8042106628417969
+        },
+        {
+          "image_id": 54,
+          "bbox": [
+            302.357421875,
+            44.365604400634766,
+            311.00592041015625,
+            59.41469192504883
+          ],
+          "confidence": 0.5131540894508362
+        }
+      ]
+    },
+    {
+      "image_id": 56,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0140_png.rf.19ce8d730b3b7e5908261d8ec8aaf6f8.jpg",
+      "missed_truths": [
+        {
+          "id": 1208,
+          "bbox": [
+            402.0,
+            222.0,
+            411.0,
+            237.0
+          ],
+          "area": 135.0,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.016037163920106283,
+          "best_candidate_confidence": 0.001547319465316832
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1208,
+          "bbox": [
+            402.0,
+            222.0,
+            411.0,
+            237.0
+          ],
+          "area": 135.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 60,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0203_png.rf.60cedc156fdfec5d6de5cdffe0ad7243.jpg",
+      "missed_truths": [
+        {
+          "id": 1285,
+          "bbox": [
+            380.0,
+            137.0,
+            389.5,
+            154.0
+          ],
+          "area": 161.5,
+          "reason": "poor_localization",
+          "best_candidate_iou": 0.12486422001528111,
+          "best_candidate_confidence": 0.00141437747515738
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1285,
+          "bbox": [
+            380.0,
+            137.0,
+            389.5,
+            154.0
+          ],
+          "area": 161.5
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 62,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0086_png.rf.734e9554900d6efc297ff022917b64a8.jpg",
+      "missed_truths": [
+        {
+          "id": 1333,
+          "bbox": [
+            382.0,
+            415.0,
+            394.0,
+            437.0
+          ],
+          "area": 264.0,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.002097145887091756
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1333,
+          "bbox": [
+            382.0,
+            415.0,
+            394.0,
+            437.0
+          ],
+          "area": 264.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 67,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0146_png.rf.0269ae3f0b2b3a90ffff8d90229fc54f.jpg",
+      "missed_truths": [
+        {
+          "id": 1433,
+          "bbox": [
+            387.0,
+            307.0,
+            397.0,
+            327.0
+          ],
+          "area": 200.0,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.12265389412641525
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1433,
+          "bbox": [
+            387.0,
+            307.0,
+            397.0,
+            327.0
+          ],
+          "area": 200.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 68,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0000_png.rf.ce738a340ee59bb30df29b92515cfadc.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 68,
+          "bbox": [
+            359.0400390625,
+            234.66915893554688,
+            365.61669921875,
+            248.04861450195312
+          ],
+          "confidence": 0.6912557482719421,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 1446,
+          "bbox": [
+            178.0,
+            227.0,
+            187.5,
+            245.0
+          ],
+          "area": 171.0
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 68,
+          "bbox": [
+            359.0400390625,
+            234.66915893554688,
+            365.61669921875,
+            248.04861450195312
+          ],
+          "confidence": 0.6912557482719421
+        },
+        {
+          "image_id": 68,
+          "bbox": [
+            179.2685546875,
+            229.2591552734375,
+            186.9283447265625,
+            244.18829345703125
+          ],
+          "confidence": 0.6712846755981445
+        }
+      ]
+    },
+    {
+      "image_id": 74,
+      "file_name": "boston-celtics-new-york-knicks-game-1-q1-07_41-07_34-0159_png.rf.f4ada4b998373bd8584e24b4d7ee7da9.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 74,
+          "bbox": [
+            32.954856872558594,
+            305.31451416015625,
+            43.082191467285156,
+            323.51678466796875
+          ],
+          "confidence": 0.6653546094894409,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 1574,
+          "bbox": [
+            493.0,
+            235.0,
+            504.5,
+            256.5
+          ],
+          "area": 247.25
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 74,
+          "bbox": [
+            493.41217041015625,
+            236.06103515625,
+            504.12664794921875,
+            256.045654296875
+          ],
+          "confidence": 0.7376512289047241
+        },
+        {
+          "image_id": 74,
+          "bbox": [
+            32.954856872558594,
+            305.31451416015625,
+            43.082191467285156,
+            323.51678466796875
+          ],
+          "confidence": 0.6653546094894409
+        }
+      ]
+    },
+    {
+      "image_id": 75,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0000_png.rf.85c1afa12bebab2b6c8f4177953153a3.jpg",
+      "missed_truths": [
+        {
+          "id": 1594,
+          "bbox": [
+            59.0,
+            323.0,
+            69.0,
+            339.0
+          ],
+          "area": 160.0,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.8692593104379128,
+          "best_candidate_confidence": 0.3515414893627167
+        }
+      ],
+      "false_positives": [
+        {
+          "image_id": 75,
+          "bbox": [
+            343.408203125,
+            176.75039672851562,
+            350.56689453125,
+            190.14434814453125
+          ],
+          "confidence": 0.6999332904815674,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 1594,
+          "bbox": [
+            59.0,
+            323.0,
+            69.0,
+            339.0
+          ],
+          "area": 160.0
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 75,
+          "bbox": [
+            343.408203125,
+            176.75039672851562,
+            350.56689453125,
+            190.14434814453125
+          ],
+          "confidence": 0.6999332904815674
+        }
+      ]
+    },
+    {
+      "image_id": 77,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0134_png.rf.708e70be0e075759487df1d80373bac1.jpg",
+      "missed_truths": [
+        {
+          "id": 1642,
+          "bbox": [
+            416.0,
+            159.0,
+            425.0,
+            175.0
+          ],
+          "area": 144.0,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.4180185794830322
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1642,
+          "bbox": [
+            416.0,
+            159.0,
+            425.0,
+            175.0
+          ],
+          "area": 144.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 78,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0194_png.rf.a1e59906440f7b461135fc7afe3f4cca.jpg",
+      "missed_truths": [
+        {
+          "id": 1662,
+          "bbox": [
+            335.0,
+            67.0,
+            343.0,
+            85.5
+          ],
+          "area": 148.0,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.19887666404247284
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1662,
+          "bbox": [
+            335.0,
+            67.0,
+            343.0,
+            85.5
+          ],
+          "area": 148.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 80,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0143_png.rf.15d4cd2341062e0d286a3b21891d3e4a.jpg",
+      "missed_truths": [
+        {
+          "id": 1702,
+          "bbox": [
+            393.0,
+            261.0,
+            403.5,
+            280.5
+          ],
+          "area": 204.75,
+          "reason": "poor_localization",
+          "best_candidate_iou": 0.2783742233934929,
+          "best_candidate_confidence": 0.0018211051356047392
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1702,
+          "bbox": [
+            393.0,
+            261.0,
+            403.5,
+            280.5
+          ],
+          "area": 204.75
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 81,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0120_png.rf.87c9347f13a306a7cda72721b9eee87e.jpg",
+      "missed_truths": [
+        {
+          "id": 1726,
+          "bbox": [
+            145.0,
+            270.0,
+            153.5,
+            285.5
+          ],
+          "area": 131.75,
+          "reason": "no_candidate",
+          "best_candidate_iou": 0.0,
+          "best_candidate_confidence": 0.25079405307769775
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1726,
+          "bbox": [
+            145.0,
+            270.0,
+            153.5,
+            285.5
+          ],
+          "area": 131.75
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 82,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0197_png.rf.3f5b3ee1f46bfba6cd99067cf708bd7d.jpg",
+      "missed_truths": [
+        {
+          "id": 1742,
+          "bbox": [
+            350.0,
+            85.0,
+            358.0,
+            100.5
+          ],
+          "area": 124.0,
+          "reason": "low_confidence",
+          "best_candidate_iou": 0.7778232075196334,
+          "best_candidate_confidence": 0.28045353293418884
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1742,
+          "bbox": [
+            350.0,
+            85.0,
+            358.0,
+            100.5
+          ],
+          "area": 124.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 83,
+      "file_name": "boston-celtics-new-york-knicks-game-4-q1-05_06-05_01-0142_png.rf.0cf8430a7666a31054aa83dbd0792f31.jpg",
+      "missed_truths": [
+        {
+          "id": 1770,
+          "bbox": [
+            397.0,
+            249.0,
+            406.0,
+            266.0
+          ],
+          "area": 153.0,
+          "reason": "poor_localization",
+          "best_candidate_iou": 0.44954317460784765,
+          "best_candidate_confidence": 0.09228825569152832
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1770,
+          "bbox": [
+            397.0,
+            249.0,
+            406.0,
+            266.0
+          ],
+          "area": 153.0
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 90,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0212_png.rf.01f16f266c1b02129de096f7a80a06b2.jpg",
+      "missed_truths": [
+        {
+          "id": 1911,
+          "bbox": [
+            375.0,
+            159.0,
+            385.5,
+            176.0
+          ],
+          "area": 178.5,
+          "reason": "poor_localization",
+          "best_candidate_iou": 0.40707261797760713,
+          "best_candidate_confidence": 0.01735176146030426
+        }
+      ],
+      "false_positives": [],
+      "truths": [
+        {
+          "id": 1911,
+          "bbox": [
+            375.0,
+            159.0,
+            385.5,
+            176.0
+          ],
+          "area": 178.5
+        }
+      ],
+      "predictions_at_threshold": []
+    },
+    {
+      "image_id": 93,
+      "file_name": "boston-celtics-orlando-magic-game-4-q1-11_44-11_36-0185_png.rf.109a40e563aedc2da31a9102bded2c55.jpg",
+      "missed_truths": [],
+      "false_positives": [
+        {
+          "image_id": 93,
+          "bbox": [
+            406.7435302734375,
+            252.3216552734375,
+            415.209228515625,
+            265.9793701171875
+          ],
+          "confidence": 0.7915477752685547,
+          "reason": "background",
+          "best_truth_iou": 0.0
+        }
+      ],
+      "truths": [
+        {
+          "id": 1974,
+          "bbox": [
+            286.0,
+            40.0,
+            294.5,
+            56.5
+          ],
+          "area": 140.25
+        }
+      ],
+      "predictions_at_threshold": [
+        {
+          "image_id": 93,
+          "bbox": [
+            406.7435302734375,
+            252.3216552734375,
+            415.209228515625,
+            265.9793701171875
+          ],
+          "confidence": 0.7915477752685547
+        },
+        {
+          "image_id": 93,
+          "bbox": [
+            286.5403137207031,
+            41.69297790527344,
+            294.1517028808594,
+            55.657928466796875
+          ],
+          "confidence": 0.7149129509925842
+        }
+      ]
+    }
+  ],
+  "split": "test"
+}

@@ -1,0 +1,961 @@
+{
+  "benchmark_id": "courtvision_v1",
+  "baseline": "current cached pipeline",
+  "coverage": {
+    "video_count": 5,
+    "scored_frames": 201,
+    "ground_truth_events": 10,
+    "predicted_events": 14,
+    "cache_dirs": {
+      "video_1": "backend\\stubs\\video_1-0c615bd00c7e65fce1b82be9b890974832e52b1bfa6d7aebab0ffabcfb16e010",
+      "video_2": "backend\\stubs\\video_2-d02523b419c6c217e8bc7da2124494caea68c1b2d296e4e440181ca19e82154f",
+      "video_3": "backend\\stubs\\video_3-38956eb42d694f2d4fdcef3c8494a868f49ff37831ed48bd00c1924f12cafcaf",
+      "spursknicksclip": "backend\\stubs\\spursknicksclip-5a9d53a23b79a4c2a1703e673631d98924926b86c7f390cfea0e58e1056af152",
+      "spursknicks2": "backend\\stubs\\spursknicks2-a32ddf657b73a66e22ae3c4e5527250391e23034cd27a459df6ffcc4e05e738b"
+    }
+  },
+  "frame_metrics": {
+    "ball": {
+      "visible_frames": 150,
+      "observed_detection_recall": 0.5666666666666667,
+      "final_position_coverage": 0.8266666666666667,
+      "interpolated_fraction_of_visible": 0.26,
+      "within_px": {
+        "25": 0.62,
+        "50": 0.64,
+        "100": 0.68
+      },
+      "center_error_px": {
+        "count": 124,
+        "mean": 46.097867565968926,
+        "median": 3.3605956431572013,
+        "p90": 192.85712649649685
+      },
+      "observed_center_error_px": {
+        "count": 85,
+        "mean": 39.11260065235659,
+        "median": 2.8040418652134793,
+        "p90": 159.07229669240314
+      },
+      "observed_rate_by_ground_truth_visibility": {
+        "visible": 0.5666666666666667,
+        "occluded": 0.4444444444444444,
+        "out_of_frame": 0.0,
+        "uncertain": 0.5333333333333333
+      },
+      "worst_visible_errors": [
+        {
+          "video_id": "spursknicks2",
+          "frame_index": 167,
+          "visibility": "visible",
+          "actual_center": [
+            602,
+            79
+          ],
+          "predicted_center": [
+            374.267822265625,
+            381.004638671875
+          ],
+          "source": "observed",
+          "error_px": 378.2442948082241
+        },
+        {
+          "video_id": "spursknicks2",
+          "frame_index": 166,
+          "visibility": "visible",
+          "actual_center": [
+            604,
+            83
+          ],
+          "predicted_center": [
+            380.59332275390625,
+            379.1929626464844
+          ],
+          "source": "observed",
+          "error_px": 370.99975008002633
+        },
+        {
+          "video_id": "spursknicks2",
+          "frame_index": 165,
+          "visibility": "visible",
+          "actual_center": [
+            612,
+            92
+          ],
+          "predicted_center": [
+            386.03611755371094,
+            377.6029968261719
+          ],
+          "source": "interpolated",
+          "error_px": 364.18230045718957
+        },
+        {
+          "video_id": "video_3",
+          "frame_index": 227,
+          "visibility": "visible",
+          "actual_center": [
+            384,
+            290
+          ],
+          "predicted_center": [
+            140.75973510742188,
+            538.2010498046875
+          ],
+          "source": "observed",
+          "error_px": 347.5191902458921
+        },
+        {
+          "video_id": "video_3",
+          "frame_index": 0,
+          "visibility": "visible",
+          "actual_center": [
+            531,
+            547
+          ],
+          "predicted_center": [
+            699.2530517578125,
+            270.6830139160156
+          ],
+          "source": "observed",
+          "error_px": 323.5122350458386
+        },
+        {
+          "video_id": "video_3",
+          "frame_index": 150,
+          "visibility": "visible",
+          "actual_center": [
+            740,
+            373
+          ],
+          "predicted_center": [
+            994.6015625,
+            303.57342529296875
+          ],
+          "source": "observed",
+          "error_px": 263.8977167445607
+        },
+        {
+          "video_id": "video_3",
+          "frame_index": 132,
+          "visibility": "visible",
+          "actual_center": [
+            628,
+            388
+          ],
+          "predicted_center": [
+            885.2116088867188,
+            356.1633758544922
+          ],
+          "source": "interpolated",
+          "error_px": 259.17442463151474
+        },
+        {
+          "video_id": "video_2",
+          "frame_index": 60,
+          "visibility": "visible",
+          "actual_center": [
+            591,
+            182
+          ],
+          "predicted_center": [
+            547.2890014648438,
+            428.1695556640625
+          ],
+          "source": "interpolated",
+          "error_px": 250.02020224130368
+        },
+        {
+          "video_id": "video_3",
+          "frame_index": 15,
+          "visibility": "visible",
+          "actual_center": [
+            560,
+            504
+          ],
+          "predicted_center": [
+            655.6769409179688,
+            280.0948486328125
+          ],
+          "source": "observed",
+          "error_px": 243.49043889274918
+        },
+        {
+          "video_id": "video_3",
+          "frame_index": 131,
+          "visibility": "visible",
+          "actual_center": [
+            628,
+            369
+          ],
+          "predicted_center": [
+            866.8169555664062,
+            358.0222473144531
+          ],
+          "source": "observed",
+          "error_px": 239.0691308388264
+        },
+        {
+          "video_id": "spursknicks2",
+          "frame_index": 152,
+          "visibility": "visible",
+          "actual_center": [
+            649,
+            206
+          ],
+          "predicted_center": [
+            562.672607421875,
+            411.32232666015625
+          ],
+          "source": "observed",
+          "error_px": 222.73229791495805
+        },
+        {
+          "video_id": "video_3",
+          "frame_index": 130,
+          "visibility": "visible",
+          "actual_center": [
+            631,
+            364
+          ],
+          "predicted_center": [
+            847.1088460286459,
+            355.70161946614587
+          ],
+          "source": "interpolated",
+          "error_px": 216.26811242371727
+        },
+        {
+          "video_id": "video_3",
+          "frame_index": 129,
+          "visibility": "visible",
+          "actual_center": [
+            630,
+            361
+          ],
+          "predicted_center": [
+            827.4007364908854,
+            353.3809916178385
+          ],
+          "source": "interpolated",
+          "error_px": 197.54771589636619
+        },
+        {
+          "video_id": "video_3",
+          "frame_index": 128,
+          "visibility": "visible",
+          "actual_center": [
+            626,
+            360
+          ],
+          "predicted_center": [
+            807.692626953125,
+            351.06036376953125
+          ],
+          "source": "observed",
+          "error_px": 181.91241789680151
+        },
+        {
+          "video_id": "spursknicks2",
+          "frame_index": 151,
+          "visibility": "visible",
+          "actual_center": [
+            648,
+            210
+          ],
+          "predicted_center": [
+            592.8463745117188,
+            376.6413269042969
+          ],
+          "source": "interpolated",
+          "error_px": 175.5313483025933
+        }
+      ]
+    },
+    "possession": {
+      "state": {
+        "count": 201,
+        "accuracy": 0.2935323383084577,
+        "macro_f1_supported": 0.10718724866564307,
+        "per_class": {
+          "controlled": {
+            "true_positive": 50,
+            "false_positive": 23,
+            "false_negative": 71,
+            "precision": 0.684931506849315,
+            "recall": 0.4132231404958678,
+            "f1": 0.5154639175257733,
+            "support": 121
+          },
+          "loose": {
+            "true_positive": 9,
+            "false_positive": 119,
+            "false_negative": 4,
+            "precision": 0.0703125,
+            "recall": 0.6923076923076923,
+            "f1": 0.12765957446808512,
+            "support": 13
+          },
+          "in_flight": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "false_negative": 22,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 22
+          },
+          "shot": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "false_negative": 32,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 32
+          },
+          "dead": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "false_negative": 6,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 6
+          },
+          "unknown": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "false_negative": 7,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 7
+          }
+        },
+        "confusion": {
+          "controlled": {
+            "controlled": 50,
+            "loose": 71,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "loose": {
+            "controlled": 4,
+            "loose": 9,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "in_flight": {
+            "controlled": 13,
+            "loose": 9,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "shot": {
+            "controlled": 6,
+            "loose": 26,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "dead": {
+            "controlled": 0,
+            "loose": 6,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          },
+          "unknown": {
+            "controlled": 0,
+            "loose": 7,
+            "in_flight": 0,
+            "shot": 0,
+            "dead": 0,
+            "unknown": 0
+          }
+        }
+      },
+      "controlled_detection": {
+        "true_positive": 50,
+        "false_positive": 23,
+        "false_negative": 71,
+        "precision": 0.684931506849315,
+        "recall": 0.4132231404958678,
+        "f1": 0.5154639175257733
+      },
+      "false_negative_reasons": {
+        "interpolated_ball_not_confirmable": 28,
+        "candidate_building": 16,
+        "ball_missing": 10,
+        "candidate_switch_building": 5,
+        "ambiguous_candidates": 3,
+        "holder_reinforced": 3,
+        "no_credible_candidate": 2,
+        "brief_interpolated_gap": 1,
+        "pending_candidate_ball_missing": 1,
+        "switch_pending": 1,
+        "initial_holder_confirmed": 1
+      },
+      "false_positive_reasons": {
+        "holder_reinforced": 10,
+        "brief_interpolated_gap": 5,
+        "holder_switch_confirmed": 3,
+        "switch_pending": 3,
+        "initial_holder_confirmed": 2
+      },
+      "team": {
+        "ground_truth_controlled_frames": 121,
+        "prediction_coverage": 0.35537190082644626,
+        "conditional_accuracy": 0.9767441860465116,
+        "end_to_end_accuracy": 0.34710743801652894,
+        "correct": 42,
+        "predicted": 43,
+        "mappings": {
+          "video_1": {
+            "1": "team_a",
+            "2": "team_b"
+          },
+          "video_2": {
+            "1": "team_b",
+            "2": "team_a"
+          },
+          "video_3": {
+            "1": "team_b",
+            "2": "team_a"
+          },
+          "spursknicksclip": {
+            "1": "team_a",
+            "2": "team_b"
+          },
+          "spursknicks2": {
+            "1": "team_b",
+            "2": "team_a"
+          }
+        },
+        "mapping_method": "best two-cluster permutation on controlled benchmark frames"
+      }
+    },
+    "per_video": {
+      "video_1": {
+        "sample_count": 9,
+        "ball": {
+          "visible_frames": 8,
+          "observed_detection_recall": 0.25,
+          "final_position_coverage": 0.625,
+          "interpolated_fraction_of_visible": 0.375,
+          "within_px": {
+            "25": 0.5,
+            "50": 0.5,
+            "100": 0.625
+          },
+          "center_error_px": {
+            "count": 5,
+            "mean": 16.62652353179181,
+            "median": 5.4056160166298275,
+            "p90": 41.697618310863284
+          },
+          "observed_center_error_px": {
+            "count": 2,
+            "mean": 2.4934331733208066,
+            "median": 2.4934331733208066,
+            "p90": 3.8580070893732774
+          },
+          "observed_rate_by_ground_truth_visibility": {
+            "visible": 0.25,
+            "occluded": 0.0,
+            "out_of_frame": 0.0,
+            "uncertain": 0.0
+          }
+        },
+        "controlled_detection": {
+          "true_positive": 1,
+          "false_positive": 0,
+          "false_negative": 4,
+          "precision": 1.0,
+          "recall": 0.2,
+          "f1": 0.33333333333333337
+        },
+        "team_end_to_end_accuracy": 0.0,
+        "team_prediction_coverage": 0.0
+      },
+      "video_2": {
+        "sample_count": 38,
+        "ball": {
+          "visible_frames": 31,
+          "observed_detection_recall": 0.7419354838709677,
+          "final_position_coverage": 0.967741935483871,
+          "interpolated_fraction_of_visible": 0.22580645161290322,
+          "within_px": {
+            "25": 0.7096774193548387,
+            "50": 0.7419354838709677,
+            "100": 0.8064516129032258
+          },
+          "center_error_px": {
+            "count": 30,
+            "mean": 32.540193248232185,
+            "median": 3.6497977210631536,
+            "p90": 112.81366775667253
+          },
+          "observed_center_error_px": {
+            "count": 23,
+            "mean": 18.228770061299215,
+            "median": 3.1926079202755444,
+            "p90": 85.84195050729352
+          },
+          "observed_rate_by_ground_truth_visibility": {
+            "visible": 0.7419354838709677,
+            "occluded": 0.6666666666666666,
+            "out_of_frame": 0.0,
+            "uncertain": 1.0
+          }
+        },
+        "controlled_detection": {
+          "true_positive": 14,
+          "false_positive": 5,
+          "false_negative": 13,
+          "precision": 0.7368421052631579,
+          "recall": 0.5185185185185185,
+          "f1": 0.6086956521739131
+        },
+        "team_end_to_end_accuracy": 0.5185185185185185,
+        "team_prediction_coverage": 0.5185185185185185
+      },
+      "video_3": {
+        "sample_count": 58,
+        "ball": {
+          "visible_frames": 47,
+          "observed_detection_recall": 0.425531914893617,
+          "final_position_coverage": 0.6382978723404256,
+          "interpolated_fraction_of_visible": 0.2127659574468085,
+          "within_px": {
+            "25": 0.425531914893617,
+            "50": 0.425531914893617,
+            "100": 0.44680851063829785
+          },
+          "center_error_px": {
+            "count": 30,
+            "mean": 81.7830724061964,
+            "median": 6.260308751427042,
+            "p90": 259.64675384281935
+          },
+          "observed_center_error_px": {
+            "count": 20,
+            "mean": 81.97278151578695,
+            "median": 3.2779465080289523,
+            "p90": 269.85916857468857
+          },
+          "observed_rate_by_ground_truth_visibility": {
+            "visible": 0.425531914893617,
+            "occluded": 0.3,
+            "out_of_frame": 0.0,
+            "uncertain": 1.0
+          }
+        },
+        "controlled_detection": {
+          "true_positive": 15,
+          "false_positive": 4,
+          "false_negative": 22,
+          "precision": 0.7894736842105263,
+          "recall": 0.40540540540540543,
+          "f1": 0.5357142857142857
+        },
+        "team_end_to_end_accuracy": 0.32432432432432434,
+        "team_prediction_coverage": 0.32432432432432434
+      },
+      "spursknicksclip": {
+        "sample_count": 59,
+        "ball": {
+          "visible_frames": 40,
+          "observed_detection_recall": 0.675,
+          "final_position_coverage": 0.9,
+          "interpolated_fraction_of_visible": 0.225,
+          "within_px": {
+            "25": 0.8,
+            "50": 0.825,
+            "100": 0.85
+          },
+          "center_error_px": {
+            "count": 36,
+            "mean": 11.941685669204194,
+            "median": 2.334064556466528,
+            "p90": 19.40242359521289
+          },
+          "observed_center_error_px": {
+            "count": 27,
+            "mean": 5.454387213663578,
+            "median": 2.2080044223349393,
+            "p90": 3.6969931153776967
+          },
+          "observed_rate_by_ground_truth_visibility": {
+            "visible": 0.675,
+            "occluded": 0.5,
+            "out_of_frame": 0.0,
+            "uncertain": 0.0
+          }
+        },
+        "controlled_detection": {
+          "true_positive": 13,
+          "false_positive": 2,
+          "false_negative": 24,
+          "precision": 0.8666666666666667,
+          "recall": 0.35135135135135137,
+          "f1": 0.5000000000000001
+        },
+        "team_end_to_end_accuracy": 0.2702702702702703,
+        "team_prediction_coverage": 0.2702702702702703
+      },
+      "spursknicks2": {
+        "sample_count": 37,
+        "ball": {
+          "visible_frames": 24,
+          "observed_detection_recall": 0.5416666666666666,
+          "final_position_coverage": 0.9583333333333334,
+          "interpolated_fraction_of_visible": 0.4166666666666667,
+          "within_px": {
+            "25": 0.625,
+            "50": 0.6666666666666666,
+            "100": 0.7083333333333334
+          },
+          "center_error_px": {
+            "count": 23,
+            "mean": 77.10453507812953,
+            "median": 3.2746180207180346,
+            "p90": 335.8922999487434
+          },
+          "observed_center_error_px": {
+            "count": 13,
+            "mean": 85.661414816087,
+            "median": 3.1321850585947013,
+            "p90": 341.3462596470128
+          },
+          "observed_rate_by_ground_truth_visibility": {
+            "visible": 0.5416666666666666,
+            "occluded": 0.5,
+            "out_of_frame": 0.0,
+            "uncertain": 0.3333333333333333
+          }
+        },
+        "controlled_detection": {
+          "true_positive": 7,
+          "false_positive": 12,
+          "false_negative": 8,
+          "precision": 0.3684210526315789,
+          "recall": 0.4666666666666667,
+          "f1": 0.4117647058823529
+        },
+        "team_end_to_end_accuracy": 0.4,
+        "team_prediction_coverage": 0.4666666666666667
+      }
+    }
+  },
+  "event_metrics": {
+    "ground_truth_count": 10,
+    "prediction_count": 14,
+    "tolerance_frames": 15,
+    "scores_by_tolerance": {
+      "5": {
+        "true_positive": 3,
+        "false_positive": 11,
+        "false_negative": 7,
+        "precision": 0.21428571428571427,
+        "recall": 0.3,
+        "f1": 0.25
+      },
+      "15": {
+        "true_positive": 6,
+        "false_positive": 8,
+        "false_negative": 4,
+        "precision": 0.42857142857142855,
+        "recall": 0.6,
+        "f1": 0.5
+      },
+      "30": {
+        "true_positive": 7,
+        "false_positive": 7,
+        "false_negative": 3,
+        "precision": 0.5,
+        "recall": 0.7,
+        "f1": 0.5833333333333334
+      }
+    },
+    "per_type_at_default_tolerance": {
+      "interception": {
+        "true_positive": 1,
+        "false_positive": 3,
+        "false_negative": 0,
+        "precision": 0.25,
+        "recall": 1.0,
+        "f1": 0.4
+      },
+      "pass": {
+        "true_positive": 5,
+        "false_positive": 5,
+        "false_negative": 2,
+        "precision": 0.5,
+        "recall": 0.7142857142857143,
+        "f1": 0.588235294117647
+      },
+      "shot": {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 2,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "release_timing_mae_frames": 12,
+    "catch_timing_mae_frames": 6.166666666666667,
+    "matched_team_accuracy": 1.0,
+    "matched_team_checks": 12,
+    "matches": [
+      {
+        "video_id": "video_2",
+        "event_type": "pass",
+        "ground_truth_frame": 107,
+        "predicted_frame": 106,
+        "absolute_frame_error": 1
+      },
+      {
+        "video_id": "video_2",
+        "event_type": "pass",
+        "ground_truth_frame": 136,
+        "predicted_frame": 135,
+        "absolute_frame_error": 1
+      },
+      {
+        "video_id": "video_3",
+        "event_type": "pass",
+        "ground_truth_frame": 184,
+        "predicted_frame": 186,
+        "absolute_frame_error": 2
+      },
+      {
+        "video_id": "video_2",
+        "event_type": "pass",
+        "ground_truth_frame": 63,
+        "predicted_frame": 73,
+        "absolute_frame_error": 10
+      },
+      {
+        "video_id": "video_3",
+        "event_type": "pass",
+        "ground_truth_frame": 196,
+        "predicted_frame": 206,
+        "absolute_frame_error": 10
+      },
+      {
+        "video_id": "video_3",
+        "event_type": "interception",
+        "ground_truth_frame": 82,
+        "predicted_frame": 69,
+        "absolute_frame_error": 13
+      }
+    ],
+    "unmatched_ground_truth": [
+      {
+        "video_id": "video_2",
+        "event_type": "pass",
+        "start_frame": 19,
+        "end_frame": 45,
+        "release_frame": 27,
+        "catch_frame": 46,
+        "from_team": "team_b",
+        "to_team": "team_b",
+        "review_status": "verified",
+        "notes": "Pipeline suggestion; verify release, catch, and event type."
+      },
+      {
+        "video_id": "spursknicks2",
+        "event_type": "pass",
+        "start_frame": 116,
+        "end_frame": 118,
+        "release_frame": 110,
+        "catch_frame": 135,
+        "from_team": "team_b",
+        "to_team": "team_b",
+        "review_status": "verified",
+        "notes": "Pipeline suggestion; verify teams, release, catch, and event type at full resolution."
+      },
+      {
+        "video_id": "spursknicks2",
+        "event_type": "shot",
+        "start_frame": 149,
+        "end_frame": 166,
+        "release_frame": 159,
+        "catch_frame": null,
+        "from_team": "team_b",
+        "to_team": null,
+        "review_status": "verified",
+        "notes": "Pipeline called this an interception; likely rebound/possession change, verify teams and event type."
+      },
+      {
+        "video_id": "video_3",
+        "event_type": "shot",
+        "start_frame": 219,
+        "end_frame": 219,
+        "release_frame": 219,
+        "catch_frame": null,
+        "from_team": "team_b",
+        "to_team": null,
+        "review_status": "verified",
+        "notes": "Human-identified shot missed by the pipeline candidate list."
+      }
+    ],
+    "unmatched_predictions": [
+      {
+        "type": "pass",
+        "frame_index": 24,
+        "from_player_id": 9,
+        "to_player_id": 12,
+        "from_team_id": 1,
+        "to_team_id": 1,
+        "release_frame": 15,
+        "catch_frame": 24,
+        "gap_frames": 8,
+        "transition_frame": 24,
+        "confirmation_frames": 1,
+        "video_id": "video_1"
+      },
+      {
+        "type": "interception",
+        "frame_index": 57,
+        "from_player_id": 12,
+        "to_player_id": 9,
+        "from_team_id": 2,
+        "to_team_id": 1,
+        "release_frame": 41,
+        "catch_frame": 57,
+        "gap_frames": 15,
+        "transition_frame": 57,
+        "confirmation_frames": 1,
+        "video_id": "video_2"
+      },
+      {
+        "type": "pass",
+        "frame_index": 28,
+        "from_player_id": 7,
+        "to_player_id": 12,
+        "from_team_id": 2,
+        "to_team_id": 2,
+        "release_frame": 18,
+        "catch_frame": 28,
+        "gap_frames": 9,
+        "transition_frame": 28,
+        "confirmation_frames": 1,
+        "video_id": "video_3"
+      },
+      {
+        "type": "pass",
+        "frame_index": 48,
+        "from_player_id": 12,
+        "to_player_id": 7,
+        "from_team_id": 2,
+        "to_team_id": 2,
+        "release_frame": 36,
+        "catch_frame": 48,
+        "gap_frames": 11,
+        "transition_frame": 48,
+        "confirmation_frames": 1,
+        "video_id": "video_3"
+      },
+      {
+        "type": "interception",
+        "frame_index": 53,
+        "from_player_id": 10,
+        "to_player_id": 6,
+        "from_team_id": 1,
+        "to_team_id": 2,
+        "release_frame": 29,
+        "catch_frame": 53,
+        "gap_frames": 23,
+        "transition_frame": 53,
+        "confirmation_frames": 1,
+        "video_id": "spursknicks2"
+      },
+      {
+        "type": "pass",
+        "frame_index": 117,
+        "from_player_id": 1,
+        "to_player_id": 4,
+        "from_team_id": 1,
+        "to_team_id": 1,
+        "release_frame": 115,
+        "catch_frame": 117,
+        "gap_frames": 1,
+        "transition_frame": 117,
+        "confirmation_frames": 1,
+        "video_id": "spursknicks2"
+      },
+      {
+        "type": "interception",
+        "frame_index": 166,
+        "from_player_id": 4,
+        "to_player_id": 13,
+        "from_team_id": 1,
+        "to_team_id": 2,
+        "release_frame": 149,
+        "catch_frame": 166,
+        "gap_frames": 16,
+        "transition_frame": 161,
+        "confirmation_frames": 6,
+        "video_id": "spursknicks2"
+      },
+      {
+        "type": "pass",
+        "frame_index": 192,
+        "from_player_id": 3,
+        "to_player_id": 21,
+        "from_team_id": 1,
+        "to_team_id": 1,
+        "release_frame": 175,
+        "catch_frame": 192,
+        "gap_frames": 16,
+        "transition_frame": 192,
+        "confirmation_frames": 1,
+        "video_id": "spursknicks2"
+      }
+    ],
+    "ground_truth_completeness": "candidate review plus explicitly identified misses"
+  },
+  "largest_failures": [
+    {
+      "area": "possession_state",
+      "error_rate": 0.7064676616915423,
+      "evidence": "Six-state possession accuracy is 29.4%; the pipeline currently emits only controlled or loose for this benchmark."
+    },
+    {
+      "area": "possession_team_end_to_end",
+      "error_rate": 0.6528925619834711,
+      "evidence": "End-to-end possession-team accuracy is 34.7% with 35.5% team coverage."
+    },
+    {
+      "area": "controlled_possession_recall",
+      "error_rate": 0.5867768595041323,
+      "evidence": "Controlled-possession recall is 41.3%."
+    },
+    {
+      "area": "events",
+      "error_rate": 0.5,
+      "evidence": "Event F1 is 50.0% at \u00b115 frames (6 TP, 8 FP, 4 FN)."
+    },
+    {
+      "area": "ball_detection",
+      "error_rate": 0.43333333333333335,
+      "evidence": "Only 56.7% of visible balls have an observed post-filter detection; the rest depend on interpolation."
+    },
+    {
+      "area": "ball_localization_50px",
+      "error_rate": 0.36,
+      "evidence": "Only 64.0% of visible balls are localized within 50 pixels after interpolation."
+    }
+  ]
+}

@@ -20,12 +20,22 @@ except ImportError:  # Keeps pure helper tests importable without the AWS runtim
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-MODEL_FILENAMES = (
-    "player_detector.pt",
+EBARD_MODEL_FILENAME = "ebard_yolov8n.pt"
+PLAYER_MODEL_FILENAME = "player_detector.pt"
+BALL_MODEL_FILENAME = "ball_detector_model.pt"
+WASB_MODEL_FILENAME = "wasb_basketball_torchscript.pt"
+BASE_MODEL_FILENAMES = (
     "yolo11n-pose.pt",
-    "ball_detector_model.pt",
     "court_keypoint_detector.pt",
 )
+MODEL_FILENAMES = (
+    EBARD_MODEL_FILENAME,
+    BASE_MODEL_FILENAMES[0],
+    WASB_MODEL_FILENAME,
+    BASE_MODEL_FILENAMES[1],
+)
+BALL_DETECTOR_BACKENDS = {"yolo", "wasb", "hybrid"}
+PLAYER_DETECTOR_BACKENDS = {"current", "ebard"}
 
 
 def main():
@@ -51,27 +61,22 @@ def main():
             s3.download_file(bucket, input_key, str(source_path))
 
             _update_job(jobs_table, job_id, "processing", "Analyzing players, ball, and court")
-            command = [
-                sys.executable,
-                str(Path(__file__).resolve().parents[2] / "main.py"),
-                str(source_path),
-                "--output-video",
-                str(output_path),
-                "--output-analysis",
-                str(analysis_path),
-                "--stub-path",
-                str(cache_path),
-                "--duration-seconds",
-                os.getenv("COURTVISION_MAX_DURATION_SECONDS", "30"),
-                "--target-fps",
-                os.getenv("COURTVISION_TARGET_FPS", "30"),
-                "--max-width",
-                os.getenv("COURTVISION_MAX_WIDTH", "1280"),
-            ]
+            command = _analysis_command(
+                source_path,
+                output_path,
+                analysis_path,
+                cache_path,
+            )
             team_one = os.getenv("COURTVISION_TEAM_1_COLOR")
             team_two = os.getenv("COURTVISION_TEAM_2_COLOR")
             if team_one and team_two:
                 command.extend(["--team-1-color", team_one, "--team-2-color", team_two])
+            if os.getenv("COURTVISION_ALLOW_UNCERTAIN_TEAMS", "").lower() in {
+                "1",
+                "true",
+                "yes",
+            }:
+                command.append("--allow-uncertain-teams")
 
             process = subprocess.Popen(
                 command,
@@ -169,7 +174,7 @@ def _prepare_models(s3, models_dir=None):
     models_dir.mkdir(parents=True, exist_ok=True)
     prefix = os.getenv("COURTVISION_MODEL_PREFIX", "models").strip("/")
 
-    for filename in MODEL_FILENAMES:
+    for filename in _required_model_filenames():
         destination = models_dir / filename
         if destination.is_file() and destination.stat().st_size > 0:
             continue
@@ -181,6 +186,83 @@ def _prepare_models(s3, models_dir=None):
             partial.replace(destination)
         finally:
             partial.unlink(missing_ok=True)
+
+
+def _analysis_command(source_path, output_path, analysis_path, cache_path):
+    """Build the bounded worker command from validated deployment settings."""
+    detector_backend = os.getenv(
+        "COURTVISION_BALL_DETECTOR_BACKEND",
+        "hybrid",
+    ).strip().lower()
+    if detector_backend not in BALL_DETECTOR_BACKENDS:
+        raise RuntimeError(
+            "COURTVISION_BALL_DETECTOR_BACKEND must be one of "
+            f"{sorted(BALL_DETECTOR_BACKENDS)}"
+        )
+    player_detector_backend = os.getenv(
+        "COURTVISION_PLAYER_DETECTOR_BACKEND",
+        "ebard",
+    ).strip().lower()
+    if player_detector_backend not in PLAYER_DETECTOR_BACKENDS:
+        raise RuntimeError(
+            "COURTVISION_PLAYER_DETECTOR_BACKEND must be one of "
+            f"{sorted(PLAYER_DETECTOR_BACKENDS)}"
+        )
+    return [
+        sys.executable,
+        str(Path(__file__).resolve().parents[2] / "main.py"),
+        str(source_path),
+        "--output-video",
+        str(output_path),
+        "--output-analysis",
+        str(analysis_path),
+        "--stub-path",
+        str(cache_path),
+        "--duration-seconds",
+        os.getenv("COURTVISION_MAX_DURATION_SECONDS", "30"),
+        "--target-fps",
+        os.getenv("COURTVISION_TARGET_FPS", "30"),
+        "--max-width",
+        os.getenv("COURTVISION_MAX_WIDTH", "1280"),
+        "--ball-detector-backend",
+        detector_backend,
+        "--player-detector-backend",
+        player_detector_backend,
+    ]
+
+
+def _required_model_filenames():
+    player_backend = os.getenv(
+        "COURTVISION_PLAYER_DETECTOR_BACKEND",
+        "ebard",
+    ).strip().lower()
+    ball_backend = os.getenv(
+        "COURTVISION_BALL_DETECTOR_BACKEND",
+        "hybrid",
+    ).strip().lower()
+    if player_backend not in PLAYER_DETECTOR_BACKENDS:
+        raise RuntimeError(
+            "COURTVISION_PLAYER_DETECTOR_BACKEND must be one of "
+            f"{sorted(PLAYER_DETECTOR_BACKENDS)}"
+        )
+    if ball_backend not in BALL_DETECTOR_BACKENDS:
+        raise RuntimeError(
+            "COURTVISION_BALL_DETECTOR_BACKEND must be one of "
+            f"{sorted(BALL_DETECTOR_BACKENDS)}"
+        )
+
+    filenames = [
+        EBARD_MODEL_FILENAME
+        if player_backend == "ebard"
+        else PLAYER_MODEL_FILENAME,
+        BASE_MODEL_FILENAMES[0],
+    ]
+    if ball_backend in {"wasb", "hybrid"}:
+        filenames.append(WASB_MODEL_FILENAME)
+    if ball_backend in {"yolo", "hybrid"} and player_backend != "ebard":
+        filenames.append(BALL_MODEL_FILENAME)
+    filenames.append(BASE_MODEL_FILENAMES[1])
+    return tuple(filenames)
 
 
 def _update_job(table, job_id, status, stage):

@@ -1,21 +1,24 @@
 # CourtVision private beta on AWS
 
 This stack deploys the authenticated web control plane and its GPU compute
-plane. Flask on ECS Fargate is the default API runtime. The previous Lambda
-adapter remains selectable with `ApiRuntime=Lambda` as a rollback path, and
-both adapters use the same tested request handler.
+plane. The cost-optimized default runs the shared API request handler in AWS
+Lambda behind API Gateway. A Flask adapter on ECS Fargate remains selectable
+with `ApiRuntime=Flask`; both adapters expose the same tested API contract.
 
 ## Architecture
 
+- The production hostname is `courtvision.video`. The browser and API stay on
+  the same origin, with API requests routed under `https://courtvision.video/api/*`.
 - CloudFront serves the public landing page, permanent synthetic interface demo,
   and authenticated beta app from a private S3 bucket. It forwards `/api/*` to
-  a Flask container behind an Application Load Balancer. The ALB only accepts
-  traffic from the AWS-managed CloudFront origin-facing prefix list.
-- An allowlisted email receives a six-digit SES code. The API issues an
+  API Gateway and Lambda by default. Lambda invokes the same framework-neutral
+  request handler used by the Flask adapter, without an always-running server.
+- Users create an email-and-password account and confirm their address with a
+  Cognito-delivered code. The API issues an
   HttpOnly, Secure, SameSite=Strict session cookie after verification.
 - The browser uploads directly to a private artifact bucket through a bounded
   presigned POST policy.
-- Flask records jobs in DynamoDB and submits the worker container to an AWS
+- The API records jobs in DynamoDB and submits the worker container to an AWS
   Batch queue backed by managed GPU EC2 capacity.
 - The Batch entrypoint runs the bounded pipeline, uploads the annotated video
   and analysis manifest, and updates the job state.
@@ -28,14 +31,15 @@ both adapters use the same tested request handler.
 ## Prerequisites
 
 1. AWS SAM CLI and AWS CLI authenticated to the target account.
-2. A verified SES sender in the deployment region. Move SES out of sandbox or
-   verify every invited recipient during the earliest beta.
-3. Two ECR images: `Dockerfile.api` for Flask and `Dockerfile` for inference.
-4. A VPC with at least two public subnets for the ALB/Fargate service. The
-   worker subnets must have outbound access to ECR, S3, DynamoDB, and CloudWatch
+2. Amazon Cognito's built-in email delivery is used for account confirmation
+   and password recovery. Its default account quota is intended for low-volume
+   beta use.
+3. One ECR worker image built from `Dockerfile`. The Lambda API is packaged by
+   SAM and does not need an API container image.
+4. Worker subnets with outbound access to ECR, S3, DynamoDB, and CloudWatch
    Logs. For this staging layout, public worker subnets must assign public IPv4
-   addresses; production can move both services to private subnets with NAT or
-   VPC endpoints.
+   addresses; production can move workers to private subnets with NAT or VPC
+   endpoints.
 5. An EC2 On-Demand vCPU quota and GPU capacity for the selected instance type.
    The default is one `g4dn.xlarge` worth of capacity (`BatchMaxVcpus=4`).
 6. Budget alarms before raising `BatchMaxVcpus`.
@@ -43,47 +47,69 @@ both adapters use the same tested request handler.
 The template creates the task/job roles and scopes model reads to `models/*`,
 artifact reads/writes to `jobs/*`, and state updates to the jobs table.
 
-## Build and push the images
+## Build and push the worker image
 
-Create two ECR repositories, authenticate Docker, then build and push immutable
-tags. Replace the account and region placeholders:
+Create the worker ECR repository, authenticate Docker, then build and push an
+immutable tag. Replace the account and region placeholders:
+
+```powershell
+docker build -f Dockerfile -t ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-worker:COMMIT .
+docker push ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-worker:COMMIT
+```
+
+Only an opt-in `ApiRuntime=Flask` deployment also needs an API image:
 
 ```powershell
 docker build -f Dockerfile.api -t ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-api:COMMIT .
-docker build -f Dockerfile -t ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-worker:COMMIT .
 docker push ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-api:COMMIT
-docker push ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-worker:COMMIT
 ```
 
 The worker image intentionally excludes `.pt` files. The stack creates a
 private `ModelBucketName`; upload these exact keys after the first deploy:
 
 ```text
-models/player_detector.pt
+models/ebard_yolov8n.pt
 models/yolo11n-pose.pt
-models/ball_detector_model.pt
+models/wasb_basketball_torchscript.pt
 models/court_keypoint_detector.pt
 ```
 
 ## Deploy
 
+While CloudFront account verification is pending, keep the official static site
+on GitHub Pages and deploy only the AWS control plane by passing
+`EnableCloudFront=false`. This creates the Lambda/API Gateway endpoint, private
+artifact and model storage, job tables, and the scale-to-zero Batch queue without
+creating a second web host or CloudFront distribution.
+
 From the repository root:
 
 ```powershell
-sam build --template-file deploy/aws/template.yaml
+sam build `
+  --template-file deploy/aws/template.yaml `
+  --build-dir "$env:TEMP\courtvision-sam-build"
 sam deploy --guided `
+  --template-file "$env:TEMP\courtvision-sam-build\template.yaml" `
   --parameter-overrides `
-    SesFromEmail=beta@example.com `
-    ApiRuntime=Flask `
-    ApiImageUri=ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-api:COMMIT `
+    ApiRuntime=Lambda `
+    EnableCloudFront=false `
     WorkerImageUri=ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-worker:COMMIT `
+    AllowedWebOrigin=https://courtvision.video `
+    BallDetectorBackend=hybrid `
     VpcId=vpc-0123456789abcdef0 `
-    PublicSubnetIds=subnet-aaa,subnet-bbb `
-    WorkerSubnetIds=subnet-aaa,subnet-bbb `
-    CloudFrontOriginPrefixListId=pl-0123456789abcdef0
+    WorkerSubnetIds=subnet-aaa,subnet-bbb
 ```
 
-Find the managed prefix-list ID in the deployment region with:
+The external-hosting deployment deliberately leaves `web/config.js` in preview
+mode. Once GPU capacity and CloudFront are available, update the stack with
+`EnableCloudFront=true`, the custom domain and certificate parameters, then
+enable the authenticated analysis UI after an end-to-end check.
+
+To deploy the optional always-on Flask runtime, also pass `ApiImageUri`, at
+least two `PublicSubnetIds`, and the regional `CloudFrontOriginPrefixListId`.
+The template's Flask-only defaults are non-deployable sentinels because Lambda
+does not consume them; they must be replaced for Flask. Find the managed
+prefix-list ID with:
 
 ```powershell
 aws ec2 describe-managed-prefix-lists `
@@ -97,9 +123,9 @@ does not run inference. Before submitting a browser job, upload the local
 weights to the `ModelBucketName` output:
 
 ```powershell
-aws s3 cp backend/models/player_detector.pt "s3://MODEL_BUCKET/models/player_detector.pt"
+aws s3 cp backend/models/ebard_yolov8n.pt "s3://MODEL_BUCKET/models/ebard_yolov8n.pt"
 aws s3 cp backend/models/yolo11n-pose.pt "s3://MODEL_BUCKET/models/yolo11n-pose.pt"
-aws s3 cp backend/models/ball_detector_model.pt "s3://MODEL_BUCKET/models/ball_detector_model.pt"
+aws s3 cp backend/models/wasb_basketball_torchscript.pt "s3://MODEL_BUCKET/models/wasb_basketball_torchscript.pt"
 aws s3 cp backend/models/court_keypoint_detector.pt "s3://MODEL_BUCKET/models/court_keypoint_detector.pt"
 ```
 
@@ -117,40 +143,41 @@ check, set `authConnected: true` in `web/config.js` before the static upload.
 The public landing page keeps its beta sign-in links hidden unless that explicit
 flag is true on a non-local HTTPS origin.
 
-Add a beta user to the `BetaUsersTableName` output:
-
-```powershell
-aws dynamodb put-item `
-  --table-name TABLE_NAME `
-  --item '{"email":{"S":"analyst@example.com"},"enabled":{"BOOL":true}}'
-```
-
 ## Configurable limits
 
 `MaxUploadBytes`, `MaxDurationSeconds`, `TargetFps`, `MaxWidth`,
+`BallDetectorBackend`,
 `ResultRetentionSeconds`, `ArtifactRetentionDays`, and `ReportRetentionSeconds`
 are stack parameters. Changing them does not require a UI redesign. Keep the
 whole-day S3 lifecycle backstop aligned with the result-retention policy.
 
 ## Production checks
 
-- Configure a custom domain and ACM certificate before inviting users.
-- Add HTTPS from CloudFront to the ALB before treating this staging stack as a
-  production boundary. Viewer traffic is HTTPS now, while the restricted
-  CloudFront-to-ALB hop uses HTTP.
-- Replace the wildcard artifact-bucket CORS origin with the final application
-  origin after the first deployment.
-- Add beta users explicitly; there is no self-service signup path.
+- `courtvision.video` is registered at Porkbun. Use Porkbun DNS directly for
+  ACM validation and the final CloudFront alias; no nameserver transfer or
+  second CDN proxy is required.
+- Request and validate an ACM certificate for `courtvision.video` in
+  `us-east-1`, add the hostname and certificate to CloudFront, and redirect
+  `www.courtvision.video` to the apex before inviting users.
+- Keep the Lambda/API Gateway origin on HTTPS. If opting into Flask, add HTTPS
+  from CloudFront to the ALB before treating it as a production boundary.
+- Keep artifact-bucket CORS restricted to `https://courtvision.video`.
+- Monitor Cognito confirmation delivery and account-creation abuse. Move to a
+  dedicated transactional sender before the built-in daily quota becomes a
+  product constraint.
 - Verify an end-to-end job with real mounted models before opening access.
-- Confirm CloudWatch alarms for ECS task health, ALB 5xx responses, Batch
-  failures, queue age, and unexpected GPU runtime.
+- Create CloudWatch alarms for Lambda errors/throttles, API Gateway 5xx
+  responses, Batch failures, queue age, and unexpected GPU runtime. For an
+  opt-in Flask deployment, monitor ECS task health and ALB 5xx responses too.
+  The template creates log groups but does not currently provision these alarms.
 - Recheck the AWS Pricing Calculator and budget alarms before raising capacity.
 
-## Resume claim boundary
+## Cost posture
 
-After an actual end-to-end AWS run succeeds, the implementation supports the
-claim that the Flask backend submits video jobs to distributed inference
-workers on AWS EC2 through AWS Batch. FashionCLIP remains an optional text-label
-team-assignment path in `TeamAssigner`; the default web flow uses automatic or
-user-supplied jersey colors, so do not describe FashionCLIP as the default
-production classifier.
+The Lambda-first stack has no always-running API compute, load balancer, or API
+public IPv4 addresses. At light beta traffic, non-GPU services should remain in
+the low single-digit dollars per month before credits. The Batch environment has
+`MinvCpus=0`; the `g4dn.xlarge` worker is charged only while EC2 capacity is
+running. Selecting `ApiRuntime=Flask` adds the continuous Fargate, ALB, and
+public IPv4 baseline and should be reserved for sustained traffic that justifies
+it.

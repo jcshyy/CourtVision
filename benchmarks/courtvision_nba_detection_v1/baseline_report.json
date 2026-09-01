@@ -1,0 +1,59 @@
+{
+  "benchmark_id": "courtvision_nba_detection_v1",
+  "generated_at": "2026-08-07T01:24:48.979981+00:00",
+  "dataset": {
+    "images": 94,
+    "target_annotations": 88,
+    "category_counts": {
+      "ball": 88
+    },
+    "annotation_sha256": "18d2fb770b9f73725b7fd50b4ed8e525e5ddb90caf0fbbfa9e22261aa5ea5d7f"
+  },
+  "benchmark_integrity": {
+    "published_split_preserved": true,
+    "training_overlap_status": "unknown",
+    "training_overlap_note": "The current checkpoint names Basketball-Players-17 as its training data, but those source images are not available locally for a pixel or perceptual-hash overlap audit. Do not describe this benchmark as contamination-free until that audit is completed."
+  },
+  "model": {
+    "path": "backend\\models\\ball_detector_model.pt",
+    "class_ids": [
+      0
+    ],
+    "imgsz": 640
+  },
+  "metrics": {
+    "ap50": 0.6993673329487728,
+    "map50_95": 0.3666944363540766,
+    "ap_by_iou": {
+      "0.50": 0.6993673329487728,
+      "0.55": 0.6769617531750692,
+      "0.60": 0.6435176678000285,
+      "0.65": 0.5817591154012194,
+      "0.70": 0.4622499781076583,
+      "0.75": 0.37232026079032976,
+      "0.80": 0.17084560305003038,
+      "0.85": 0.05764718698561617,
+      "0.90": 0.0022754652820418907,
+      "0.95": 0.0
+    },
+    "fixed_confidence": 0.25,
+    "precision": 0.6320754716981132,
+    "recall": 0.7613636363636364,
+    "f1": 0.6907216494845361,
+    "true_positives": 67,
+    "false_positives": 39,
+    "false_negatives": 21,
+    "mean_center_error_px": 0.9333416347288207,
+    "median_center_error_px": 0.8495882513993852,
+    "recall_by_size": {
+      "small": 0.7613636363636364
+    },
+    "truth_count_by_size": {
+      "small": 88
+    },
+    "positive_images": 88,
+    "negative_images": 6,
+    "negative_frame_false_positives": 3,
+    "top_candidate_accuracy": 0.6931818181818182
+  }
+}

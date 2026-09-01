@@ -1,5 +1,10 @@
 import statistics
 
+from backend.app.analytics.possession_timeline import (
+    PossessionTimeline,
+    PossessionTimelineBuilder,
+)
+
 
 class PassInterceptionDetector:
     """Detects passes and interceptions using the reference repo's holder changes."""
@@ -12,8 +17,12 @@ class PassInterceptionDetector:
         minimum_loose_ball_confidence=0.5,
         minimum_catch_ball_confidence=0.45,
         minimum_catch_frames=3,
+        minimum_source_frames=1,
+        minimum_initial_source_frames=1,
         catch_confirmation_frames=30,
         reject_preexisting_competing_takeovers=True,
+        minimum_interception_player_separation=0.75,
+        event_team_hints=None,
     ):
         self.max_holder_gap_frames = max_holder_gap_frames
         self.team_lookup_frames = max(1, int(team_lookup_frames))
@@ -25,6 +34,11 @@ class PassInterceptionDetector:
             minimum_catch_ball_confidence
         )
         self.minimum_catch_frames = max(1, int(minimum_catch_frames))
+        self.minimum_source_frames = max(1, int(minimum_source_frames))
+        self.minimum_initial_source_frames = max(
+            self.minimum_source_frames,
+            int(minimum_initial_source_frames),
+        )
         self.catch_confirmation_frames = max(
             self.minimum_catch_frames,
             int(catch_confirmation_frames),
@@ -32,6 +46,16 @@ class PassInterceptionDetector:
         self.reject_preexisting_competing_takeovers = bool(
             reject_preexisting_competing_takeovers
         )
+        self.minimum_interception_player_separation = max(
+            0.0,
+            float(minimum_interception_player_separation),
+        )
+        self.event_team_hints = {
+            int(player_id): int(team_id)
+            for player_id, team_id in (event_team_hints or {}).items()
+            if int(team_id) in (1, 2)
+        }
+        self.last_possession_timeline = None
 
     def clean_transient_control_chains(
         self,
@@ -227,12 +251,30 @@ class PassInterceptionDetector:
         *,
         minimum_frame=0,
     ):
+        return self._holder_team_resolution(
+            player_assignment,
+            holder_id,
+            frame,
+            minimum_frame=minimum_frame,
+        )[0]
+
+    def _holder_team_resolution(
+        self,
+        player_assignment,
+        holder_id,
+        frame,
+        *,
+        minimum_frame=0,
+    ):
         start = max(minimum_frame, frame - self.team_lookup_frames + 1)
         for lookup_frame in range(frame, start - 1, -1):
             team_id = player_assignment[lookup_frame].get(holder_id)
             if team_id in (1, 2):
-                return team_id
-        return -1
+                return int(team_id), "frame_assignment"
+        hinted_team = self.event_team_hints.get(int(holder_id))
+        if hinted_team in (1, 2):
+            return hinted_team, "high_consensus_event_hint"
+        return -1, "unknown"
 
     def _interception_evidence_is_valid(
         self,
@@ -258,48 +300,58 @@ class PassInterceptionDetector:
         ball_tracks=None,
         player_tracks=None,
         discontinuity_frames=None,
+        possession_timeline=None,
     ):
-        """Interpret stable holder transitions as passes or interceptions."""
+        """Interpret confirmed possession segments as passes or interceptions."""
+        if possession_timeline is None:
+            possession_timeline = self.build_possession_timeline(
+                ball_acquisition,
+                holder_states=holder_states,
+                ball_tracks=ball_tracks,
+                player_tracks=player_tracks,
+                discontinuity_frames=discontinuity_frames,
+            )
+        elif not isinstance(possession_timeline, PossessionTimeline):
+            raise TypeError("possession_timeline must be a PossessionTimeline")
+        self.last_possession_timeline = possession_timeline
+        ball_acquisition = possession_timeline.acquisitions
         events = []
-        previous_holder = -1
-        previous_frame = -1
         discontinuities = _normalize_discontinuities(
             discontinuity_frames,
             len(ball_acquisition),
         )
-        segment_start = 0
-
-        for frame in range(1, len(ball_acquisition)):
-            if frame in discontinuities:
-                previous_holder = -1
-                previous_frame = -1
-                segment_start = frame
-            elif ball_acquisition[frame - 1] != -1:
-                previous_holder = ball_acquisition[frame - 1]
-                previous_frame = frame - 1
-
-            current_holder = ball_acquisition[frame]
-            if (
-                previous_holder == -1
-                or current_holder == -1
-                or previous_holder == current_holder
-                or not self._gap_is_valid(frame, previous_frame)
-            ):
+        for transition in possession_timeline.transitions:
+            if transition.get("status") != "confirmed":
+                transition["event_status"] = "rejected"
+                transition["event_rejection_reason"] = transition.get("reason")
                 continue
-            if (
-                segment_start > 0
-                and previous_frame - segment_start + 1
-                < self.minimum_catch_frames
-            ):
+            transition["event_status"] = "candidate"
+            transition.pop("event_rejection_reason", None)
+            previous_holder = int(transition["from_player_id"])
+            current_holder = int(transition["to_player_id"])
+            previous_frame = int(transition["release_frame"])
+            frame = int(transition["transition_frame"])
+            catch_frame = int(transition["catch_frame"])
+            segment_start = int(transition.get("segment_start", 0))
+            source_start = int(transition.get("source_start_frame", previous_frame))
+            if not self._gap_is_valid(catch_frame, previous_frame):
+                transition["event_status"] = "rejected"
+                transition["event_rejection_reason"] = "holder_gap_too_long"
                 continue
-
-            catch_frame = self._stable_catch_frame(
-                ball_acquisition,
-                frame,
-                current_holder,
-                discontinuities=discontinuities,
-            )
-            if catch_frame is None:
+            required_source_frames = self.minimum_source_frames
+            if source_start == segment_start:
+                required_source_frames = max(
+                    required_source_frames,
+                    self.minimum_initial_source_frames,
+                )
+            if segment_start > 0 and source_start == segment_start:
+                required_source_frames = max(
+                    required_source_frames,
+                    self.minimum_catch_frames,
+                )
+            if int(transition.get("source_support_frames") or 0) < required_source_frames:
+                transition["event_status"] = "rejected"
+                transition["event_rejection_reason"] = "source_control_too_short"
                 continue
             if (
                 self.reject_preexisting_competing_takeovers
@@ -311,26 +363,30 @@ class PassInterceptionDetector:
                     catch_frame,
                 )
             ):
+                transition["event_status"] = "rejected"
+                transition["event_rejection_reason"] = "ball_transition_not_credible"
                 continue
 
-            previous_team = self._holder_team(
+            previous_team, previous_team_source = self._holder_team_resolution(
                 player_assignment,
                 previous_holder,
                 previous_frame,
                 minimum_frame=segment_start,
             )
-            current_team = self._holder_team(
+            current_team, current_team_source = self._holder_team_resolution(
                 player_assignment,
                 current_holder,
                 catch_frame,
                 minimum_frame=segment_start,
             )
             if previous_team not in (1, 2) or current_team not in (1, 2):
+                transition["event_status"] = "rejected"
+                transition["event_rejection_reason"] = "team_assignment_unknown"
                 continue
 
             event_type = None
             if previous_team == current_team:
-                if not _is_rising_flythrough(
+                if _is_rising_flythrough(
                     ball_tracks,
                     player_tracks,
                     previous_holder,
@@ -338,18 +394,46 @@ class PassInterceptionDetector:
                     catch_frame,
                     self.minimum_catch_frames,
                 ):
+                    transition["event_status"] = "rejected"
+                    transition["event_rejection_reason"] = "rising_flythrough"
+                else:
                     event_type = "pass"
-            elif (
-                self._interception_evidence_is_valid(
+            else:
+                loose_evidence = self._interception_evidence_is_valid(
                     holder_states,
                     previous_frame,
                     frame,
                 )
-                and self._catch_evidence_is_valid(holder_states, catch_frame)
-            ):
-                event_type = "interception"
+                catch_evidence = self._catch_evidence_is_valid(
+                    holder_states,
+                    catch_frame,
+                )
+                close_range = _is_close_range_contested_turnover(
+                    player_tracks,
+                    previous_holder,
+                    current_holder,
+                    previous_frame,
+                    catch_frame,
+                    self.minimum_interception_player_separation,
+                    self.minimum_catch_frames,
+                )
+                if not loose_evidence:
+                    transition["event_status"] = "rejected"
+                    transition["event_rejection_reason"] = "no_observed_loose_ball"
+                elif not catch_evidence:
+                    transition["event_status"] = "rejected"
+                    transition["event_rejection_reason"] = "weak_catch_evidence"
+                elif close_range:
+                    transition["event_status"] = "rejected"
+                    transition["event_rejection_reason"] = (
+                        "brief_close_range_contested_takeover"
+                    )
+                else:
+                    event_type = "interception"
             if event_type is None:
                 continue
+            transition["event_status"] = "emitted"
+            transition["event_type"] = event_type
 
             events.append({
                 "type": event_type,
@@ -363,9 +447,63 @@ class PassInterceptionDetector:
                 "gap_frames": catch_frame - previous_frame - 1,
                 "transition_frame": frame,
                 "confirmation_frames": catch_frame - frame + 1,
+                "possession_evidence": {
+                    "source_support_frames": transition.get(
+                        "source_support_frames",
+                    ),
+                    "receiver_support_frames": transition.get(
+                        "receiver_support_frames",
+                    ),
+                    "observed_loose_frames": transition.get(
+                        "observed_loose_frames",
+                    ),
+                    "observed_flight_frames": transition.get(
+                        "observed_flight_frames",
+                    ),
+                    "interpolated_flight_frames": transition.get(
+                        "interpolated_flight_frames",
+                    ),
+                },
+                "team_resolution": {
+                    "from": previous_team_source,
+                    "to": current_team_source,
+                },
             })
 
         return events
+
+    def build_possession_timeline(
+        self,
+        ball_acquisition,
+        *,
+        holder_states=None,
+        ball_tracks=None,
+        player_tracks=None,
+        discontinuity_frames=None,
+    ):
+        """Build the causal possession timeline used by event detection."""
+        causal_acquisition = list(ball_acquisition)
+        if holder_states is not None:
+            # Retrospective possession recovery is useful for visualization,
+            # but it is hindsight rather than release/catch evidence.
+            causal_acquisition = _causal_event_acquisitions(
+                causal_acquisition,
+                holder_states,
+                ball_tracks=ball_tracks,
+                player_tracks=player_tracks,
+            )
+        builder = PossessionTimelineBuilder(
+            minimum_catch_frames=self.minimum_catch_frames,
+            catch_confirmation_frames=self.catch_confirmation_frames,
+        )
+        timeline = builder.build(
+            causal_acquisition,
+            holder_states=holder_states,
+            ball_tracks=ball_tracks,
+            discontinuity_frames=discontinuity_frames,
+        )
+        self.last_possession_timeline = timeline
+        return timeline
 
     def _stable_catch_frame(
         self,
@@ -412,11 +550,256 @@ class PassInterceptionDetector:
         )
 
 
+def _causal_event_acquisitions(
+    ball_acquisition,
+    holder_states,
+    *,
+    ball_tracks=None,
+    player_tracks=None,
+):
+    """Remove hindsight-only possession while retaining proven inner bridges."""
+    causal = list(ball_acquisition)
+    for frame, holder_id in enumerate(causal):
+        if frame >= len(holder_states):
+            continue
+        reason = holder_states[frame].get("reason")
+        if reason == "retrospective_holder_confirmation":
+            causal[frame] = -1
+        elif (
+            reason == "same_holder_gap_bridged"
+            and not _trusted_internal_holder_bridge(
+                frame,
+                holder_id,
+                ball_acquisition,
+                holder_states,
+                ball_tracks,
+                player_tracks,
+            )
+        ):
+            causal[frame] = -1
+    return causal
+
+
+def _trusted_internal_holder_bridge(
+    frame,
+    holder_id,
+    ball_acquisition,
+    holder_states,
+    ball_tracks,
+    player_tracks,
+    *,
+    maximum_midpoint_error=8.0,
+    maximum_height_error_fraction=0.08,
+):
+    """Trust one interpolated frame bounded by causal evidence for one holder."""
+    if (
+        holder_id in (-1, None)
+        or ball_tracks is None
+        or not 0 < frame < len(ball_acquisition) - 1
+        or len(ball_tracks) != len(ball_acquisition)
+        or ball_acquisition[frame - 1] != holder_id
+        or ball_acquisition[frame + 1] != holder_id
+    ):
+        return False
+    hindsight_reasons = {
+        "retrospective_holder_confirmation",
+        "same_holder_gap_bridged",
+    }
+    if (
+        holder_states[frame - 1].get("reason") in hindsight_reasons
+        or holder_states[frame + 1].get("reason") in hindsight_reasons
+    ):
+        return False
+
+    before = ball_tracks[frame - 1].get(1, {})
+    middle = ball_tracks[frame].get(1, {})
+    after = ball_tracks[frame + 1].get(1, {})
+    if (
+        before.get("interpolated", False)
+        or not middle.get("interpolated", False)
+        or after.get("interpolated", False)
+        or not before.get("bbox")
+        or not middle.get("bbox")
+        or not after.get("bbox")
+    ):
+        return False
+    segments = [
+        before.get("track_segment_id"),
+        middle.get("track_segment_id"),
+        after.get("track_segment_id"),
+    ]
+    if any(segment is None for segment in segments) or len(set(segments)) != 1:
+        return False
+    if any(
+        rejection.get("reason") == "persistent_competing_takeover_chain"
+        for info in (before, middle, after)
+        for rejection in info.get("candidate_rejections", [])
+    ):
+        return False
+
+    before_center = _bbox_center(before["bbox"])
+    middle_center = _bbox_center(middle["bbox"])
+    after_center = _bbox_center(after["bbox"])
+    expected_middle = (
+        (before_center[0] + after_center[0]) / 2.0,
+        (before_center[1] + after_center[1]) / 2.0,
+    )
+    midpoint_error = (
+        (middle_center[0] - expected_middle[0]) ** 2
+        + (middle_center[1] - expected_middle[1]) ** 2
+    ) ** 0.5
+    player_height = 0.0
+    if player_tracks is not None and frame < len(player_tracks):
+        player_bbox = player_tracks[frame].get(holder_id, {}).get("bbox")
+        if player_bbox:
+            player_height = max(0.0, float(player_bbox[3]) - float(player_bbox[1]))
+    allowed_error = max(
+        float(maximum_midpoint_error),
+        player_height * float(maximum_height_error_fraction),
+    )
+    return midpoint_error <= allowed_error
+
+
 def summarize_events(events):
     return {
         "passes": sum(event["type"] == "pass" for event in events),
         "interceptions": sum(event["type"] == "interception" for event in events),
     }
+
+
+def build_event_team_hints(
+    assignment_metadata,
+    *,
+    minimum_confident_observations=12,
+    minimum_agreement=0.75,
+    minimum_weight_share=0.75,
+):
+    """Recover conservative, event-only team hints for borderline tracks.
+
+    Automatic team assignment intentionally leaves inconsistent tracks unknown.
+    A pass boundary can still use a strong plurality when the dominant color
+    vote agrees on at least three quarters of the evidence.  The hint is not
+    written back to the possession timeline or rendered as a normal team label.
+    """
+    hints = {}
+    track_assignments = (assignment_metadata or {}).get("track_assignments", {})
+    for player_id, decision in track_assignments.items():
+        if (
+            decision.get("status") != "unknown"
+            or decision.get("reason") != "inconsistent_track_observations"
+            or int(decision.get("confident_observation_count") or 0)
+            < int(minimum_confident_observations)
+            or float(decision.get("agreement") or 0.0)
+            < float(minimum_agreement)
+            or float(decision.get("weight_share") or 0.0)
+            < float(minimum_weight_share)
+        ):
+            continue
+        weighted_votes = {
+            int(team_id): float(weight)
+            for team_id, weight in decision.get("team_vote_weights", {}).items()
+            if int(team_id) in (1, 2)
+        }
+        if not weighted_votes:
+            continue
+        winning_team = max(weighted_votes, key=weighted_votes.get)
+        total_weight = sum(weighted_votes.values())
+        if (
+            total_weight <= 0
+            or weighted_votes[winning_team] / total_weight
+            < float(minimum_weight_share)
+        ):
+            continue
+        hints[int(player_id)] = int(winning_team)
+    return hints
+
+
+def merge_corroborated_pass_events(
+    primary_events,
+    corroborating_events,
+    player_tracks,
+    *,
+    duplicate_window_frames=8,
+    minimum_player_separation=1.25,
+    minimum_gap_frames=1,
+):
+    """Add spatially credible fused-track passes to semantic-track events.
+
+    The fused E-BARD/WASB path has better flight continuity but more false
+    takeovers.  It may therefore supplement passes only: interceptions remain
+    semantic-only, close-range identity switches are rejected, and nearby
+    primary events win during deduplication.
+    """
+    merged = [
+        {"detection_source": "semantic_ball", **event}
+        for event in primary_events
+    ]
+    duplicate_window_frames = max(0, int(duplicate_window_frames))
+    minimum_gap_frames = max(0, int(minimum_gap_frames))
+    for event in corroborating_events:
+        if event.get("type") != "pass":
+            continue
+        if int(event.get("gap_frames") or 0) < minimum_gap_frames:
+            continue
+        separation = _player_transition_separation(
+            player_tracks,
+            event.get("from_player_id"),
+            event.get("to_player_id"),
+            event.get("release_frame"),
+            event.get("catch_frame"),
+        )
+        if separation is None or separation < float(minimum_player_separation):
+            continue
+        if any(
+            existing.get("type") == "pass"
+            and abs(
+                int(existing.get("frame_index", -10_000))
+                - int(event.get("frame_index", 10_000))
+            )
+            <= duplicate_window_frames
+            for existing in merged
+        ):
+            continue
+        merged.append({
+            "detection_source": "fused_ball_corroboration",
+            **event,
+            "player_separation_heights": round(float(separation), 4),
+        })
+    return sorted(merged, key=lambda event: int(event["frame_index"]))
+
+
+def _player_transition_separation(
+    player_tracks,
+    source_holder,
+    receiver_id,
+    release_frame,
+    catch_frame,
+):
+    if player_tracks is None:
+        return None
+    source_bbox = _nearby_player_bbox(
+        player_tracks,
+        source_holder,
+        int(release_frame),
+    )
+    receiver_bbox = _nearby_player_bbox(
+        player_tracks,
+        receiver_id,
+        int(catch_frame),
+    )
+    if source_bbox is None or receiver_bbox is None:
+        return None
+    source_height = float(source_bbox[3]) - float(source_bbox[1])
+    receiver_height = float(receiver_bbox[3]) - float(receiver_bbox[1])
+    scale = (source_height + receiver_height) / 2.0
+    if scale <= 0:
+        return None
+    source_center = _bbox_center(source_bbox)
+    receiver_center = _bbox_center(receiver_bbox)
+    return (
+        (receiver_center[0] - source_center[0]) ** 2
+        + (receiver_center[1] - source_center[1]) ** 2
+    ) ** 0.5 / scale
 
 
 def events_from_arrays(
@@ -593,6 +976,64 @@ def _relative_bbox_center(ball_bbox, player_bbox):
         (center_x - float(player_bbox[0])) / width,
         (center_y - float(player_bbox[1])) / height,
     )
+
+
+def _is_close_range_contested_turnover(
+    player_tracks,
+    source_holder,
+    receiver_id,
+    release_frame,
+    catch_frame,
+    minimum_separation,
+    minimum_loose_frames,
+    maximum_loose_frames=None,
+):
+    """Separate strips/contested recoveries from pass interceptions.
+
+    An interception implies that the defender took a pass. When the source
+    and new holder occupy the same small interaction area, the observable
+    event is instead a steal, strip, or contested recovery. The current event
+    schema has no safe subtype for those, so suppress the incorrect label.
+    """
+    loose_frames = catch_frame - release_frame - 1
+    if maximum_loose_frames is None:
+        maximum_loose_frames = max(6, int(minimum_loose_frames) * 3)
+    if (
+        player_tracks is None
+        or minimum_separation <= 0
+        or loose_frames < minimum_loose_frames
+        or loose_frames > maximum_loose_frames
+    ):
+        return False
+    if not (
+        0 <= release_frame < len(player_tracks)
+        and 0 <= catch_frame < len(player_tracks)
+    ):
+        return False
+    source_bbox = _nearby_player_bbox(
+        player_tracks,
+        source_holder,
+        release_frame,
+    )
+    receiver_bbox = _nearby_player_bbox(
+        player_tracks,
+        receiver_id,
+        catch_frame,
+    )
+    if source_bbox is None or receiver_bbox is None:
+        return False
+    source_height = float(source_bbox[3]) - float(source_bbox[1])
+    receiver_height = float(receiver_bbox[3]) - float(receiver_bbox[1])
+    scale = (source_height + receiver_height) / 2.0
+    if scale <= 0:
+        return False
+    source_center = _bbox_center(source_bbox)
+    receiver_center = _bbox_center(receiver_bbox)
+    separation = (
+        (receiver_center[0] - source_center[0]) ** 2
+        + (receiver_center[1] - source_center[1]) ** 2
+    ) ** 0.5 / scale
+    return separation < minimum_separation
 
 
 def _is_rising_flythrough(

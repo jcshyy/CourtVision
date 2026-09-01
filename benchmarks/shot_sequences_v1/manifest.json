@@ -1,0 +1,18 @@
+{
+  "annotations": "sequences.jsonl",
+  "clip_count": 19,
+  "name": "CourtVision shot sequences v1",
+  "note": "BARD provides ordered clip-level action labels, not event frames. Temporal fields remain null until frame-by-frame review.",
+  "sequence_count": 24,
+  "splits": {
+    "calibration": 13,
+    "holdout": 11
+  },
+  "styles": {
+    "blocked_shot": 3,
+    "close_range_or_midrange": 3,
+    "jump_shot": 9,
+    "layup": 6,
+    "putback": 3
+  }
+}

@@ -33,6 +33,8 @@ class BallHolderStateModel:
         minimum_score=0.42,
         ambiguity_margin=0.08,
         minimum_gap_ball_confidence=0.65,
+        recover_confirmed_run_starts=False,
+        bridge_confirmed_holder_gaps=False,
     ):
         self.confirmation_frames = max(1, int(confirmation_frames))
         self.max_missing_frames = max(0, int(max_missing_frames))
@@ -40,6 +42,8 @@ class BallHolderStateModel:
         self.minimum_score = float(minimum_score)
         self.ambiguity_margin = float(ambiguity_margin)
         self.minimum_gap_ball_confidence = float(minimum_gap_ball_confidence)
+        self.recover_confirmed_run_starts = bool(recover_confirmed_run_starts)
+        self.bridge_confirmed_holder_gaps = bool(bridge_confirmed_holder_gaps)
 
     def process(self, player_tracks, ball_tracks):
         if len(player_tracks) != len(ball_tracks):
@@ -277,6 +281,18 @@ class BallHolderStateModel:
                 reason, ball_confidence, round(candidate_distance, 3), 0,
             ).to_dict())
 
+        if self.recover_confirmed_run_starts:
+            states = _backfill_confirmed_run_starts(
+                states,
+                player_tracks=player_tracks,
+                ball_tracks=ball_tracks,
+                maximum_lookback=self.confirmation_frames + self.max_missing_frames,
+            )
+        if self.bridge_confirmed_holder_gaps:
+            states = _bridge_short_same_holder_gaps(
+                states,
+                maximum_gap=self.max_missing_frames,
+            )
         return states
 
     def _rank_candidates(
@@ -393,3 +409,153 @@ def _optional_float(value):
         return None
     value = float(value)
     return value if math.isfinite(value) else None
+
+
+def _backfill_confirmed_run_starts(
+    states,
+    *,
+    player_tracks,
+    ball_tracks,
+    maximum_lookback,
+    maximum_relative_delta=0.12,
+):
+    """Recover the evidence frames that led to a later confirmed holder.
+
+    This is an offline-only temporal refinement: a candidate is never promoted
+    unless the forward state machine subsequently confirms that same player.
+    Unsupported fly-through sequences never reach a confirmed state, so they
+    remain loose.
+    """
+    recovered = [dict(state) for state in states]
+    confirmation_reasons = {
+        "initial_holder_confirmed",
+        "holder_switch_confirmed",
+    }
+    compatible_reasons = {
+        "candidate_building",
+        "interpolated_ball_not_confirmable",
+    }
+    for frame_index, state in enumerate(states):
+        holder_id = state.get("holder_id")
+        if holder_id is None or state.get("reason") not in confirmation_reasons:
+            continue
+        start = max(0, frame_index - max(0, int(maximum_lookback)))
+        for prior_index in range(frame_index - 1, start - 1, -1):
+            prior = recovered[prior_index]
+            if prior.get("holder_id") is not None:
+                break
+            if (
+                prior.get("candidate_id") != holder_id
+                or prior.get("reason") not in compatible_reasons
+                or not _retrospective_position_is_stable(
+                    prior_index,
+                    frame_index,
+                    holder_id,
+                    player_tracks,
+                    ball_tracks,
+                    maximum_relative_delta,
+                )
+            ):
+                break
+            prior.update({
+                "holder_id": holder_id,
+                "state": "confirmed",
+                "confidence": min(
+                    float(state.get("confidence", 0.0)),
+                    float(prior.get("confidence", 0.0)),
+                ),
+                "reason": "retrospective_holder_confirmation",
+                "recovery_original_reason": prior.get("reason"),
+                "recovery_confirmation_frame": frame_index,
+                "frames_since_confirmed": 0,
+            })
+    return recovered
+
+
+def _retrospective_position_is_stable(
+    frame_index,
+    confirmation_frame,
+    holder_id,
+    player_tracks,
+    ball_tracks,
+    maximum_relative_delta,
+):
+    if not (
+        0 <= frame_index < len(player_tracks)
+        and 0 <= confirmation_frame < len(player_tracks)
+        and frame_index < len(ball_tracks)
+        and confirmation_frame < len(ball_tracks)
+    ):
+        return False
+
+    def relative(index):
+        player_bbox = player_tracks[index].get(holder_id, {}).get("bbox")
+        ball_bbox = ball_tracks[index].get(1, {}).get("bbox")
+        if not player_bbox or not ball_bbox:
+            return None
+        return _player_relative_position(bbox_center(ball_bbox), player_bbox)
+
+    current = relative(frame_index)
+    confirmed = relative(confirmation_frame)
+    if current is None or confirmed is None:
+        return False
+    # An approaching pass often first appears above or outside the receiver's
+    # body. Require a plausible control zone plus a stable player-relative
+    # location before extending the later confirmation backward.
+    if not (-0.25 <= current[0] <= 1.25 and 0.15 <= current[1] <= 1.1):
+        return False
+    delta = math.dist(current, confirmed)
+    return delta <= float(maximum_relative_delta)
+
+
+def _bridge_short_same_holder_gaps(states, *, maximum_gap):
+    """Preserve proven possession across short compatible observation gaps."""
+    bridged = [dict(state) for state in states]
+    maximum_gap = max(0, int(maximum_gap))
+    if maximum_gap == 0:
+        return bridged
+    compatible_reasons = {
+        "ball_missing",
+        "pending_candidate_ball_missing",
+        "interpolated_ball_not_confirmable",
+        "no_credible_candidate",
+    }
+    left = 0
+    while left < len(bridged):
+        holder_id = bridged[left].get("holder_id")
+        if holder_id is None:
+            left += 1
+            continue
+        right = left + 1
+        while right < len(bridged) and bridged[right].get("holder_id") is None:
+            right += 1
+        gap = right - left - 1
+        if (
+            0 < gap <= maximum_gap
+            and right < len(bridged)
+            and bridged[right].get("holder_id") == holder_id
+        ):
+            middle = bridged[left + 1 : right]
+            if all(
+                frame.get("reason") in compatible_reasons
+                and frame.get("candidate_id") in (None, holder_id)
+                for frame in middle
+            ):
+                boundary_confidence = min(
+                    float(bridged[left].get("confidence", 0.0)),
+                    float(bridged[right].get("confidence", 0.0)),
+                )
+                for offset, frame in enumerate(middle, start=1):
+                    frame.update({
+                        "holder_id": holder_id,
+                        "state": "confirmed",
+                        "confidence": round(
+                            boundary_confidence
+                            * max(0.5, 1.0 - offset / (gap + 1)),
+                            4,
+                        ),
+                        "reason": "same_holder_gap_bridged",
+                        "frames_since_confirmed": offset,
+                    })
+        left = max(left + 1, right)
+    return bridged

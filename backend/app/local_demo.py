@@ -117,6 +117,22 @@ class LocalJobStore:
             temporary.write_text(json.dumps(job, indent=2) + "\n", encoding="utf-8")
             temporary.replace(path)
 
+    def list_recent(self, limit=25):
+        now = int(time.time())
+        jobs = []
+        with self._lock:
+            paths = list(self.jobs_root.glob("*/job.json"))
+            for path in paths:
+                try:
+                    job = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    LOGGER.warning("Skipping unreadable local job record: %s", path)
+                    continue
+                if int(job.get("expiresAt", 0)) > now:
+                    jobs.append(job)
+        jobs.sort(key=lambda item: int(item.get("createdAt", 0)), reverse=True)
+        return jobs[:limit]
+
     def update(self, job_id, **changes):
         with self._lock:
             job = self.read(job_id)
@@ -201,6 +217,10 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
         require_csrf()
         return api_response({"signedOut": True})
 
+    @app.get("/api/jobs")
+    def list_jobs():
+        return api_response({"jobs": [_public_job(job) for job in store.list_recent()]})
+
     @app.post("/api/jobs")
     def create_job():
         require_csrf()
@@ -261,7 +281,30 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
             raise ApiError(400, "Choose two six-digit jersey colors.", code="invalid_team_colors")
         if first == second:
             raise ApiError(400, "Choose two distinct jersey colors.", code="invalid_team_colors")
-        store.update(job_id, team1Color=first, team2Color=second)
+        store.update(
+            job_id,
+            team1Color=first,
+            team2Color=second,
+            allowUncertainTeams=False,
+        )
+        return api_response({"job": _public_job(submit(job_id))}, 202)
+
+    @app.post("/api/jobs/<job_id>/continue-with-uncertain-teams")
+    def continue_with_uncertain_teams(job_id):
+        require_csrf()
+        job = store.read(job_id)
+        if not _can_change_team_colors(job):
+            raise ApiError(
+                409,
+                "Team assignment is not waiting for a decision.",
+                code="team_decision_not_required",
+            )
+        store.update(
+            job_id,
+            team1Color=None,
+            team2Color=None,
+            allowUncertainTeams=True,
+        )
         return api_response({"job": _public_job(submit(job_id))}, 202)
 
     @app.get("/api/jobs/<job_id>/download")
@@ -406,8 +449,8 @@ def _execute_job(store, job_id, runner):
                 status="needs_team_colors",
                 stage="Team colors required",
                 teamColorReason=str(
-                    detail.get("reason")
-                    or detail.get("message")
+                    detail.get("message")
+                    or detail.get("reason")
                     or "Automatic jersey discovery was uncertain."
                 )[:1000],
             )
@@ -452,9 +495,15 @@ def _run_pipeline(job, source, output, analysis, cache, update_stage):
         str(_env_float("TARGET_FPS", 30)),
         "--max-width",
         str(_env_int("MAX_WIDTH", 1280)),
+        "--player-detector-backend",
+        os.getenv("COURTVISION_PLAYER_DETECTOR_BACKEND", "ebard"),
+        "--ball-detector-backend",
+        os.getenv("COURTVISION_BALL_DETECTOR_BACKEND", "hybrid"),
     ]
     if job.get("team1Color") and job.get("team2Color"):
         command.extend(["--team-1-color", job["team1Color"], "--team-2-color", job["team2Color"]])
+    if job.get("allowUncertainTeams"):
+        command.append("--allow-uncertain-teams")
 
     process = subprocess.Popen(
         command,

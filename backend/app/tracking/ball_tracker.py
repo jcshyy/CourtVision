@@ -2,7 +2,8 @@ import numpy as np
 import supervision as sv
 from ultralytics import YOLO
 
-from backend.app.config import BALL_DETECTOR_PATH
+from backend.app.config import BALL_DETECTOR_PATH, WASB_BALL_DETECTOR_PATH
+from backend.app.detection.wasb_ball_detector import WasbBallDetector
 from backend.app.utils import load_cache, save_cache
 
 BALL_DETECTION_IMAGE_SIZE = 640
@@ -13,15 +14,94 @@ BALL_ADAPTIVE_TRIGGER_CONFIDENCE = 0.55
 BALL_ADAPTIVE_MAX_CROPS_PER_FRAME = 4
 BALL_TRACKING_CACHE_VERSION = "v6_adaptive_roi_full_pass"
 BALL_ADAPTIVE_CACHE_VERSION = "v2_gated_predicted_hand_rim_conf050"
+BALL_DETECTOR_BACKENDS = ("yolo", "wasb", "hybrid")
+WASB_INTEGRATION_VERSION = "wasb_hrnet_step1_v1"
+SOURCE_AWARE_HYBRID_VERSION = "wasb_hrnet_step1_source_aware_v2"
+EBARD_BALL_CACHE_VERSION = "v7_ebard_shared_scene"
+EBARD_HYBRID_CACHE_VERSION = "v7_ebard_wasb_shared_scene"
+EBARD_ADAPTIVE_CACHE_VERSION = "v3_ebard_shared_scene"
+EBARD_ADAPTIVE_HYBRID_CACHE_VERSION = "v3_ebard_wasb_shared_scene"
+BALL_CLASS_ALIASES = {"ball", "basketball"}
+HOOP_CLASS_ALIASES = {"hoop", "rim"}
 
 
 class BallTracker:
     """Detects and filters basketball positions using the reference repo flow."""
 
-    def __init__(self, model_path=BALL_DETECTOR_PATH):
-        self.model = YOLO(model_path)
+    def __init__(
+        self,
+        model_path=BALL_DETECTOR_PATH,
+        *,
+        detector_backend="yolo",
+        wasb_model_path=WASB_BALL_DETECTOR_PATH,
+        semantic_model=None,
+        semantic_detector_backend="current",
+    ):
+        if detector_backend not in BALL_DETECTOR_BACKENDS:
+            raise ValueError(
+                f"Unknown ball detector backend {detector_backend!r}; "
+                f"expected one of {BALL_DETECTOR_BACKENDS}"
+            )
+        self.detector_backend = detector_backend
+        self.semantic_detector_backend = semantic_detector_backend
+        self.model = (
+            (semantic_model or YOLO(model_path))
+            if detector_backend in ("yolo", "hybrid")
+            else None
+        )
+        self.wasb_detector = (
+            WasbBallDetector(wasb_model_path)
+            if detector_backend in ("wasb", "hybrid")
+            else None
+        )
+
+    @property
+    def cache_version(self):
+        if self.semantic_detector_backend == "ebard":
+            return (
+                EBARD_HYBRID_CACHE_VERSION
+                if self.detector_backend == "hybrid"
+                else EBARD_BALL_CACHE_VERSION
+                if self.detector_backend == "yolo"
+                else f"{BALL_TRACKING_CACHE_VERSION}_{self.detector_backend}"
+            )
+        if self.detector_backend == "yolo":
+            return BALL_TRACKING_CACHE_VERSION
+        if self.detector_backend == "hybrid":
+            return (
+                f"{BALL_TRACKING_CACHE_VERSION}_hybrid_"
+                f"{SOURCE_AWARE_HYBRID_VERSION}"
+            )
+        return (
+            f"{BALL_TRACKING_CACHE_VERSION}_{self.detector_backend}_"
+            f"{WASB_INTEGRATION_VERSION}"
+        )
+
+    @property
+    def adaptive_cache_version(self):
+        if self.semantic_detector_backend == "ebard":
+            return (
+                EBARD_ADAPTIVE_HYBRID_CACHE_VERSION
+                if self.detector_backend == "hybrid"
+                else EBARD_ADAPTIVE_CACHE_VERSION
+                if self.detector_backend == "yolo"
+                else f"{BALL_ADAPTIVE_CACHE_VERSION}_{self.detector_backend}"
+            )
+        if self.detector_backend == "yolo":
+            return BALL_ADAPTIVE_CACHE_VERSION
+        if self.detector_backend == "hybrid":
+            return (
+                f"{BALL_ADAPTIVE_CACHE_VERSION}_hybrid_"
+                f"{SOURCE_AWARE_HYBRID_VERSION}"
+            )
+        return (
+            f"{BALL_ADAPTIVE_CACHE_VERSION}_{self.detector_backend}_"
+            f"{WASB_INTEGRATION_VERSION}"
+        )
 
     def detect_frames(self, frames):
+        if self.model is None:
+            raise RuntimeError("YOLO detection is disabled for the WASB-only backend")
         detections = []
 
         for start in range(0, len(frames), BALL_DETECTION_BATCH_SIZE):
@@ -42,25 +122,58 @@ class BallTracker:
         read_from_cache=False,
         cache_path=None,
         player_tracks=None,
+        detections=None,
+        detections_provider=None,
     ):
         tracks = load_cache(cache_path, enabled=read_from_cache) if cache_path else None
         if tracks is not None and len(tracks) == len(frames):
             return tracks
 
-        detections = self.detect_frames(frames)
-        candidate_frames = []
-        rim_frames = []
-        for detection in detections:
-            candidate_frames.append([
-                {**item, "detection_source": "full_frame"}
-                for item in _named_detections(detection, "Ball")
-            ])
-            rim_frames.append(_named_detections(detection, "Hoop"))
+        candidate_frames = [[] for _ in frames]
+        semantic_candidate_frames = [[] for _ in frames]
+        rim_frames = [[] for _ in frames]
+        if self.model is not None:
+            if detections is None:
+                detections = (
+                    detections_provider()
+                    if detections_provider is not None
+                    else self.detect_frames(frames)
+                )
+            if len(detections) != len(frames):
+                raise ValueError("Ball detections and video frames must align")
+            for frame_index, detection in enumerate(detections):
+                candidate_frames[frame_index] = [
+                    {
+                        **item,
+                        "detection_source": (
+                            f"{self.semantic_detector_backend}_full_frame"
+                        ),
+                    }
+                    for item in _named_detections(detection, "Ball")
+                ]
+                semantic_candidate_frames[frame_index] = [
+                    dict(item) for item in candidate_frames[frame_index]
+                ]
+                rim_frames[frame_index] = _named_detections(detection, "Hoop")
+        if self.wasb_detector is not None:
+            wasb_frames = self.wasb_detector.detect_frames(frames, step=1)
+            candidate_frames = [
+                _merge_ball_candidates(yolo_candidates, wasb_candidates)
+                for yolo_candidates, wasb_candidates in zip(
+                    candidate_frames,
+                    wasb_frames,
+                )
+            ]
 
         tracks = _select_ball_track(candidate_frames, player_tracks)
-        for frame, rims in zip(tracks, rim_frames):
+        for frame_index, (frame, rims) in enumerate(zip(tracks, rim_frames)):
             frame[1]["rim_regions"] = [dict(rim) for rim in rims]
             frame[1]["adaptive_second_pass_completed"] = False
+            if self.detector_backend == "hybrid":
+                frame[1]["semantic_raw_candidates"] = [
+                    dict(candidate)
+                    for candidate in semantic_candidate_frames[frame_index]
+                ]
 
         if cache_path:
             save_cache(cache_path, tracks)
@@ -82,6 +195,15 @@ class BallTracker:
         cached = load_cache(cache_path, enabled=read_from_cache) if cache_path else None
         if cached is not None and len(cached) == len(frames):
             return cached
+        if self.model is None:
+            for frame in ball_tracks:
+                info = frame.setdefault(1, {})
+                info["adaptive_second_pass_completed"] = False
+                info["adaptive_crop_count"] = 0
+                info["adaptive_candidates_added"] = 0
+            if cache_path:
+                save_cache(cache_path, ball_tracks)
+            return ball_tracks
 
         requests = _adaptive_crop_requests(frames, ball_tracks, player_tracks)
         crops = [
@@ -150,10 +272,190 @@ class BallTracker:
             info["adaptive_second_pass_completed"] = True
             info["adaptive_crop_count"] = crop_counts[frame_index]
             info["adaptive_candidates_added"] = len(adaptive_candidates[frame_index])
+            if self.detector_backend == "hybrid":
+                semantic_candidates = original_info.get(
+                    "semantic_raw_candidates",
+                    [
+                        candidate
+                        for candidate in original_info.get("raw_candidates", [])
+                        if not _is_wasb_candidate(candidate)
+                    ],
+                )
+                info["semantic_raw_candidates"] = _merge_ball_candidates(
+                    semantic_candidates,
+                    adaptive_candidates[frame_index],
+                )
 
         if cache_path:
             save_cache(cache_path, enhanced)
         return enhanced
+
+    @staticmethod
+    def build_semantic_tracks(
+        ball_positions,
+        player_tracks=None,
+        *,
+        fused_tracks=None,
+        discontinuity_frames=None,
+        rescue_max_distance=35.0,
+        minimum_wasb_confirmation_frames=3,
+    ):
+        """Build a YOLO-anchored track for possession and event decisions.
+
+        The fused track remains the geometric/display result. WASB may replace
+        a bounded YOLO interpolation when it agrees with that interpolation.
+        A rescue stays non-confirmable unless multiple consecutive frames also
+        carry consistent hand evidence for the same player.
+        """
+        if player_tracks is None:
+            player_tracks = [{} for _ in ball_positions]
+        if len(player_tracks) != len(ball_positions):
+            raise ValueError("Player and semantic ball tracks must align")
+        if fused_tracks is not None and len(fused_tracks) != len(ball_positions):
+            raise ValueError("Fused and semantic ball tracks must align")
+
+        semantic_positions = []
+        for frame in ball_positions:
+            info = frame.get(1, {})
+            candidates = info.get("semantic_raw_candidates")
+            if candidates is None:
+                candidates = [
+                    candidate
+                    for candidate in info.get(
+                        "raw_candidates",
+                        info.get("candidates", []),
+                    )
+                    if not _is_wasb_candidate(candidate)
+                ]
+            semantic_positions.append({1: {
+                "raw_candidates": [dict(candidate) for candidate in candidates],
+                "candidates": [dict(candidate) for candidate in candidates],
+                "rim_regions": [dict(rim) for rim in info.get("rim_regions", [])],
+                "semantic_track": True,
+            }})
+
+        filtered = BallTracker.remove_wrong_detections(
+            None,
+            semantic_positions,
+            player_tracks=player_tracks,
+            discontinuity_frames=discontinuity_frames,
+        )
+        semantic_tracks = BallTracker.interpolate_positions(
+            None,
+            filtered,
+            discontinuity_frames=discontinuity_frames,
+        )
+        # Filtering and interpolation rebuild frame dictionaries around the
+        # selected ball. Keep scene context that event classifiers need; it
+        # must never affect candidate selection itself.
+        for frame_index, semantic_frame in enumerate(semantic_tracks):
+            semantic_frame.setdefault(1, {})["rim_regions"] = [
+                dict(rim)
+                for rim in semantic_positions[frame_index]
+                .get(1, {})
+                .get("rim_regions", [])
+            ]
+        if fused_tracks is None:
+            return semantic_tracks
+
+        for frame_index, (semantic_frame, fused_frame) in enumerate(
+            zip(semantic_tracks, fused_tracks)
+        ):
+            semantic_info = semantic_frame.get(1, {})
+            fused_info = fused_frame.get(1, {})
+            rescue_distance = (
+                math_dist(
+                    _bbox_center(semantic_info["bbox"]),
+                    _bbox_center(fused_info["bbox"]),
+                )
+                if semantic_info.get("bbox") and fused_info.get("bbox")
+                else None
+            )
+            if (
+                (
+                    semantic_info.get("bbox")
+                    and not semantic_info.get("interpolated", False)
+                )
+                or fused_info.get("interpolated", False)
+                or not _is_wasb_candidate(fused_info)
+                or not fused_info.get("bbox")
+                or (
+                    rescue_distance is not None
+                    and rescue_distance > rescue_max_distance
+                )
+            ):
+                continue
+            hand_pose = _nearest_hand_pose_evidence(
+                fused_info["bbox"],
+                player_tracks[frame_index],
+            )
+            if not semantic_info.get("bbox") and not hand_pose.get("supported", False):
+                continue
+            semantic_info.update({
+                "bbox": list(fused_info["bbox"]),
+                "confidence": None,
+                "interpolated": True,
+                "position_source": "wasb_guarded_rescue",
+                "detection_source": fused_info.get(
+                    "detection_source",
+                    "wasb_temporal",
+                ),
+                "semantic_confirmable": False,
+                "wasb_rescue_distance_px": rescue_distance,
+                "wasb_rescue_confidence": fused_info.get("confidence"),
+                "hand_pose_available": hand_pose.get("available", False),
+                "hand_pose_supported": hand_pose.get("supported", False),
+                "hand_pose_distance": hand_pose.get("normalized_distance"),
+                "hand_pose_player_id": hand_pose.get("player_id"),
+            })
+
+        supported_streak = []
+        supported_player_id = None
+        for frame_index, semantic_frame in enumerate(semantic_tracks):
+            info = semantic_frame.get(1, {})
+            hand_player_id = info.get("hand_pose_player_id")
+            hand_supported = bool(info.get("hand_pose_supported", False))
+            if not info.get("bbox") or not hand_supported or hand_player_id is None:
+                supported_streak = []
+                supported_player_id = None
+                continue
+            transition_is_consistent = (
+                not supported_streak
+                or (
+                    supported_streak[-1] == frame_index - 1
+                    and supported_player_id == hand_player_id
+                    and _hand_track_transition_is_consistent(
+                        semantic_tracks[supported_streak[-1]].get(1, {}),
+                        info,
+                        player_tracks[frame_index].get(hand_player_id, {}),
+                    )
+                )
+            )
+            if not transition_is_consistent:
+                supported_streak = []
+            if not supported_streak:
+                supported_player_id = hand_player_id
+            supported_streak.append(frame_index)
+            if len(supported_streak) < minimum_wasb_confirmation_frames:
+                continue
+            for supported_frame_index in supported_streak:
+                supported_info = semantic_tracks[supported_frame_index].get(1, {})
+                if supported_info.get("position_source") != "wasb_guarded_rescue":
+                    continue
+                wasb_confidence = supported_info.get("wasb_rescue_confidence")
+                calibrated_confidence = (
+                    max(0.45, min(0.75, float(wasb_confidence) * 0.75))
+                    if wasb_confidence is not None
+                    else 0.45
+                )
+                supported_info.update({
+                    "confidence": calibrated_confidence,
+                    "interpolated": False,
+                    "position_source": "wasb_hand_confirmed",
+                    "semantic_confirmable": True,
+                    "wasb_confirmation_frames": len(supported_streak),
+                })
+        return semantic_tracks
 
     def remove_wrong_detections(
         self,
@@ -404,11 +706,18 @@ class BallTracker:
 
 def _named_detections(result, class_name):
     class_names = getattr(result, "names", {})
+    aliases = (
+        BALL_CLASS_ALIASES
+        if class_name.lower() in BALL_CLASS_ALIASES
+        else HOOP_CLASS_ALIASES
+        if class_name.lower() in HOOP_CLASS_ALIASES
+        else {class_name.lower()}
+    )
     target_id = next(
         (
             class_id
             for class_id, name in class_names.items()
-            if str(name).lower() == class_name.lower()
+            if str(name).strip().lower() in aliases
         ),
         None,
     )
@@ -580,6 +889,10 @@ def _bbox_iou(first, second):
 
 def math_dist(first, second):
     return float(np.linalg.norm(np.asarray(first, dtype=float) - np.asarray(second, dtype=float)))
+
+
+def _is_wasb_candidate(candidate):
+    return str(candidate.get("detection_source", "")).startswith("wasb")
 
 
 def _merge_ball_candidates(full_candidates, adaptive_candidates, maximum_candidates=12):
@@ -1674,6 +1987,28 @@ def _central_upper_player_id(ball_bbox, players):
         if 0.15 <= relative_x <= 0.85 and 0.10 <= relative_y <= 0.40:
             containing.append((width * height, player_id))
     return min(containing)[1] if containing else None
+
+
+def _hand_track_transition_is_consistent(
+    previous_ball,
+    current_ball,
+    player,
+    *,
+    maximum_player_height_fraction=0.35,
+):
+    previous_bbox = previous_ball.get("bbox")
+    current_bbox = current_ball.get("bbox")
+    player_bbox = player.get("bbox")
+    if not previous_bbox or not current_bbox or not player_bbox:
+        return False
+    player_height = float(player_bbox[3]) - float(player_bbox[1])
+    if player_height <= 0:
+        return False
+    displacement = math_dist(
+        _bbox_center(previous_bbox),
+        _bbox_center(current_bbox),
+    )
+    return displacement / player_height <= maximum_player_height_fraction
 
 
 def _nearest_hand_pose_evidence(

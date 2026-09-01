@@ -1,0 +1,30 @@
+{
+  "benchmark_id": "courtvision_nba_detection_v1",
+  "task": "nba_ball_object_detection",
+  "source": {
+    "name": "basketball-player-detection-3",
+    "provider": "Roboflow Universe",
+    "project": "roboflow-jvuqo/basketball-player-detection-3-ycjdo",
+    "version": 6,
+    "url": "https://universe.roboflow.com/roboflow-jvuqo/basketball-player-detection-3-ycjdo/dataset/6",
+    "license": "CC BY 4.0",
+    "archive_sha256": "a85f3e27c4018f8358f3e16a064022fb9080dab339742f9e5922cfc97be4447f"
+  },
+  "evaluation_split": "test",
+  "annotation_path": "data/test/_annotations.coco.json",
+  "annotation_sha256": "18d2fb770b9f73725b7fd50b4ed8e525e5ddb90caf0fbbfa9e22261aa5ea5d7f",
+  "target_categories": [
+    "ball"
+  ],
+  "expected": {
+    "images": 94,
+    "target_annotations": 88,
+    "image_width": 640,
+    "image_height": 640
+  },
+  "integrity": {
+    "published_split_preserved": true,
+    "training_overlap_status": "unknown",
+    "training_overlap_note": "The current checkpoint names Basketball-Players-17 as its training data, but those source images are not available locally for a pixel or perceptual-hash overlap audit. Do not describe this benchmark as contamination-free until that audit is completed."
+  }
+}

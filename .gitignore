@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 
 .env
+.aws-sam/
+.notes/
 .venv/
 venv/
 
@@ -10,6 +12,11 @@ output_videos/
 holdout_sources/
 holdout_videos/
 runs/
+tmp/
+benchmarks/courtvision_nba_detection_v1/data/
+benchmarks/courtvision_nba_detection_v1/training_yolo/
+benchmarks/ebard_team_attribution/data/
+benchmarks/ebard_detection/data/
 
 *.mp4
 *.avi

@@ -115,6 +115,16 @@ class LocalDemoTests(unittest.TestCase):
         analysis.close()
         video.close()
 
+    def test_recent_jobs_lists_retained_jobs(self):
+        job_id = self.create_job()
+
+        response = self.client.get("/api/jobs")
+
+        self.assertEqual(response.status_code, 200)
+        jobs = response.get_json()["jobs"]
+        self.assertEqual([job["id"] for job in jobs], [job_id])
+        self.assertEqual(jobs[0]["filename"], "clip.mp4")
+
     def test_team_color_retry_uses_the_same_uploaded_job(self):
         attempts = []
 
@@ -171,6 +181,62 @@ class LocalDemoTests(unittest.TestCase):
         self.assertEqual(retried.status_code, 202)
         self.assertEqual(completed["status"], "complete")
         self.assertEqual(attempts[-1]["team1Color"], "#FFFFFF")
+
+    def test_uncertain_team_continuation_retries_the_same_uploaded_job(self):
+        attempts = []
+
+        def runner(job, _source, output, analysis, _cache, _update_stage):
+            attempts.append(dict(job))
+            if not job.get("allowUncertainTeams"):
+                return subprocess.CompletedProcess(
+                    [],
+                    2,
+                    '{"status":"needs_team_colors","reason":"too many unknown players"}',
+                )
+            output.write_bytes(b"video")
+            analysis.write_text(
+                '{"schemaVersion":1,"source":{"durationSeconds":1},"events":[],"frames":[]}',
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess([], 0, "complete")
+
+        app = create_app(
+            data_root=Path(self.temp.name) / "uncertain",
+            pipeline_runner=runner,
+            run_jobs_inline=True,
+        )
+        app.config.update(TESTING=True)
+        client = app.test_client()
+        created = client.post(
+            "/api/jobs",
+            headers=self.csrf_headers(),
+            json={
+                "filename": "clip.mp4",
+                "contentType": "video/mp4",
+                "sizeBytes": 5,
+                "durationSeconds": 1,
+            },
+        ).get_json()
+        job_id = created["job"]["id"]
+        client.post(
+            created["upload"]["url"],
+            data={"file": (io.BytesIO(b"video"), "clip.mp4")},
+            content_type="multipart/form-data",
+        )
+        client.post(f"/api/jobs/{job_id}/start", headers=self.csrf_headers(), json={})
+
+        continued = client.post(
+            f"/api/jobs/{job_id}/continue-with-uncertain-teams",
+            headers=self.csrf_headers(),
+            json={},
+        )
+        completed = client.get(f"/api/jobs/{job_id}").get_json()["job"]
+
+        self.assertEqual(continued.status_code, 202)
+        self.assertEqual(completed["status"], "complete")
+        self.assertEqual(len(attempts), 2)
+        self.assertTrue(attempts[-1]["allowUncertainTeams"])
+        self.assertIsNone(attempts[-1]["team1Color"])
 
     def test_server_supplies_local_config_and_application(self):
         config = self.client.get("/config.js")
