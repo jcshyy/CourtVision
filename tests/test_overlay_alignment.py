@@ -38,6 +38,19 @@ class OverlayAlignmentTests(unittest.TestCase):
         )
         self.assertIsNone(drawer.get_recent_event(4, passes, interceptions))
 
+    def test_event_drawer_prioritizes_recent_shot(self):
+        drawer = PassInterceptionDrawer(event_display_frames=3)
+        result = drawer.get_recent_event(
+            2,
+            [-1, 1, -1],
+            [-1, -1, -1],
+            [-1, -1, 2],
+            [-1, -1, -1],
+        )
+
+        self.assertEqual(result["type"], "shot")
+        self.assertEqual(result["team_id"], 2)
+
     def test_possession_percentages_exclude_unknown_frames(self):
         percentages = TeamBallControlDrawer().get_control_percentages(
             np.array([-1, -1, 1, 1, 1, 2])

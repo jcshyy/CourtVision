@@ -2,10 +2,18 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
-from main import events_to_overlay_arrays, filter_ball_tracks_with_pose, write_analysis_manifest
+from main import (
+    SharedSceneDetections,
+    events_to_overlay_arrays,
+    filter_ball_tracks_with_pose,
+    parse_args,
+    shot_events_to_overlay_arrays,
+    write_analysis_manifest,
+)
 
 
 class _PoseDetector:
@@ -58,6 +66,44 @@ class _BallTracker:
 
 
 class MainPipelineTests(unittest.TestCase):
+    def test_cli_defaults_to_shared_ebard_plus_wasb_hybrid(self):
+        with patch("sys.argv", ["main.py", "clip.mp4"]):
+            args = parse_args()
+
+        self.assertEqual(args.player_detector_backend, "ebard")
+        self.assertEqual(args.ball_detector_backend, "hybrid")
+
+    def test_legacy_player_flag_remains_a_scene_backend_alias(self):
+        with patch(
+            "sys.argv",
+            ["main.py", "clip.mp4", "--player-detector-backend", "current"],
+        ):
+            args = parse_args()
+
+        self.assertEqual(args.player_detector_backend, "current")
+
+    def test_shared_scene_detections_are_lazy_and_memoized(self):
+        class Detector:
+            def __init__(self):
+                self.calls = 0
+
+            def detect_frames(self, frames):
+                self.calls += 1
+                return [f"result-{index}" for index, _ in enumerate(frames)]
+
+        detector = Detector()
+        shared = SharedSceneDetections(detector, [object(), object()])
+
+        first = shared()
+        second = shared()
+
+        self.assertIs(first, second)
+        self.assertEqual(first, ["result-0", "result-1"])
+        self.assertEqual(detector.calls, 1)
+        shared.clear()
+        shared()
+        self.assertEqual(detector.calls, 2)
+
     def test_render_keeps_compact_event_huds_but_not_tactical_view_in_video(self):
         source = (Path(__file__).resolve().parents[1] / "main.py").read_text(encoding="utf-8")
 
@@ -76,6 +122,25 @@ class MainPipelineTests(unittest.TestCase):
 
         self.assertEqual(passes, [-1, 1, -1, -1, -1])
         self.assertEqual(interceptions, [-1, -1, -1, 2, -1])
+
+    def test_shot_attempt_is_mapped_without_rebound_state(self):
+        class Timeline:
+            sequences = [{"sequence_id": 1, "shooter_team_id": 2}]
+            frames = [
+                {"frame_index": 0, "state": "possession"},
+                {"frame_index": 1, "state": "rebound_pending", "sequence_id": 1},
+                {"frame_index": 2, "state": "rebound_pending", "sequence_id": 1},
+            ]
+
+        shots, rebounds, pending = shot_events_to_overlay_arrays(
+            [{"type": "shot_attempt", "frame_index": 1, "to_team_id": 2}],
+            Timeline(),
+            3,
+        )
+
+        self.assertEqual(shots, [-1, 2, -1])
+        self.assertEqual(rebounds, [-1, -1, -1])
+        self.assertEqual(pending, [-1, -1, -1])
 
     def test_pose_is_attached_before_ball_candidate_filtering(self):
         tracker = _BallTracker()
@@ -96,6 +161,26 @@ class MainPipelineTests(unittest.TestCase):
         self.assertEqual(ball[0][1]["bbox"], [2, 2, 4, 4])
         self.assertEqual(tracker.discontinuity_frames, [3])
         self.assertEqual(tracker.interpolation_discontinuities, [3])
+
+    def test_fused_track_preserves_rim_context_after_interpolation(self):
+        tracker = _BallTracker()
+        raw = [{1: {
+            "bbox": [2, 2, 4, 4],
+            "rim_regions": [{"bbox": [50, 10, 70, 20], "confidence": 0.8}],
+        }}]
+
+        _, ball = filter_ball_tracks_with_pose(
+            [object()],
+            [{7: {"bbox": [0, 0, 10, 20]}}],
+            raw,
+            _PoseDetector(),
+            tracker,
+        )
+
+        self.assertEqual(
+            ball[0][1]["rim_regions"][0]["bbox"],
+            [50, 10, 70, 20],
+        )
 
     def test_hybrid_pipeline_returns_separate_semantic_track(self):
         tracker = _BallTracker()
@@ -139,6 +224,14 @@ class MainPipelineTests(unittest.TestCase):
                 ],
                 tactical_diagnostics={"fallback_used": [1]},
                 assignment_metadata={"discovery_confidence": None},
+                detector_architecture={
+                    "sceneDetectorBackend": "ebard",
+                    "sharedSceneInference": True,
+                },
+                shot_rebound_timeline={
+                    "frames": [{"frame_index": 1, "state": "shot_attempt"}],
+                    "sequences": [{"sequence_id": 1}],
+                },
             )
 
             payload = json.loads(output.read_text(encoding="utf-8"))
@@ -148,6 +241,51 @@ class MainPipelineTests(unittest.TestCase):
         self.assertEqual(payload["events"][0]["status"], "unknown")
         self.assertEqual(payload["events"][0]["timeSeconds"], 0.1)
         self.assertTrue(payload["frames"][0]["players"][0]["isHolder"])
+        self.assertTrue(payload["diagnostics"]["detectors"]["sharedSceneInference"])
+        self.assertEqual(
+            payload["diagnostics"]["shotAttemptTimeline"]["frames"][0]["state"],
+            "shot_attempt",
+        )
         self.assertEqual(payload["frames"][0]["players"][0]["teamId"], 1)
         self.assertEqual(payload["frames"][0]["possessionTeamId"], 1)
         self.assertIsNone(payload["frames"][0]["players"][1]["teamId"])
+
+    def test_analysis_manifest_rejects_retired_event_types(self):
+        with TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "Unsupported public event type"):
+                write_analysis_manifest(
+                    Path(directory) / "analysis.json",
+                    fps=10,
+                    frame_count=1,
+                    court_width=300,
+                    court_height=161,
+                    tactical_player_positions=[{}],
+                    player_assignment=[{}],
+                    ball_acquisition=[-1],
+                    events=[{"type": "rebound", "frame_index": 0}],
+                    tactical_diagnostics={},
+                    assignment_metadata={},
+                )
+
+    def test_analysis_manifest_rejects_retired_outcome_evidence(self):
+        with TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "Retired public event field"):
+                write_analysis_manifest(
+                    Path(directory) / "analysis.json",
+                    fps=10,
+                    frame_count=1,
+                    court_width=300,
+                    court_height=161,
+                    tactical_player_positions=[{}],
+                    player_assignment=[{}],
+                    ball_acquisition=[-1],
+                    events=[
+                        {
+                            "type": "shot_attempt",
+                            "frame_index": 0,
+                            "outcome": "probable_make",
+                        }
+                    ],
+                    tactical_diagnostics={},
+                    assignment_metadata={},
+                )

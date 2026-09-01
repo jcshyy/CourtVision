@@ -69,6 +69,26 @@ def _discovery_result(prototypes=((10, 20, 30), (210, 220, 230))):
 
 
 class TeamDiscoveryTests(unittest.TestCase):
+    def test_ebard_team_prompt_policy_has_separate_cache_identity(self):
+        current = team_assigner.TeamAssigner(
+            team_1_color="#FFFFFF",
+            team_2_color="#007AC1",
+            tracking_algorithm_version="v5_repeated_referee_filter",
+        )
+        ebard = team_assigner.TeamAssigner(
+            team_1_color="#FFFFFF",
+            team_2_color="#007AC1",
+            tracking_algorithm_version="v5_repeated_referee_filter_ebard",
+            include_fashion_clip_referee_prompt=False,
+        )
+
+        self.assertTrue(current.include_fashion_clip_referee_prompt)
+        self.assertFalse(ebard.include_fashion_clip_referee_prompt)
+        self.assertNotEqual(current.cache_filename, ebard.cache_filename)
+        self.assertFalse(
+            ebard.assignment_metadata["fashion_clip_referee_prompt"]
+        )
+
     def test_automatic_assignment_module_does_not_import_clip_dependencies(self):
         module_spec = importlib.util.spec_from_file_location(
             "courtvision_team_assigner_without_clip",
@@ -298,6 +318,9 @@ class TeamDiscoveryTests(unittest.TestCase):
             assigner,
             "get_player_jersey_color",
             return_value=team_assigner._color_prototype("#C8102E"),
+        ), patch.object(
+            assigner,
+            "_fuse_user_colors_with_fashion_clip",
         ):
             assignments = assigner.get_player_teams_across_frames(frames, tracks)
 
@@ -306,7 +329,7 @@ class TeamDiscoveryTests(unittest.TestCase):
         self.assertEqual(assigner.normalized_team_colors, ("#FFFFFF", "#C8102E"))
         self.assertEqual(
             assigner.assignment_metadata["algorithm_version"],
-            "v17_evidence_arbitration",
+            "v20_multimodal_consensus",
         )
         self.assertEqual(
             assigner.assignment_metadata["team_colors"],
@@ -719,7 +742,7 @@ class TeamDiscoveryTests(unittest.TestCase):
             assigner.assignment_metadata["proceeded_with_uncertain_teams"]
         )
 
-    def test_user_colors_relax_track_thresholds_for_usable_evidence(self):
+    def test_user_colors_do_not_relax_inconsistent_track_evidence(self):
         observations = [
             {
                 "feature": (0, 0, 0),
@@ -738,19 +761,137 @@ class TeamDiscoveryTests(unittest.TestCase):
             for frame in range(17)
         ]
 
-        automatic = team_assigner._track_team_decision(
+        decision = team_assigner._track_team_decision(
             observations,
             {1: (0, 0, 0), 2: (100, 0, 0)},
-        )
-        guided = team_assigner._track_team_decision(
-            observations,
-            {1: (0, 0, 0), 2: (100, 0, 0)},
-            allow_guided_fallback=True,
         )
 
-        self.assertIsNone(automatic["team_id"])
-        self.assertEqual(guided["team_id"], 2)
-        self.assertEqual(guided["guidance"], "user_colors_relaxed_nearest")
+        self.assertIsNone(decision["team_id"])
+        self.assertEqual(decision["reason"], "inconsistent_track_observations")
+
+    def test_fashion_clip_prompt_decision_requires_multiframe_support(self):
+        decision = team_assigner._fashion_clip_prompt_track_decision(
+            [
+                {"frame": 1, "scores": [0.82, 0.10, 0.08]},
+                {"frame": 8, "scores": [0.77, 0.13, 0.10]},
+            ]
+        )
+
+        self.assertEqual(decision["status"], "unknown")
+        self.assertEqual(
+            decision["reason"],
+            "insufficient_fashion_clip_track_samples",
+        )
+
+    def test_fashion_clip_prompt_decision_accepts_consistent_track(self):
+        decision = team_assigner._fashion_clip_prompt_track_decision(
+            [
+                {"frame": 1, "scores": [0.82, 0.10, 0.08]},
+                {"frame": 8, "scores": [0.77, 0.13, 0.10]},
+                {"frame": 15, "scores": [0.74, 0.16, 0.10]},
+            ]
+        )
+
+        self.assertEqual(decision["status"], "assigned")
+        self.assertEqual(decision["team_id"], 1)
+
+    def test_fashion_clip_referee_candidate_overrides_color(self):
+        fusion = team_assigner._fuse_color_and_fashion_clip_decisions(
+            {"team_id": 2, "status": "assigned"},
+            {"team_id": None, "status": "referee_candidate"},
+        )
+
+        self.assertIsNone(fusion["team_id"])
+        self.assertEqual(fusion["reason"], "fashion_clip_referee_candidate")
+
+    def test_video_uniform_prototype_resolves_uncertain_prompt(self):
+        def observations(embedding):
+            return [
+                {"frame": frame, "embedding": embedding}
+                for frame in (1, 8, 15)
+            ]
+
+        by_track = {
+            1: observations([1.0, 0.0]),
+            2: observations([0.98, 0.02]),
+            3: observations([0.0, 1.0]),
+            4: observations([0.02, 0.98]),
+            5: observations([0.95, 0.05]),
+        }
+        prompt_decisions = {
+            1: {"status": "assigned", "team_id": 1, "margin": 0.9, "agreement": 1.0},
+            2: {"status": "assigned", "team_id": 1, "margin": 0.9, "agreement": 1.0},
+            3: {"status": "assigned", "team_id": 2, "margin": 0.9, "agreement": 1.0},
+            4: {"status": "assigned", "team_id": 2, "margin": 0.9, "agreement": 1.0},
+            5: {"status": "unknown", "team_id": None, "margin": 0.01, "agreement": 0.5},
+        }
+
+        result = team_assigner._refine_with_video_uniform_prototypes(
+            by_track,
+            prompt_decisions,
+        )
+
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["track_decisions"][5]["team_id"], 1)
+        self.assertEqual(
+            result["track_decisions"][5]["reason"],
+            "video_uniform_prototype_resolves_prompt",
+        )
+
+    def test_color_fashion_clip_conflict_stays_unknown(self):
+        fusion = team_assigner._fuse_color_and_fashion_clip_decisions(
+            {"team_id": 2, "status": "assigned"},
+            {"team_id": 1, "status": "assigned"},
+        )
+
+        self.assertIsNone(fusion["team_id"])
+        self.assertEqual(fusion["reason"], "color_fashion_clip_conflict")
+
+    def test_uncertain_multiframe_fashion_clip_does_not_confirm_color(self):
+        fusion = team_assigner._fuse_color_and_fashion_clip_decisions(
+            {"team_id": 2, "status": "assigned"},
+            {
+                "team_id": None,
+                "status": "unknown",
+                "sample_count": 8,
+                "reason": "unstable_fashion_clip_track_evidence",
+            },
+        )
+
+        self.assertIsNone(fusion["team_id"])
+        self.assertEqual(fusion["reason"], "fashion_clip_does_not_confirm_color")
+
+    def test_team_collapse_guard_invalidates_one_sided_assignments(self):
+        assignments = {1: 1, 2: 2, 3: 2, 4: 2, 5: 2}
+        tracks = [
+            {
+                1: {"bbox": [0, 0, 10, 20]},
+                2: {"bbox": [0, 0, 10, 20]},
+                3: {"bbox": [0, 0, 10, 20]},
+                4: {"bbox": [0, 0, 10, 20]},
+                5: {"bbox": [0, 0, 10, 20]},
+            }
+            for _ in range(10)
+        ]
+        # Make the lone Team 1 track too short to represent meaningful support.
+        for frame_tracks in tracks[1:]:
+            del frame_tracks[1]
+        metadata = {
+            str(player_id): {"team_id": team_id, "status": "assigned"}
+            for player_id, team_id in assignments.items()
+        }
+
+        result = team_assigner._apply_team_collapse_guard(
+            tracks,
+            assignments,
+            metadata,
+        )
+
+        self.assertEqual(result["status"], "suspected_collapse")
+        self.assertTrue(all(team_id == -1 for team_id in assignments.values()))
+        self.assertTrue(
+            all(item["reason"] == "unresolved_team_collapse" for item in metadata.values())
+        )
 
     def test_fashion_clip_clusters_map_to_existing_color_team_anchors(self):
         mapping = team_assigner._map_fashion_clip_clusters_to_teams(

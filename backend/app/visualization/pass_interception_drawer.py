@@ -26,13 +26,44 @@ class PassInterceptionDrawer:
             team2_interceptions,
         )
 
-    def draw(self, video_frames, passes, interceptions):
+    def draw(
+        self,
+        video_frames,
+        passes,
+        interceptions,
+        shots=None,
+        rebounds=None,
+        rebound_pending=None,
+    ):
+        shots = shots or [-1] * len(video_frames)
+        rebounds = rebounds or [-1] * len(video_frames)
+        rebound_pending = rebound_pending or [-1] * len(video_frames)
         return [
-            self.draw_frame(frame, frame_num, passes, interceptions)
+            self.draw_frame(
+                frame,
+                frame_num,
+                passes,
+                interceptions,
+                shots,
+                rebounds,
+                rebound_pending,
+            )
             for frame_num, frame in enumerate(video_frames)
         ]
 
-    def draw_frame(self, frame, frame_num, passes, interceptions):
+    def draw_frame(
+        self,
+        frame,
+        frame_num,
+        passes,
+        interceptions,
+        shots=None,
+        rebounds=None,
+        rebound_pending=None,
+    ):
+        shots = shots or [-1] * len(passes)
+        rebounds = rebounds or [-1] * len(passes)
+        rebound_pending = rebound_pending or [-1] * len(passes)
         frame_height, frame_width = frame.shape[:2]
         scale = max(0.72, min(1.15, frame_width / 1280))
         margin = max(12, round(frame_width * 0.018))
@@ -52,7 +83,19 @@ class PassInterceptionDrawer:
         totals = self.get_stats(
             passes[: frame_num + 1], interceptions[: frame_num + 1]
         )
-        recent_event = self.get_recent_event(frame_num, passes, interceptions)
+        recent_event = self.get_recent_event(
+            frame_num,
+            passes,
+            interceptions,
+            shots,
+            rebounds,
+        )
+        if not recent_event and rebound_pending[frame_num] in (1, 2):
+            recent_event = {
+                "type": "rebound pending",
+                "team_id": rebound_pending[frame_num],
+                "frame_index": frame_num,
+            }
         pad = round(15 * scale)
         header_y = y1 + round(24 * scale)
         self._text(frame, "EVENTS", (x1 + pad, header_y), 0.48 * scale, (214, 220, 224), 1)
@@ -77,7 +120,15 @@ class PassInterceptionDrawer:
             color = self.team_colors[team_id]
             cv2.circle(frame, (x1 + pad + round(4 * scale), y - round(5 * scale)), round(4 * scale), color, cv2.FILLED, cv2.LINE_AA)
             self._text(frame, f"TEAM {team_id}", (x1 + pad + round(16 * scale), y), 0.5 * scale, (245, 247, 248), 1)
-            self._right_text(frame, f"P {pass_count}   INT {interception_count}", (x2 - pad, y), 0.5 * scale, (245, 247, 248), 1)
+            shot_count = sum(value == team_id for value in shots[: frame_num + 1])
+            self._right_text(
+                frame,
+                f"P {pass_count}  INT {interception_count}  S {shot_count}",
+                (x2 - pad, y),
+                0.43 * scale,
+                (245, 247, 248),
+                1,
+            )
 
         return frame
 
@@ -97,9 +148,22 @@ class PassInterceptionDrawer:
             thickness,
         )
 
-    def get_recent_event(self, frame_num, passes, interceptions):
+    def get_recent_event(
+        self,
+        frame_num,
+        passes,
+        interceptions,
+        shots=None,
+        rebounds=None,
+    ):
+        shots = shots or [-1] * len(passes)
+        rebounds = rebounds or [-1] * len(passes)
         start = max(0, frame_num - self.event_display_frames + 1)
         for event_frame in range(frame_num, start - 1, -1):
+            if event_frame < len(shots) and shots[event_frame] in (1, 2):
+                return {"type": "shot", "team_id": shots[event_frame], "frame_index": event_frame}
+            if event_frame < len(rebounds) and rebounds[event_frame] in (1, 2):
+                return {"type": "rebound", "team_id": rebounds[event_frame], "frame_index": event_frame}
             if event_frame < len(passes) and passes[event_frame] in (1, 2):
                 return {"type": "pass", "team_id": passes[event_frame], "frame_index": event_frame}
             if event_frame < len(interceptions) and interceptions[event_frame] in (1, 2):
