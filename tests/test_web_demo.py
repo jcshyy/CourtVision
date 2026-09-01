@@ -79,14 +79,14 @@ class WebDemoTests(unittest.TestCase):
         self.assertIn("Rim proximity signal", client)
         self.assertNotIn("Shot outcome", client)
         self.assertIn("Recent analyses", client)
-        self.assertIn("You can reopen the previous result under Recent analyses until it expires.", client)
+        self.assertIn("You can reopen the previous result from Profile until it expires.", client)
         self.assertIn("targetFps: 30", client)
         self.assertIn("maxWidth: 1280", client)
         self.assertIn("analysis.court?.mirrorXFrameRanges", client)
         self.assertNotIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
         self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json"', client)
 
-    def test_landing_exposes_honest_public_preview_entry(self):
+    def test_landing_exposes_honest_live_beta_entry(self):
         root = Path(__file__).resolve().parents[1]
         landing = (root / "web" / "index.html").read_text(encoding="utf-8")
         config = (root / "web" / "config.js").read_text(encoding="utf-8")
@@ -94,12 +94,12 @@ class WebDemoTests(unittest.TestCase):
 
         self.assertIn('id="analyze"', landing)
         self.assertIn("Analyze video", landing)
-        self.assertIn("The review desk is live. New analysis is not.", landing)
-        self.assertIn("Selected preview videos stay on your device", landing)
-        self.assertIn("publicPreview: true", config)
-        self.assertIn("analysisAvailable: false", config)
-        self.assertIn("This video was not uploaded", client)
-        self.assertIn("Analysis capacity pending", client)
+        self.assertIn("The review desk is live.", landing)
+        self.assertIn("Live analysis is available to confirmed accounts", landing)
+        self.assertIn("publicPreview: false", config)
+        self.assertIn("analysisAvailable: true", config)
+        self.assertIn('authConnected: true', config)
+        self.assertIn('api("/auth/session"', client)
         self.assertIn("targetFps: 30", config)
         self.assertIn("maxWidth: 1280", config)
 
