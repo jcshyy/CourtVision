@@ -86,7 +86,7 @@ class WebDemoTests(unittest.TestCase):
         self.assertNotIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
         self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json"', client)
 
-    def test_landing_exposes_honest_public_preview_entry(self):
+    def test_landing_exposes_live_public_analysis_entry(self):
         root = Path(__file__).resolve().parents[1]
         landing = (root / "web" / "index.html").read_text(encoding="utf-8")
         config = (root / "web" / "config.js").read_text(encoding="utf-8")
@@ -94,14 +94,25 @@ class WebDemoTests(unittest.TestCase):
 
         self.assertIn('id="analyze"', landing)
         self.assertIn("Analyze video", landing)
-        self.assertIn("The review desk is live. New analysis is not.", landing)
-        self.assertIn("Selected preview videos stay on your device", landing)
-        self.assertIn("publicPreview: true", config)
-        self.assertIn("analysisAvailable: false", config)
+        self.assertIn("The review desk and live analysis are open.", landing)
+        self.assertIn("Public analysis is live.", landing)
+        self.assertIn("authConnected: true", config)
+        self.assertIn("publicPreview: false", config)
+        self.assertIn("analysisAvailable: true", config)
+        self.assertNotIn("waiting on GPU capacity", landing)
         self.assertIn("This video was not uploaded", client)
         self.assertIn("Analysis capacity pending", client)
         self.assertIn("targetFps: 30", config)
         self.assertIn("maxWidth: 1280", config)
+
+    def test_upload_rundown_wraps_long_filenames(self):
+        root = Path(__file__).resolve().parents[1]
+        styles = (root / "web" / "styles.css").read_text(encoding="utf-8")
+        client = (root / "web" / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn(".selected-file h3", styles)
+        self.assertIn("overflow-wrap: anywhere", styles)
+        self.assertIn('title="${escapeHtml(state.selectedFile.name)}"', client)
 
 
 if __name__ == "__main__":

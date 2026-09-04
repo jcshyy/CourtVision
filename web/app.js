@@ -4,8 +4,8 @@
   const config = Object.assign(
     {
       apiBaseUrl: "/api",
-      publicPreview: true,
-      analysisAvailable: false,
+      publicPreview: false,
+      analysisAvailable: true,
       localRuntime: false,
       maxDurationSeconds: 30,
       maxUploadBytes: 500 * 1024 * 1024,
@@ -283,7 +283,7 @@
           <a class="auth-brand" href="./" aria-label="CourtVision home">
             <img src="assets/mark.svg" alt="" />
             <span class="brand">CourtVision</span>
-            <span class="status-chip">Public preview</span>
+            <span class="status-chip">Experimental analysis</span>
           </a>
           <div class="auth-copy">
             <h1 id="auth-title">Review the play. Keep the uncertainty.</h1>
@@ -664,7 +664,7 @@
     }
     return `
       <div class="selected-file">
-        <h3>${escapeHtml(state.selectedFile.name)}</h3>
+        <h3 title="${escapeHtml(state.selectedFile.name)}">${escapeHtml(state.selectedFile.name)}</h3>
         <dl class="file-facts">
           <dt>Duration</dt><dd>${formatTime(state.selectedFileDuration, true)}</dd>
           <dt>Size</dt><dd>${formatBytes(state.selectedFile.size)}</dd>

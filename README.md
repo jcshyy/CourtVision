@@ -12,8 +12,8 @@
 
 </div>
 
-CourtVision is an offline basketball-video analysis pipeline with a public-preview
-web application. It detects and tracks players and the ball, estimates teams
+CourtVision is an offline basketball-video analysis pipeline with a public
+live-analysis web application. It detects and tracks players and the ball, estimates teams
 and possession, projects player positions onto a tactical court, identifies
 timecoded event candidates, and renders an annotated review video.
 
