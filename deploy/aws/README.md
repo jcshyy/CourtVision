@@ -1,4 +1,4 @@
-# CourtVision public preview on AWS
+# CourtVision public analysis on AWS
 
 This stack deploys the authenticated web control plane and its GPU compute
 plane. The cost-optimized default runs the shared API request handler in AWS
@@ -33,7 +33,7 @@ with `ApiRuntime=Flask`; both adapters expose the same tested API contract.
 1. AWS SAM CLI and AWS CLI authenticated to the target account.
 2. Amazon Cognito's built-in email delivery is used for account confirmation
    and password recovery. Its default account quota is intended for low-volume
-   public-preview use.
+   low-volume public use.
 3. One ECR worker image built from `Dockerfile`. The Lambda API is packaged by
    SAM and does not need an API container image.
 4. Worker subnets with outbound access to ECR, S3, DynamoDB, and CloudWatch
@@ -100,10 +100,11 @@ sam deploy --guided `
     WorkerSubnetIds=subnet-aaa,subnet-bbb
 ```
 
-The external-hosting deployment deliberately leaves `web/config.js` in preview
-mode. Once GPU capacity and CloudFront are available, update the stack with
-`EnableCloudFront=true`, the custom domain and certificate parameters, then
-enable the authenticated analysis UI after an end-to-end check.
+The checked-in `web/config.js` enables public account creation and authenticated
+analysis against `https://api.courtvision.video/api`. Keep the API, Cognito,
+private job bucket, and Batch worker healthy before publishing the static client.
+If CourtVision moves fully behind CloudFront, update the stack with
+`EnableCloudFront=true` plus the custom domain and certificate parameters.
 
 To deploy the optional always-on Flask runtime, also pass `ApiImageUri`, at
 least two `PublicSubnetIds`, and the regional `CloudFrontOriginPrefixListId`.
@@ -138,12 +139,12 @@ aws cloudformation describe-stacks --stack-name STACK_NAME
 aws cloudfront create-invalidation --distribution-id DISTRIBUTION_ID --paths "/*"
 ```
 
-The checked-in configuration keeps the public preview local-only while GPU
-capacity is unavailable. After the same-origin authentication API and worker
-have passed an end-to-end analysis check, set `authConnected: true`,
-`publicPreview: false`, and `analysisAvailable: true` in `web/config.js` before
-the static upload. Account links stay hidden until that explicit live-analysis
-configuration is active on a non-local HTTPS origin.
+The checked-in configuration sets `authConnected: true`, `publicPreview: false`,
+and `analysisAvailable: true`. This exposes Cognito account flows and sends an
+authenticated job request to the API, which returns a presigned policy for the
+browser's direct upload into private S3 job storage. Set the client back to the
+fail-closed preview state before a static upload if the API or worker is taken
+out of service intentionally.
 
 ## Configurable limits
 

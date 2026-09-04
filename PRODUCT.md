@@ -24,7 +24,7 @@ CourtVision is an evidence-first basketball video analysis system. Its defining 
 
 Users supply basketball footage for bounded analysis jobs and review the rendered video, tactical court view, team assignments, possession estimates, pass, interception, and shot-attempt candidates, speed, and distance outputs. Shot attempts remain plain candidates: the production contract does not publish make, miss, rebound, dead-ball, or putback-subtype claims. Analysts and researchers may also use diagnostic galleries, benchmark reports, annotation tools, and cached intermediate results to validate behavior.
 
-The current implementation combines a Python batch pipeline with a web control plane: a static browser client, Cognito-backed email-and-password accounts, direct temporary uploads, a Lambda API, an AWS Batch GPU worker, and an evidence-first review surface. A Flask adapter remains available for sustained traffic. The reference AWS stack provisions the web, API, identity, GPU compute environment, Batch queue, and job definition. Private model uploads, CloudWatch alarms, account-specific network values, GPU quota/capacity, and a proven staging deployment remain operational responsibilities. Upload scanning and stronger per-user concurrency controls are still required before broader access.
+The current implementation combines a Python batch pipeline with a web control plane: a static browser client, public Cognito-backed email-and-password account creation, direct temporary uploads, a Lambda API, an AWS Batch GPU worker, and an evidence-first review surface. A Flask adapter remains available for sustained traffic. The reference AWS stack provisions the web, API, identity, GPU compute environment, Batch queue, and job definition. Private model uploads, CloudWatch alarms, account-specific network values, and GPU quota/capacity remain operational responsibilities. Upload scanning and stronger per-user concurrency controls remain production-hardening work; the interface must state the bounded retention and experimental-analysis contract plainly.
 
 ## Capabilities and Constraints
 
@@ -35,7 +35,7 @@ The current implementation combines a Python batch pipeline with a web control p
 - Renders an annotated output video and preserves bounded-job processing options for clip duration, frame rate, and width.
 - Requires local model weights that are excluded from the repository.
 - Currently materializes selected and rendered frames in memory; longer clips require stateful chunking before job limits can be raised safely.
-- Includes a public-preview web layer and reference AWS stack that provisions the Flask/Fargate control plane and scale-to-zero AWS Batch GPU plane; live processing remains disabled until GPU capacity and the remaining access controls are ready.
+- Includes a public live-analysis web layer and reference AWS stack with a Lambda control plane, Cognito identity, private S3 job storage, and a scale-to-zero AWS Batch GPU plane; the checked-in client enables authenticated analysis for 30-second clips and 24-hour result retention.
 - Commercial use must account for rights to uploaded and benchmark video footage.
 
 ## Brand Commitments

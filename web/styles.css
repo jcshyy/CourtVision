@@ -680,6 +680,7 @@ dialog .button-secondary:hover:not([disabled]) {
 
 .capacity-notice div {
   display: grid;
+  min-width: 0;
   gap: 0.08rem;
 }
 
@@ -692,7 +693,12 @@ dialog .button-secondary:hover:not([disabled]) {
 }
 
 .capacity-notice span:not(.capacity-marker) { font-size: 0.88rem; }
-.capacity-notice a { color: var(--cobalt-strong); text-underline-offset: 0.22rem; }
+.capacity-notice a {
+  min-width: 0;
+  color: var(--cobalt-strong);
+  overflow-wrap: anywhere;
+  text-underline-offset: 0.22rem;
+}
 .workspace-view > .form-message { margin-bottom: 1rem; }
 
 .limit-strip {
@@ -821,8 +827,14 @@ dialog .button-secondary:hover:not([disabled]) {
 
 .selected-file {
   display: grid;
+  min-width: 0;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.selected-file h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .file-facts {
