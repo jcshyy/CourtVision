@@ -19,7 +19,7 @@ related_targets: ["web/app.js","web/styles.css","backend/app/web_api.py","backen
 
 | Visible ingredient | Implementation medium | Commitment |
 | --- | --- | --- |
-| Compact status rail | Semantic HTML/CSS | Beta state, deletion deadline, download, report, and sign-out actions. |
+| Compact status rail | Semantic HTML/CSS | Service state, deletion deadline, download, report, and sign-out actions. |
 | Dominant annotated replay | Native HTML video using the generated result | Primary evidence surface. |
 | Tactical court dock | Existing court raster plus semantic markers | Markers use internal `T`-prefixed track IDs, never implied jersey numbers. |
 | Persistent Event Rundown | Semantic ordered list | Pass candidate, Interception candidate, and unknown states only. |

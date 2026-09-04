@@ -1,3 +1,4 @@
+import math
 import statistics
 
 from backend.app.analytics.possession_timeline import (
@@ -330,6 +331,9 @@ class PassInterceptionDetector:
             previous_holder = int(transition["from_player_id"])
             current_holder = int(transition["to_player_id"])
             previous_frame = int(transition["release_frame"])
+            holder_tail_frame = int(
+                transition.get("holder_tail_frame", previous_frame)
+            )
             frame = int(transition["transition_frame"])
             catch_frame = int(transition["catch_frame"])
             segment_start = int(transition.get("segment_start", 0))
@@ -443,6 +447,10 @@ class PassInterceptionDetector:
                 "from_team_id": previous_team,
                 "to_team_id": current_team,
                 "release_frame": previous_frame,
+                "holder_tail_frame": holder_tail_frame,
+                "release_localization_reason": transition.get(
+                    "release_localization_reason"
+                ),
                 "catch_frame": catch_frame,
                 "gap_frames": catch_frame - previous_frame - 1,
                 "transition_frame": frame,
@@ -588,76 +596,108 @@ def _trusted_internal_holder_bridge(
     ball_tracks,
     player_tracks,
     *,
+    maximum_gap_frames=2,
     maximum_midpoint_error=8.0,
     maximum_height_error_fraction=0.08,
+    maximum_player_distance_fraction=0.25,
 ):
-    """Trust one interpolated frame bounded by causal evidence for one holder."""
+    """Trust a short trajectory-supported gap inside one proven possession.
+
+    The offline holder model may bridge several frames after seeing the same
+    holder on both sides. Event detection accepts at most two of those frames,
+    and only when real detections anchor one ball-track segment, every middle
+    point is interpolation, the path is linear, and it remains close to the
+    same player. This can extend established control but cannot create a holder.
+    """
     if (
         holder_id in (-1, None)
         or ball_tracks is None
         or not 0 < frame < len(ball_acquisition) - 1
         or len(ball_tracks) != len(ball_acquisition)
-        or ball_acquisition[frame - 1] != holder_id
-        or ball_acquisition[frame + 1] != holder_id
+        or holder_states[frame].get("reason") != "same_holder_gap_bridged"
     ):
         return False
     hindsight_reasons = {
         "retrospective_holder_confirmation",
         "same_holder_gap_bridged",
     }
+
+    left = frame - 1
+    while left >= 0 and holder_states[left].get("reason") == "same_holder_gap_bridged":
+        left -= 1
+    right = frame + 1
+    while right < len(holder_states) and holder_states[right].get("reason") == "same_holder_gap_bridged":
+        right += 1
+    gap_frames = right - left - 1
     if (
-        holder_states[frame - 1].get("reason") in hindsight_reasons
-        or holder_states[frame + 1].get("reason") in hindsight_reasons
+        left < 0
+        or right >= len(ball_acquisition)
+        or not 0 < gap_frames <= int(maximum_gap_frames)
+        or ball_acquisition[left] != holder_id
+        or ball_acquisition[right] != holder_id
+        or holder_states[left].get("reason") in hindsight_reasons
+        or holder_states[right].get("reason") in hindsight_reasons
     ):
         return False
 
-    before = ball_tracks[frame - 1].get(1, {})
-    middle = ball_tracks[frame].get(1, {})
-    after = ball_tracks[frame + 1].get(1, {})
+    before = ball_tracks[left].get(1, {})
+    after = ball_tracks[right].get(1, {})
+    middle = [ball_tracks[index].get(1, {}) for index in range(left + 1, right)]
     if (
         before.get("interpolated", False)
-        or not middle.get("interpolated", False)
         or after.get("interpolated", False)
         or not before.get("bbox")
-        or not middle.get("bbox")
         or not after.get("bbox")
+        or any(not item.get("interpolated", False) or not item.get("bbox") for item in middle)
     ):
         return False
-    segments = [
-        before.get("track_segment_id"),
-        middle.get("track_segment_id"),
-        after.get("track_segment_id"),
-    ]
+    sequence = [before, *middle, after]
+    segments = [item.get("track_segment_id") for item in sequence]
     if any(segment is None for segment in segments) or len(set(segments)) != 1:
         return False
     if any(
         rejection.get("reason") == "persistent_competing_takeover_chain"
-        for info in (before, middle, after)
+        for info in sequence
         for rejection in info.get("candidate_rejections", [])
     ):
         return False
 
     before_center = _bbox_center(before["bbox"])
-    middle_center = _bbox_center(middle["bbox"])
     after_center = _bbox_center(after["bbox"])
-    expected_middle = (
-        (before_center[0] + after_center[0]) / 2.0,
-        (before_center[1] + after_center[1]) / 2.0,
-    )
-    midpoint_error = (
-        (middle_center[0] - expected_middle[0]) ** 2
-        + (middle_center[1] - expected_middle[1]) ** 2
-    ) ** 0.5
-    player_height = 0.0
-    if player_tracks is not None and frame < len(player_tracks):
-        player_bbox = player_tracks[frame].get(holder_id, {}).get("bbox")
-        if player_bbox:
-            player_height = max(0.0, float(player_bbox[3]) - float(player_bbox[1]))
-    allowed_error = max(
-        float(maximum_midpoint_error),
-        player_height * float(maximum_height_error_fraction),
-    )
-    return midpoint_error <= allowed_error
+    for offset, info in enumerate(middle, start=1):
+        index = left + offset
+        fraction = offset / (gap_frames + 1)
+        expected = (
+            before_center[0] + (after_center[0] - before_center[0]) * fraction,
+            before_center[1] + (after_center[1] - before_center[1]) * fraction,
+        )
+        center = _bbox_center(info["bbox"])
+        player_bbox = None
+        if player_tracks is not None and index < len(player_tracks):
+            player_bbox = player_tracks[index].get(holder_id, {}).get("bbox")
+        if not player_bbox:
+            return False
+        player_height = max(0.0, float(player_bbox[3]) - float(player_bbox[1]))
+        allowed_error = max(
+            float(maximum_midpoint_error),
+            player_height * float(maximum_height_error_fraction),
+        )
+        trajectory_error = math.dist(center, expected)
+        player_distance = _point_to_bbox_distance(center, player_bbox)
+        if (
+            trajectory_error > allowed_error
+            or player_distance > player_height * float(maximum_player_distance_fraction)
+        ):
+            return False
+    return True
+
+
+def _point_to_bbox_distance(point, bbox):
+    x, y = point
+    x1, y1, x2, y2 = (float(value) for value in bbox)
+    closest_x = min(max(float(x), x1), x2)
+    closest_y = min(max(float(y), y1), y2)
+    return math.dist((float(x), float(y)), (closest_x, closest_y))
 
 
 def summarize_events(events):
@@ -730,12 +770,16 @@ def merge_corroborated_pass_events(
     semantic-only, close-range identity switches are rejected, and nearby
     primary events win during deduplication.
     """
-    merged = [
-        {"detection_source": "semantic_ball", **event}
-        for event in primary_events
-    ]
+    merged = []
     duplicate_window_frames = max(0, int(duplicate_window_frames))
     minimum_gap_frames = max(0, int(minimum_gap_frames))
+    for event in primary_events:
+        if event.get("type") == "pass" and any(
+            _same_pass_flight(existing, event, player_tracks, duplicate_window_frames)
+            for existing in merged
+        ):
+            continue
+        merged.append({"detection_source": "semantic_ball", **event})
     for event in corroborating_events:
         if event.get("type") != "pass":
             continue
@@ -750,15 +794,8 @@ def merge_corroborated_pass_events(
         )
         if separation is None or separation < float(minimum_player_separation):
             continue
-        if any(
-            existing.get("type") == "pass"
-            and abs(
-                int(existing.get("frame_index", -10_000))
-                - int(event.get("frame_index", 10_000))
-            )
-            <= duplicate_window_frames
-            for existing in merged
-        ):
+        if any(_same_pass_flight(existing, event, player_tracks, duplicate_window_frames)
+               for existing in merged):
             continue
         merged.append({
             "detection_source": "fused_ball_corroboration",
@@ -766,6 +803,48 @@ def merge_corroborated_pass_events(
             "player_separation_heights": round(float(separation), 4),
         })
     return sorted(merged, key=lambda event: int(event["frame_index"]))
+
+
+def _same_pass_flight(left, right, player_tracks, duplicate_window_frames):
+    """Two observations of one transfer, not merely events close in time.
+
+    Endpoint identity (or overlapping track boxes for an ID switch) and flight
+    overlap are both required. This preserves fast A->B->C passes while merging
+    delayed catches from the semantic and fused ball paths.
+    """
+    if left.get("type") != "pass" or right.get("type") != "pass":
+        return False
+    for team_field in ("from_team_id", "to_team_id"):
+        if (left.get(team_field) is not None and right.get(team_field) is not None
+                and left[team_field] != right[team_field]):
+            return False
+    for actor, boundary in (("from_player_id", "release_frame"), ("to_player_id", "catch_frame")):
+        if left.get(actor) is None or right.get(actor) is None:
+            return False
+        if left.get(actor) is not None and left.get(actor) == right.get(actor):
+            continue
+        if player_tracks is None:
+            return False
+        frame = min(int(left.get(boundary, left["frame_index"])),
+                    int(right.get(boundary, right["frame_index"])))
+        first = _nearby_player_bbox(player_tracks, left.get(actor), frame)
+        second = _nearby_player_bbox(player_tracks, right.get(actor), frame)
+        if not first or not second:
+            return False
+        intersection = max(0, min(first[2], second[2]) - max(first[0], second[0])) * max(
+            0, min(first[3], second[3]) - max(first[1], second[1]))
+        union = ((first[2] - first[0]) * (first[3] - first[1])
+                 + (second[2] - second[0]) * (second[3] - second[1]) - intersection)
+        if union <= 0 or intersection / union < 0.6:
+            return False
+    if left.get("release_frame") is None or right.get("release_frame") is None:
+        return abs(int(left["frame_index"]) - int(right["frame_index"])) <= duplicate_window_frames
+    start = max(int(left["release_frame"]), int(right["release_frame"]))
+    end = min(int(left.get("catch_frame", left["frame_index"])),
+              int(right.get("catch_frame", right["frame_index"])))
+    shorter = min(int(left.get("catch_frame", left["frame_index"])) - int(left["release_frame"]),
+                  int(right.get("catch_frame", right["frame_index"])) - int(right["release_frame"]))
+    return shorter > 0 and end - start >= max(1, shorter * 0.5)
 
 
 def _player_transition_separation(

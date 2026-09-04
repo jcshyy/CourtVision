@@ -13,6 +13,7 @@ from main import (
     parse_args,
     shot_events_to_overlay_arrays,
     write_analysis_manifest,
+    event_court_keypoints,
 )
 
 
@@ -66,6 +67,20 @@ class _BallTracker:
 
 
 class MainPipelineTests(unittest.TestCase):
+    def test_event_court_geometry_is_not_inferred_without_passes(self):
+        with patch("main.CourtKeypointDetector") as detector:
+            self.assertEqual(event_court_keypoints([0] * 12, [], 30, "unused"), [None] * 12)
+        detector.assert_not_called()
+
+    def test_event_court_geometry_uses_sparse_boundaries_without_cache_write(self):
+        event = {"type": "pass", "release_frame": 5, "catch_frame": 10, "frame_index": 10}
+        with patch("backend.app.utils.cache.load_cache", return_value=None), patch("main.CourtKeypointDetector") as detector:
+            detector.return_value.get_court_keypoints.return_value = ["a", "b", "c", "d"]
+            result = event_court_keypoints(list(range(12)), [event], 30, "unused")
+        detector.return_value.get_court_keypoints.assert_called_once_with([3, 4, 5, 10])
+        self.assertEqual([result[i] for i in (3, 4, 5, 10)], ["a", "b", "c", "d"])
+        self.assertIsNone(result[0])
+
     def test_cli_defaults_to_shared_ebard_plus_wasb_hybrid(self):
         with patch("sys.argv", ["main.py", "clip.mp4"]):
             args = parse_args()

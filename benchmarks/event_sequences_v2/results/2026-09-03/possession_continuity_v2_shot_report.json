@@ -1,0 +1,156 @@
+{
+  "benchmark": "Local BARD coarse shot-action windows (calibration only)",
+  "split": "all",
+  "metric": "temporal event point-to-action-interval F1; not official spatial tube mAP",
+  "tolerance_seconds": 0.25,
+  "video_count": 6,
+  "processed_video_count": 6,
+  "missing_videos": [],
+  "coverage": 1.0,
+  "micro": {
+    "tp": 7,
+    "fp": 0,
+    "fn": 2,
+    "precision": 1.0,
+    "recall": 0.7778,
+    "f1": 0.875
+  },
+  "by_class": {
+    "shot_attempt": {
+      "tp": 7,
+      "fp": 0,
+      "fn": 2,
+      "precision": 1.0,
+      "recall": 0.7778,
+      "f1": 0.875
+    }
+  },
+  "confusion": {
+    "shot_attempt": {
+      "shot_attempt": 7,
+      "missed": 2
+    }
+  },
+  "duplicate_predictions": 0,
+  "duplicate_rate": 0.0,
+  "per_video": [
+    {
+      "video_id": "bard_bkn_hou_366",
+      "truth": 3,
+      "predicted": 2,
+      "tp": 2,
+      "fp": 0,
+      "fn": 1,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 1,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        },
+        {
+          "truth_index": 2,
+          "prediction_index": 1,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "bard_bos_ind_366",
+      "truth": 1,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.1333
+        }
+      ]
+    },
+    {
+      "video_id": "bard_det_okc_24",
+      "truth": 2,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 1,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "bard_gsw_mem_17",
+      "truth": 1,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "bard_gsw_mem_21",
+      "truth": 1,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "bard_gsw_mem_9",
+      "truth": 1,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    }
+  ],
+  "provenance": "fresh event replay on fixed detector caches",
+  "prediction_sha256": {
+    "bard_bkn_hou_366": "a7220a333b2346fc14c830af910b0726a73eeb1499e542100231ec6bd76adf35",
+    "bard_bos_ind_366": "4da2514552b10e0f71a2bf0e5a89919855ee009b5f3945ca4f9e989af1005273",
+    "bard_det_okc_24": "8804e5f935ab8e1029ad531c0c464233f1ecf7aea363832b5701ae58b73d1c09",
+    "bard_gsw_mem_17": "2ffce4300d03f561e7179b4a3e68399aeac8f83ca83ec836f46d87469462aea7",
+    "bard_gsw_mem_21": "667abe6ec95a491b746358dda024dd5c71e6679949fe356382df0d28e318e67f",
+    "bard_gsw_mem_9": "2b26d41978f8256796b8e0b01749ff51133fb08e1d48ff6fef2c25caa76a30fe"
+  },
+  "candidate_source_sha256": {
+    "main.py": "88117876902a48d041b22d5f2ecf3889e18024f5ef55d52e8b2cb4f5f5525bdd",
+    "backend/app/analytics/shot_rebound.py": "563a194a6e245aef5422c25d83e147c1d1a17d5984e33f7ff431ed3a870f6308",
+    "backend/app/analytics/event_lifecycle.py": "84435768b79139292953c1295662b1c2ba49c20322f7fea1838f256d91d9c370",
+    "backend/app/analytics/pass_interception.py": "297e2f1d0d4ea004a0aec52f20be62f16df0642a52efed8910ffe47a46dba02b",
+    "backend/app/analytics/possession_timeline.py": "f4b1e717a836945d70f39aca76c3cdae3e4163428610248d201e8a64178ee4c4",
+    "scripts/evaluate_event_sequences.py": "c7ab74b0b6e53858b152e68da51bb0093c9ba2a243e9bf1e6d7768585fff7f12"
+  }
+}

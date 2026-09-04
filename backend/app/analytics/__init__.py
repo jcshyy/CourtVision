@@ -19,6 +19,7 @@ from .shot_rebound import (
     reconcile_shot_events,
 )
 from .speed_distance import SpeedAndDistanceCalculator
+from .event_lifecycle import finalize_ball_events
 from .tactical_view import TacticalViewConverter
 
 __all__ = [
@@ -36,6 +37,7 @@ __all__ = [
     "build_event_team_hints",
     "clean_acquisition_timeline",
     "events_from_arrays",
+    "finalize_ball_events",
     "merge_corroborated_pass_events",
     "reconcile_shot_events",
     "summarize_events",

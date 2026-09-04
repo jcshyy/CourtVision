@@ -12,7 +12,7 @@
 
 </div>
 
-CourtVision is an offline basketball-video analysis pipeline and private-beta
+CourtVision is an offline basketball-video analysis pipeline with a public-preview
 web application. It detects and tracks players and the ball, estimates teams
 and possession, projects player positions onto a tactical court, identifies
 timecoded event candidates, and renders an annotated review video.
@@ -204,7 +204,7 @@ available behind detector flags:
 
 ## Deployment
 
-The [AWS reference stack](deploy/aws/README.md) provides a private-beta path
+The [AWS reference stack](deploy/aws/README.md) provides a bounded deployment path
 with Cognito email-and-password accounts, direct temporary uploads, a shared
 Lambda API handler, and a scale-to-zero AWS Batch GPU environment. Its initial
 limits—30 seconds, 30 FPS, 1280 px, and 24-hour retention—are configuration,

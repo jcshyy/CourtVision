@@ -96,7 +96,12 @@ class PossessionTimelineBuilder:
                 confirmation_frames=self.catch_confirmation_frames,
                 discontinuities=discontinuities,
             )
-            release_frame = int(source["last_frame"])
+            holder_tail_frame = int(source["last_frame"])
+            release_frame, release_reason = _authoritative_release_frame(
+                acquisitions,
+                holder_states,
+                source,
+            )
             gap_end = catch_frame if catch_frame is not None else transition_frame
             gap_states = (
                 holder_states[release_frame + 1 : gap_end]
@@ -133,6 +138,8 @@ class PossessionTimelineBuilder:
                 "from_player_id": int(source["holder_id"]),
                 "to_player_id": int(receiver["holder_id"]),
                 "release_frame": release_frame,
+                "holder_tail_frame": holder_tail_frame,
+                "release_localization_reason": release_reason,
                 "transition_frame": transition_frame,
                 "catch_frame": catch_frame,
                 "gap_frames": (
@@ -156,6 +163,39 @@ class PossessionTimelineBuilder:
                 ),
             })
         return transitions
+
+
+def _authoritative_release_frame(acquisitions, holder_states, source):
+    """Exclude provisional holder carry from a transfer's release time.
+
+    A holder can be retained for visualization during a missing/interpolated
+    ball or the first frame of a pending switch. Those frames are useful for
+    continuity but are not direct evidence that the player still controls the
+    ball. Prefer the latest authoritative source-control observation; retain
+    the original segment tail separately for inspection.
+    """
+    fallback = int(source["last_frame"])
+    if holder_states is None:
+        return fallback, "segment_tail_without_holder_diagnostics"
+    provisional_reasons = {
+        "brief_ball_gap",
+        "brief_interpolated_gap",
+        "retrospective_holder_confirmation",
+        "same_holder_gap_bridged",
+        "switch_pending",
+    }
+    holder_id = int(source["holder_id"])
+    for frame_index in range(fallback, int(source["start_frame"]) - 1, -1):
+        if acquisitions[frame_index] != holder_id:
+            continue
+        reason = holder_states[frame_index].get("reason")
+        if reason not in provisional_reasons:
+            return frame_index, (
+                "authoritative_holder_observation"
+                if frame_index != fallback
+                else "authoritative_segment_tail"
+            )
+    return fallback, "no_authoritative_holder_observation"
 
 
 def _frame_records(acquisitions, holder_states, ball_tracks, discontinuities):
