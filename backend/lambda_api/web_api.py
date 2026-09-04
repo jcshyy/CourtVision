@@ -345,7 +345,7 @@ def _create_job(session, body):
     max_bytes = _env_int("MAX_UPLOAD_BYTES", 500 * 1024 * 1024)
     max_duration = _env_float("MAX_DURATION_SECONDS", 30.0)
     if size_bytes > max_bytes:
-        raise ApiError(413, f"This video exceeds the {_format_bytes(max_bytes)} beta limit.", code="video_too_large")
+        raise ApiError(413, f"This video exceeds the {_format_bytes(max_bytes)} preview limit.", code="video_too_large")
     if duration > max_duration + 0.05:
         raise ApiError(400, f"Choose a clip no longer than {max_duration:g} seconds.", code="video_too_long")
 
@@ -402,7 +402,7 @@ def _list_jobs(session):
     cursor = None
 
     # DynamoDB TTL cleanup is asynchronous, so exclude expired rows explicitly.
-    # Bound each page and the final response to keep this lightweight for the beta.
+    # Bound each page and the final response to keep the public preview lightweight.
     for _ in range(4):
         query = {
             "IndexName": "OwnerCreatedAtIndex",

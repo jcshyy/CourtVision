@@ -1,4 +1,4 @@
-"""Flask adapter for the CourtVision private-beta API contract.
+"""Flask adapter for the CourtVision bounded analysis API contract.
 
 The Flask process is a control plane only. Browser uploads still go directly to
 S3, and video inference still runs in isolated AWS Batch workers.

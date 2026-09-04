@@ -4,8 +4,8 @@
   const config = Object.assign(
     {
       apiBaseUrl: "/api",
-      publicPreview: false,
-      analysisAvailable: true,
+      publicPreview: true,
+      analysisAvailable: false,
       localRuntime: false,
       maxDurationSeconds: 30,
       maxUploadBytes: 500 * 1024 * 1024,
@@ -224,7 +224,7 @@
     } catch (error) {
       state.view = "auth";
       if (error.status && error.status !== 401) {
-        state.message = { type: "error", text: "CourtVision could not reach the beta service. Try again." };
+        state.message = { type: "error", text: "CourtVision could not reach the analysis service. Try again." };
       }
     }
     render();
@@ -236,7 +236,7 @@
       id: "local-demo-job",
       status,
       stage,
-      filename: "synthetic-beta-clip.mp4",
+      filename: "synthetic-preview-clip.mp4",
       durationSeconds: 30,
       createdAt: new Date(now - 8 * 60e3).toISOString(),
       updatedAt: new Date(now - 20e3).toISOString(),
@@ -283,13 +283,13 @@
           <a class="auth-brand" href="./" aria-label="CourtVision home">
             <img src="assets/mark.svg" alt="" />
             <span class="brand">CourtVision</span>
-            <span class="status-chip">Private beta</span>
+            <span class="status-chip">Public preview</span>
           </a>
           <div class="auth-copy">
             <h1 id="auth-title">Review the play. Keep the uncertainty.</h1>
             <p>CourtVision turns one basketball clip into an annotated replay, tactical court, and timecoded event rundown built for evidence—not automatic decisions.</p>
           </div>
-          <ul class="auth-proof" aria-label="Beta boundaries">
+          <ul class="auth-proof" aria-label="Analysis boundaries">
             <li>Verified account required</li>
             <li>30-second clip limit</li>
             <li>Automatic deletion after 24 hours</li>
@@ -645,7 +645,7 @@
 
   function limitStrip() {
     return `
-      <dl class="limit-strip" aria-label="Current beta processing limits">
+      <dl class="limit-strip" aria-label="Current processing limits">
         <div><dt>Clip</dt><dd>≤ ${config.maxDurationSeconds}s</dd></div>
         <div><dt>Analysis</dt><dd>${config.targetFps} FPS</dd></div>
         <div><dt>Width</dt><dd>${config.maxWidth}px</dd></div>
@@ -690,7 +690,7 @@
     }
     if (file.size > config.maxUploadBytes) {
       state.selectedFile = null;
-      state.message = { type: "error", text: `This video exceeds the ${formatBytes(config.maxUploadBytes)} beta limit.` };
+      state.message = { type: "error", text: `This video exceeds the ${formatBytes(config.maxUploadBytes)} preview limit.` };
       render();
       return;
     }
@@ -1060,9 +1060,9 @@
               </div>
             </section>
             <aside class="processing-sheet">
-              <h2 class="panel-title"><span>Recovery</span><span>Beta</span></h2>
+              <h2 class="panel-title"><span>Recovery</span><span>Status</span></h2>
               <p>${recoveryCopy}</p>
-              <p class="field-hint">${canChangeTeamColors ? "Pure black is a valid jersey choice. Select the fabric color, then continue with the saved upload." : "If the failure repeats, choose another clip and include the processing failure in your beta feedback."}</p>
+              <p class="field-hint">${canChangeTeamColors ? "Pure black is a valid jersey choice. Select the fabric color, then continue with the saved upload." : "If the failure repeats, choose another clip and include the processing failure in your report."}</p>
             </aside>
           </div>
         </main>
@@ -1113,7 +1113,7 @@
     app.innerHTML = `
       <div class="app-shell review-shell">
         ${topbar(true)}
-        <main class="review-view view" aria-label="CourtVision beta review workspace">
+        <main class="review-view view" aria-label="CourtVision analysis review workspace">
           <div class="review-desk">
             <section class="replay-column" aria-label="Annotated replay and tactical court">
               <div class="video-monitor">
@@ -1150,7 +1150,7 @@
               ${eventListMarkup(events, selected)}
               <footer class="rundown-footer">
                 ${events.length ? '<div class="timeline-legend" aria-label="Cue states"><span><i class="legend-shape"></i>Candidate</span><span><i class="legend-shape unknown"></i>Unknown</span></div>' : ""}
-                <p>${escapeHtml(analysis.disclaimer || "Experimental beta analysis. Review every result against the source play.")}</p>
+                <p>${escapeHtml(analysis.disclaimer || "Experimental analysis. Review every result against the source play.")}</p>
               </footer>
             </aside>
           </div>
@@ -1173,7 +1173,7 @@
           <div class="brand-lockup">
             <a class="brand" href="./" aria-label="CourtVision home">CourtVision</a>
             <span class="brand-divider" aria-hidden="true"></span>
-            <span class="status-chip">Beta analysis</span>
+            <span class="status-chip">Experimental analysis</span>
           </div>
           <div class="topbar-center">${icon("clock")} <span>Preprocessed sample analysis</span></div>
           <nav class="topbar-actions" aria-label="Demo actions">
@@ -1193,7 +1193,7 @@
         <div class="brand-lockup">
           <a class="brand" href="./" aria-label="CourtVision home">CourtVision</a>
           <span class="brand-divider" aria-hidden="true"></span>
-          <span class="status-chip">${config.publicPreview ? "Public preview" : config.localRuntime ? "Local analysis" : "Beta analysis"}</span>
+          <span class="status-chip">${config.publicPreview ? "Public preview" : config.localRuntime ? "Local analysis" : "Experimental analysis"}</span>
         </div>
         <div class="topbar-center">
           ${icon("clock")}
@@ -1482,7 +1482,7 @@
       <dialog id="report-dialog" aria-labelledby="report-title">
         <form id="report-form" method="dialog">
           <header class="dialog-header">
-            <div><h2 id="report-title">Report a beta failure</h2><p class="field-hint">The report is attached to this job and timecode, not the retained video after deletion.</p></div>
+            <div><h2 id="report-title">Report an analysis failure</h2><p class="field-hint">The report is attached to this job and timecode, not the retained video after deletion.</p></div>
             <button class="button button-quiet" id="close-report" type="button" aria-label="Close report dialog">${icon("close")}</button>
           </header>
           <div class="dialog-body form-stack">
@@ -1728,7 +1728,7 @@
       }
       dialog.close();
       form.reset();
-      showToast("Failure report saved for beta review.");
+      showToast("Failure report saved for review.");
     } catch (error) {
       showToast(error.message, true);
     } finally {
@@ -1795,7 +1795,7 @@
     state.currentTime = 0;
     state.inspectorTab = "court";
     state.teamColors = { ...defaultTeamColors };
-    state.message = { type: "success", text: "Ready for another clip. You can reopen the previous result from Profile until it expires." };
+    state.message = { type: "success", text: "Ready for another clip. You can reopen the previous result under Recent analyses until it expires." };
     state.view = "upload";
     render();
   }

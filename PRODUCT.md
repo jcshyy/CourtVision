@@ -35,7 +35,7 @@ The current implementation combines a Python batch pipeline with a web control p
 - Renders an annotated output video and preserves bounded-job processing options for clip duration, frame rate, and width.
 - Requires local model weights that are excluded from the repository.
 - Currently materializes selected and rendered frames in memory; longer clips require stateful chunking before job limits can be raised safely.
-- Includes a reference private-beta web layer and AWS stack that provisions the Flask/Fargate control plane and scale-to-zero AWS Batch GPU plane; a proven end-to-end staging deployment remains outstanding.
+- Includes a public-preview web layer and reference AWS stack that provisions the Flask/Fargate control plane and scale-to-zero AWS Batch GPU plane; live processing remains disabled until GPU capacity and the remaining access controls are ready.
 - Commercial use must account for rights to uploaded and benchmark video footage.
 
 ## Brand Commitments

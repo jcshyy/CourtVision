@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: CourtVision private beta web application and job-control plane
+Description: CourtVision public-preview web application and job-control plane
 
 Parameters:
   ApiRuntime:
@@ -282,7 +282,7 @@ Resources:
   SessionSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Description: HMAC secret for CourtVision beta sessions and email codes.
+      Description: HMAC secret for CourtVision analysis sessions and email codes.
       GenerateSecretString:
         ExcludePunctuation: true
         PasswordLength: 64

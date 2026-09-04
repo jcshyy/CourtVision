@@ -94,6 +94,6 @@ sudo -E MAX_DURATION_SECONDS=30 TARGET_FPS=30 MAX_WIDTH=1280 \
 
 CourtVision still materializes the selected frames and rendered frames in RAM.
 The 30-second/15-FPS/960-width helper defaults are a bounded deployment profile,
-while the AWS private-beta stack defaults to 30 FPS and 1280-pixel width. These
+while the AWS public-preview stack defaults to 30 FPS and 1280-pixel width. These
 profiles are not streaming implementations. Longer clips require the planned
 stateful chunking work before raising these limits safely.

@@ -1,0 +1,90 @@
+{
+  "name": "Existing courtvision_v1 verified possession events",
+  "scored_types": [
+    "pass",
+    "interception"
+  ],
+  "note": "Existing candidate-reviewed annotations; not exhaustive independent ground truth",
+  "videos": [
+    {
+      "video_id": "video_1",
+      "fps": 30.0,
+      "frame_count": 117,
+      "split": "calibration"
+    },
+    {
+      "video_id": "video_2",
+      "fps": 30.0,
+      "frame_count": 174,
+      "split": "calibration"
+    },
+    {
+      "video_id": "video_3",
+      "fps": 30.0,
+      "frame_count": 243,
+      "split": "calibration"
+    },
+    {
+      "video_id": "spursknicksclip",
+      "fps": 30.0,
+      "frame_count": 365,
+      "split": "calibration"
+    },
+    {
+      "video_id": "spursknicks2",
+      "fps": 30.0,
+      "frame_count": 270,
+      "split": "calibration"
+    }
+  ],
+  "events": [
+    {
+      "video_id": "video_2",
+      "type": "pass",
+      "start_frame": 27,
+      "end_frame": 27
+    },
+    {
+      "video_id": "video_2",
+      "type": "pass",
+      "start_frame": 53,
+      "end_frame": 53
+    },
+    {
+      "video_id": "video_2",
+      "type": "pass",
+      "start_frame": 89,
+      "end_frame": 89
+    },
+    {
+      "video_id": "video_2",
+      "type": "pass",
+      "start_frame": 122,
+      "end_frame": 122
+    },
+    {
+      "video_id": "video_3",
+      "type": "interception",
+      "start_frame": 82,
+      "end_frame": 82
+    },
+    {
+      "video_id": "video_3",
+      "type": "pass",
+      "start_frame": 159,
+      "end_frame": 159
+    },
+    {
+      "video_id": "video_3",
+      "type": "pass",
+      "start_frame": 185,
+      "end_frame": 185
+    },
+    {
+      "video_id": "spursknicks2",
+      "type": "pass",
+      "start_frame": 110,
+      "end_frame": 110
+    }
+  ]
+}

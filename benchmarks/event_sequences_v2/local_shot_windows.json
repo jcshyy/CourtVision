@@ -1,0 +1,25 @@
+{
+  "name": "Local BARD coarse shot-action windows (calibration only)",
+  "review_status": "assistant-reviewed source-frame windows; not independently human-verified",
+  "note": "Nine attempts from the existing BARD labels. Windows were added during this implementation using source-frame contact sheets, so this is a calibration diagnostic, not an independent holdout. Inclusive windows describe shooting motion, not exact release timestamps. Score only shots; passes are not exhaustively annotated here.",
+  "scored_types": ["shot_attempt"],
+  "videos": [
+    {"video_id": "bard_bkn_hou_366", "fps": 60, "frame_count": 547, "split": "calibration"},
+    {"video_id": "bard_bos_ind_366", "fps": 60, "frame_count": 413, "split": "calibration"},
+    {"video_id": "bard_det_okc_24", "fps": 60, "frame_count": 603, "split": "calibration"},
+    {"video_id": "bard_gsw_mem_17", "fps": 60, "frame_count": 643, "split": "calibration"},
+    {"video_id": "bard_gsw_mem_21", "fps": 60, "frame_count": 699, "split": "calibration"},
+    {"video_id": "bard_gsw_mem_9", "fps": 60, "frame_count": 463, "split": "calibration"}
+  ],
+  "events": [
+    {"video_id": "bard_bkn_hou_366", "type": "shot_attempt", "start_frame": 55, "end_frame": 90, "note": "Blocked drive attempt"},
+    {"video_id": "bard_bkn_hou_366", "type": "shot_attempt", "start_frame": 160, "end_frame": 195, "note": "Second close-range attempt"},
+    {"video_id": "bard_bkn_hou_366", "type": "shot_attempt", "start_frame": 245, "end_frame": 280, "note": "Final jumper"},
+    {"video_id": "bard_bos_ind_366", "type": "shot_attempt", "start_frame": 220, "end_frame": 250, "note": "Driving layup"},
+    {"video_id": "bard_det_okc_24", "type": "shot_attempt", "start_frame": 180, "end_frame": 215, "note": "Initial jumper"},
+    {"video_id": "bard_det_okc_24", "type": "shot_attempt", "start_frame": 340, "end_frame": 385, "note": "Offensive-rebound follow-up"},
+    {"video_id": "bard_gsw_mem_17", "type": "shot_attempt", "start_frame": 435, "end_frame": 470},
+    {"video_id": "bard_gsw_mem_21", "type": "shot_attempt", "start_frame": 305, "end_frame": 340},
+    {"video_id": "bard_gsw_mem_9", "type": "shot_attempt", "start_frame": 205, "end_frame": 245}
+  ]
+}

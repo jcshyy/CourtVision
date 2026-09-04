@@ -1,4 +1,4 @@
-# CourtVision private beta on AWS
+# CourtVision public preview on AWS
 
 This stack deploys the authenticated web control plane and its GPU compute
 plane. The cost-optimized default runs the shared API request handler in AWS
@@ -10,7 +10,7 @@ with `ApiRuntime=Flask`; both adapters expose the same tested API contract.
 - The production hostname is `courtvision.video`. The browser and API stay on
   the same origin, with API requests routed under `https://courtvision.video/api/*`.
 - CloudFront serves the public landing page, permanent synthetic interface demo,
-  and authenticated beta app from a private S3 bucket. It forwards `/api/*` to
+  and authenticated analysis app from a private S3 bucket. It forwards `/api/*` to
   API Gateway and Lambda by default. Lambda invokes the same framework-neutral
   request handler used by the Flask adapter, without an always-running server.
 - Users create an email-and-password account and confirm their address with a
@@ -33,7 +33,7 @@ with `ApiRuntime=Flask`; both adapters expose the same tested API contract.
 1. AWS SAM CLI and AWS CLI authenticated to the target account.
 2. Amazon Cognito's built-in email delivery is used for account confirmation
    and password recovery. Its default account quota is intended for low-volume
-   beta use.
+   public-preview use.
 3. One ECR worker image built from `Dockerfile`. The Lambda API is packaged by
    SAM and does not need an API container image.
 4. Worker subnets with outbound access to ECR, S3, DynamoDB, and CloudWatch
@@ -138,10 +138,12 @@ aws cloudformation describe-stacks --stack-name STACK_NAME
 aws cloudfront create-invalidation --distribution-id DISTRIBUTION_ID --paths "/*"
 ```
 
-After the same-origin authentication API has passed an end-to-end sign-in
-check, set `authConnected: true` in `web/config.js` before the static upload.
-The public landing page keeps its beta sign-in links hidden unless that explicit
-flag is true on a non-local HTTPS origin.
+The checked-in configuration keeps the public preview local-only while GPU
+capacity is unavailable. After the same-origin authentication API and worker
+have passed an end-to-end analysis check, set `authConnected: true`,
+`publicPreview: false`, and `analysisAvailable: true` in `web/config.js` before
+the static upload. Account links stay hidden until that explicit live-analysis
+configuration is active on a non-local HTTPS origin.
 
 ## Configurable limits
 
@@ -175,7 +177,7 @@ whole-day S3 lifecycle backstop aligned with the result-retention policy.
 ## Cost posture
 
 The Lambda-first stack has no always-running API compute, load balancer, or API
-public IPv4 addresses. At light beta traffic, non-GPU services should remain in
+public IPv4 addresses. At light preview traffic, non-GPU services should remain in
 the low single-digit dollars per month before credits. The Batch environment has
 `MinvCpus=0`; the `g4dn.xlarge` worker is charged only while EC2 capacity is
 running. Selecting `ApiRuntime=Flask` adds the continuous Fargate, ALB, and

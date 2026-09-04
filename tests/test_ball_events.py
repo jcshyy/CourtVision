@@ -1395,8 +1395,8 @@ class PassInterceptionTests(unittest.TestCase):
             result.frames[frame]["state"] == "shot_in_flight"
             for frame in range(2, 6)
         ))
-        self.assertEqual(result.frames[6]["state"], "possession")
-        self.assertEqual(result.frames[7]["state"], "possession")
+        self.assertEqual(result.frames[6]["state"], "post_shot_unresolved")
+        self.assertEqual(result.frames[7]["state"], "post_shot_control")
         self.assertEqual(result.sequences[0]["status"], "confirmed_attempt")
         self.assertEqual(result.sequences[0]["post_shot_control_frame"], 7)
         self.assertNotIn("outcome", result.sequences[0])
@@ -1527,7 +1527,7 @@ class PassInterceptionTests(unittest.TestCase):
         ])
         self.assertEqual(result.sequences[0]["status"], "confirmed_attempt")
         self.assertIsNone(result.sequences[0]["post_shot_control_frame"])
-        self.assertEqual(result.frames[-1]["state"], "possession")
+        self.assertEqual(result.frames[-1]["state"], "post_shot_unresolved")
 
     def test_control_run_spanning_rim_is_not_an_instant_rebound(self):
         acquisitions = [7, 7, -1, -1, 9, 9, 9, 9, 9, 9]
@@ -1689,7 +1689,7 @@ class PassInterceptionTests(unittest.TestCase):
             frame["state"] == "possession" for frame in shot_timeline.frames
         ))
 
-    def test_post_rim_pass_preempts_unresolved_shot(self):
+    def test_post_rim_pass_preserves_prior_shot(self):
         shot_timeline = ShotReboundTimeline(
             frames=[
                 {"frame_index": frame, "state": "rebound_pending",
@@ -1720,8 +1720,8 @@ class PassInterceptionTests(unittest.TestCase):
 
         reconciled = reconcile_shot_events([pass_event], shot_timeline)
 
-        self.assertEqual(reconciled, [pass_event])
-        self.assertEqual(shot_timeline.sequences, [])
+        self.assertEqual([event["type"] for event in reconciled], ["shot_attempt", "pass"])
+        self.assertEqual(len(shot_timeline.sequences), 1)
 
     def test_possession_timeline_exposes_release_flight_and_stable_catch(self):
         acquisitions = [10, 10, -1, -1, 20, 20, 20]
@@ -1783,6 +1783,55 @@ class PassInterceptionTests(unittest.TestCase):
         self.assertEqual(
             timeline.transitions[0]["reason"],
             "receiver_control_not_sustained",
+        )
+
+    def test_release_excludes_provisional_holder_tail_after_loose_run(self):
+        acquisitions = [10, 10, -1, -1, 10, -1, 20, 20, 20]
+        states = [
+            {"reason": "holder_reinforced"},
+            {"reason": "holder_reinforced"},
+            {"reason": "no_credible_candidate"},
+            {"reason": "ball_missing"},
+            {"reason": "switch_pending"},
+            {"reason": "candidate_switch_building"},
+            {"reason": "holder_switch_confirmed"},
+            {"reason": "holder_reinforced"},
+            {"reason": "holder_reinforced"},
+        ]
+
+        timeline = PossessionTimelineBuilder(minimum_catch_frames=3).build(
+            acquisitions,
+            holder_states=states,
+        )
+
+        transition = timeline.transitions[0]
+        self.assertEqual(transition["release_frame"], 1)
+        self.assertEqual(transition["holder_tail_frame"], 4)
+        self.assertEqual(
+            transition["release_localization_reason"],
+            "authoritative_holder_observation",
+        )
+
+    def test_release_keeps_authoritative_segment_tail(self):
+        states = [
+            {"reason": "holder_reinforced"},
+            {"reason": "holder_reinforced"},
+            {"reason": "holder_switch_confirmed"},
+            {"reason": "holder_reinforced"},
+            {"reason": "holder_reinforced"},
+        ]
+
+        timeline = PossessionTimelineBuilder(minimum_catch_frames=3).build(
+            [10, 10, 20, 20, 20],
+            holder_states=states,
+        )
+
+        transition = timeline.transitions[0]
+        self.assertEqual(transition["release_frame"], 1)
+        self.assertEqual(transition["holder_tail_frame"], 1)
+        self.assertEqual(
+            transition["release_localization_reason"],
+            "authoritative_segment_tail",
         )
 
     def test_possession_timeline_does_not_transfer_across_scene_cut(self):
@@ -1911,6 +1960,98 @@ class PassInterceptionTests(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["type"], "pass")
         self.assertEqual(events[0]["catch_frame"], 2)
+
+    def test_two_frame_linear_holder_bridge_can_confirm_pass_catch(self):
+        detector = PassInterceptionDetector(
+            minimum_catch_frames=3,
+            catch_confirmation_frames=6,
+        )
+        acquisitions = [10, -1, 20, 20, 20, 20]
+        assignments = [{10: 1}, {}, *([{20: 1}] * 4)]
+        states = [
+            {"holder_id": 10, "state": "confirmed",
+             "reason": "holder_reinforced", "ball_confidence": 0.8},
+            {"holder_id": None, "state": "loose",
+             "reason": "ball_missing", "ball_confidence": None},
+            {"holder_id": 20, "state": "confirmed",
+             "reason": "initial_holder_confirmed", "ball_confidence": 0.8},
+            {"holder_id": 20, "state": "confirmed",
+             "reason": "same_holder_gap_bridged", "ball_confidence": None},
+            {"holder_id": 20, "state": "confirmed",
+             "reason": "same_holder_gap_bridged", "ball_confidence": None},
+            {"holder_id": 20, "state": "confirmed",
+             "reason": "holder_reinforced", "ball_confidence": 0.8},
+        ]
+        ball_tracks = [
+            {1: {"bbox": [10, 40, 20, 50], "track_segment_id": 0}},
+            {},
+            {1: {"bbox": [110, 40, 120, 50], "track_segment_id": 1,
+                 "interpolated": False}},
+            {1: {"bbox": [120, 40, 130, 50], "track_segment_id": 1,
+                 "interpolated": True}},
+            {1: {"bbox": [130, 40, 140, 50], "track_segment_id": 1,
+                 "interpolated": True}},
+            {1: {"bbox": [140, 40, 150, 50], "track_segment_id": 1,
+                 "interpolated": False}},
+        ]
+        players = [
+            {10: {"bbox": [0, 0, 50, 100]},
+             20: {"bbox": [100, 0, 160, 100]}}
+            for _ in acquisitions
+        ]
+
+        events = detector.detect_events(
+            acquisitions,
+            assignments,
+            holder_states=states,
+            ball_tracks=ball_tracks,
+            player_tracks=players,
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["type"], "pass")
+        self.assertEqual(events[0]["catch_frame"], 2)
+
+    def test_two_frame_nonlinear_holder_bridge_remains_uncertain(self):
+        detector = PassInterceptionDetector(
+            minimum_catch_frames=3,
+            catch_confirmation_frames=6,
+        )
+        acquisitions = [10, -1, 20, 20, 20, 20]
+        assignments = [{10: 1}, {}, *([{20: 1}] * 4)]
+        states = [
+            {"holder_id": 10, "reason": "holder_reinforced"},
+            {"holder_id": None, "reason": "ball_missing"},
+            {"holder_id": 20, "reason": "initial_holder_confirmed"},
+            {"holder_id": 20, "reason": "same_holder_gap_bridged"},
+            {"holder_id": 20, "reason": "same_holder_gap_bridged"},
+            {"holder_id": 20, "reason": "holder_reinforced"},
+        ]
+        ball_tracks = [
+            {1: {"bbox": [10, 40, 20, 50], "track_segment_id": 0}},
+            {},
+            {1: {"bbox": [110, 40, 120, 50], "track_segment_id": 1}},
+            {1: {"bbox": [180, 0, 190, 10], "track_segment_id": 1,
+                 "interpolated": True}},
+            {1: {"bbox": [130, 40, 140, 50], "track_segment_id": 1,
+                 "interpolated": True}},
+            {1: {"bbox": [140, 40, 150, 50], "track_segment_id": 1}},
+        ]
+        players = [
+            {10: {"bbox": [0, 0, 50, 100]},
+             20: {"bbox": [100, 0, 160, 100]}}
+            for _ in acquisitions
+        ]
+
+        events = detector.detect_events(
+            acquisitions,
+            assignments,
+            holder_states=states,
+            ball_tracks=ball_tracks,
+            player_tracks=players,
+        )
+
+        self.assertEqual(events, [])
 
     def test_event_team_hint_requires_strong_unknown_track_plurality(self):
         metadata = {"track_assignments": {

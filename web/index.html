@@ -24,8 +24,8 @@
     <!--
     THESIS: The product proves its relevance by letting visitors inspect a candidate in the real interface; this page refuses unsupported accuracy, officiating, and coaching claims.
     OWN-WORLD: Matte monitor black and cool-gray rundown paper, cobalt actions, amber unknowns, narrow broadcast lettering, exact timecodes, and faint authored court geometry.
-    STORY: A coach, analyst, or researcher understands the bounded analyzer, can open the authenticated analysis desk, and can inspect a complete preprocessed sample before uploading footage.
-    FIRST VIEWPORT: Exact hero copy occupies the left half, court geometry holds the right, and Analyze video leads directly to the private-beta analysis desk.
+    STORY: A coach, analyst, or researcher understands the bounded analyzer, can open the public upload desk, and can inspect a complete preprocessed sample while live GPU capacity is pending.
+    FIRST VIEWPORT: Exact hero copy occupies the left half, court geometry holds the right, and Analyze video leads directly to the public upload desk.
     FORM: Supported-Capabilities Live Film Room with a 30-second cue spine; seed ea9de4d5; approved comp .impeccable/mocks/landing-supported-capabilities.png.
     FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
     -->
@@ -42,7 +42,7 @@
           <h1 id="hero-title">Review every candidate against the play.</h1>
           <p>CourtVision analyzes short basketball clips and produces an annotated replay, tactical court view, possession estimates, and timecoded pass and interception candidates. Results are experimental and require video review.</p>
           <div class="hero-actions"><a class="landing-button primary" data-analyze-link href="app.html">Analyze video</a><a class="landing-button secondary" href="#interface-demo">Explore sample analysis</a></div>
-          <p class="hero-availability"><span class="hero-status-dot" aria-hidden="true"></span><strong>Private beta is live.</strong><span class="hero-status-copy">Create or confirm an account to analyze a clip; the preprocessed sample remains fully interactive.</span></p>
+          <p class="hero-availability"><span class="hero-status-dot" aria-hidden="true"></span><strong>Public preview is open.</strong><span class="hero-status-copy">Live processing is waiting on GPU capacity; the sample analysis is fully interactive.</span></p>
         </div>
         <div class="hero-court" aria-hidden="true">
           <span class="court-ring ring-one"></span><span class="court-ring ring-two"></span><span class="court-lane"></span><span class="court-path"></span><span class="court-signal"></span>
@@ -57,7 +57,7 @@
       <aside class="service-status" aria-labelledby="service-status-title">
         <div>
           <span class="status-light" aria-hidden="true"></span>
-          <div><h2 id="service-status-title">The review desk is live.</h2><p>Confirmed accounts can upload one clip, run bounded experimental analysis, and review the result for 24 hours. Every candidate still requires source-video review.</p></div>
+          <div><h2 id="service-status-title">The review desk is live. New analysis is not.</h2><p>You can select and validate a clip in the public upload desk. Until GPU capacity is approved, CourtVision stops before upload and keeps the video on your device.</p></div>
         </div>
         <a class="status-link" href="demo.html?v=official-preview-2">Open the working sample <span aria-hidden="true">→</span></a>
       </aside>
@@ -73,12 +73,12 @@
       </section>
 
       <section class="workflow" id="workflow" aria-labelledby="workflow-title">
-        <header class="section-heading"><h2 id="workflow-title">A bounded review session.</h2><p>The initial beta keeps the workflow narrow so real footage can expose accuracy and reliability failures.</p></header>
-        <dl class="beta-limits" aria-label="Current private beta profile"><div><dt>Clip</dt><dd>Up to 30 sec</dd></div><div><dt>Analysis</dt><dd>30 FPS</dd></div><div><dt>Width</dt><dd>1280px</dd></div><div><dt>Retention</dt><dd>24 hours</dd></div></dl>
+        <header class="section-heading"><h2 id="workflow-title">A bounded review session.</h2><p>The public preview keeps the workflow narrow so real footage can expose accuracy and reliability failures.</p></header>
+        <dl class="beta-limits" aria-label="Current public preview profile"><div><dt>Clip</dt><dd>Up to 30 sec</dd></div><div><dt>Analysis</dt><dd>30 FPS</dd></div><div><dt>Width</dt><dd>1280px</dd></div><div><dt>Retention</dt><dd>24 hours</dd></div></dl>
         <ol><li><strong>Upload one clip</strong><span>Choose a supported video up to the current 30-second profile.</span></li><li><strong>Run experimental analysis</strong><span>The worker detects and tracks, estimates teams and possession, projects tactical positions, and renders the result.</span></li><li><strong>Review every candidate</strong><span>Seek from the Event Rundown, compare the replay and court view, then report visible failures.</span></li></ol>
       </section>
 
-      <section class="closing-cta" id="analyze" aria-labelledby="closing-title"><div><h2 id="closing-title">Bring one play. Inspect every candidate.</h2><p>Sign in to analyze a short clip against the current private-beta profile, or review the working sample from end to end before uploading footage.</p></div><div class="beta-entry"><div class="hero-actions"><a class="landing-button primary" data-analyze-link href="app.html">Analyze video</a><a class="landing-button secondary" href="demo.html?v=official-preview-2">View sample analysis</a></div><p class="deployment-note"><strong>Private beta status</strong><span>Live analysis is available to confirmed accounts. Uploaded sources and results expire after 24 hours.</span></p></div></section>
+      <section class="closing-cta" id="analyze" aria-labelledby="closing-title"><div><h2 id="closing-title">Bring one play. Inspect every candidate.</h2><p>Open the public upload desk to check a short clip against the current analysis profile, or review the working sample from end to end. Live processing will switch on after GPU capacity is approved.</p></div><div class="beta-entry"><div class="hero-actions"><a class="landing-button primary" data-analyze-link href="app.html">Analyze video</a><a class="landing-button secondary" href="demo.html?v=official-preview-2">View sample analysis</a></div><p class="deployment-note"><strong>Capacity status</strong><span>Selected preview videos stay on your device and are not uploaded while processing is unavailable.</span></p></div></section>
     </main>
 
     <footer class="landing-footer" id="site-footer"><a class="landing-brand" href="./"><img src="assets/mark.svg" alt="" /><span>CourtVision</span></a><p>Experimental basketball-video analysis. Every candidate and estimate requires video review.</p><div class="footer-meta"><a class="footer-github" href="https://github.com/jcshyy/CourtVision" aria-label="CourtVision on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 .7a11.3 11.3 0 0 0-3.6 22c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.3-1.3-1.6-1.3-1.6-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.3 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.6 0-1.2.4-2.2 1.2-3-.1-.3-.5-1.5.1-3 0 0 1-.3 3.1 1.2.9-.3 1.9-.4 2.8-.4 1 0 2 .1 2.8.4 2.2-1.5 3.1-1.2 3.1-1.2.6 1.5.2 2.7.1 3 .8.8 1.2 1.8 1.2 3 0 4.3-2.7 5.3-5.3 5.6.4.3.7 1 .7 2v3c0 .4.2.7.8.6A11.3 11.3 0 0 0 12 .7Z" /></svg><span>Source</span></a><span>courtvision.video</span><span>© <span id="current-year">2026</span></span></div></footer>

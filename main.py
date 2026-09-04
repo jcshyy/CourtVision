@@ -12,8 +12,7 @@ from backend.app.analytics import (
     SpeedAndDistanceCalculator,
     TacticalViewConverter,
     build_event_team_hints,
-    merge_corroborated_pass_events,
-    reconcile_shot_events,
+    finalize_ball_events,
 )
 from backend.app.config import OUTPUT_DIR, STUBS_DIR
 from backend.app.detection import (
@@ -397,6 +396,33 @@ def _json_safe(value):
     return value
 
 
+def event_court_keypoints(video_frames, events, fps, keypoint_cache_path):
+    """Reuse full geometry or infer only pass-boundary frames in event mode."""
+    from backend.app.utils.cache import load_cache
+
+    support = max(3, round(fps * 0.1))
+    needed = set()
+    for event in events:
+        if event.get("type") != "pass" or event.get("release_frame") is None:
+            continue
+        release = int(event["release_frame"])
+        needed.update(range(max(0, release - support + 1), release + 1))
+        needed.add(int(event.get("catch_frame", event["frame_index"])))
+    needed = sorted(i for i in needed if 0 <= i < len(video_frames))
+    if not needed:
+        return [None] * len(video_frames)
+    cached = load_cache(keypoint_cache_path)
+    if cached is not None and len(cached) == len(video_frames):
+        return cached
+    detector = CourtKeypointDetector()
+    subset = detector.get_court_keypoints([video_frames[i] for i in needed])
+    result = [None] * len(video_frames)
+    for index, keypoints in zip(needed, subset):
+        result[index] = keypoints
+    # Do not write a sparse result into the full-video homography cache.
+    return result
+
+
 def filter_ball_tracks_with_pose(
     video_frames,
     player_tracks,
@@ -674,12 +700,6 @@ def main():
         discontinuity_frames=scene_discontinuity_frames,
         possession_timeline=fused_possession_timeline,
     )
-    events = merge_corroborated_pass_events(
-        semantic_events,
-        fused_events,
-        player_tracks,
-        duplicate_window_frames=max(3, round(output_fps * 0.25)),
-    )
     shot_rebound_detector = ShotReboundDetector(
         minimum_flight_observations=max(3, round(output_fps * 0.1)),
         minimum_rise_player_heights=args.shot_minimum_rise,
@@ -687,7 +707,7 @@ def main():
         minimum_approach_player_heights=args.shot_minimum_approach,
         minimum_trajectory_strength=args.shot_minimum_trajectory_strength,
         maximum_pending_frames=max(15, round(output_fps * 3.0)),
-        maximum_launch_lookback_frames=max(12, round(output_fps * 1.5)),
+        maximum_launch_lookback_frames=max(12, round(output_fps * 2.5)),
         minimum_post_shot_control_frames=max(3, round(output_fps * 0.1)),
         event_team_hints=event_team_hints,
     )
@@ -698,7 +718,19 @@ def main():
         player_tracks,
         discontinuity_frames=scene_discontinuity_frames,
     )
-    events = reconcile_shot_events(events, shot_rebound_timeline)
+    if court_keypoints_per_frame is None:
+        court_keypoints_per_frame = event_court_keypoints(
+            video_frames, semantic_events + fused_events, output_fps,
+            cache_path(cache_dir, "court_key_points_stub.pkl"),
+        )
+    # Possession-derived passes/steals are hypotheses until the complete ball
+    # flight is arbitrated against shots and independently observed throw-ins.
+    events = finalize_ball_events(
+        semantic_events, fused_events, shot_rebound_timeline, player_tracks,
+        fps=output_fps, ball_tracks=ball_tracks,
+        court_keypoints=court_keypoints_per_frame,
+        discontinuity_frames=scene_discontinuity_frames,
+    )
     print(
         "Detected events: "
         f"{sum(event['type'] == 'pass' for event in events)} passes, "
@@ -767,6 +799,7 @@ def main():
             tactical_diagnostics=tactical_view_converter.last_diagnostics,
             assignment_metadata=team_assigner.assignment_metadata,
             detector_architecture={
+                "eventLogicVersion": "v2_flight_arbitration",
                 "sceneDetectorBackend": args.player_detector_backend,
                 "ballDetectorBackend": args.ball_detector_backend,
                 "sharedSceneInference": share_scene_inference,
@@ -779,6 +812,8 @@ def main():
                 ),
                 "wasbEnabled": args.ball_detector_backend in ("wasb", "hybrid"),
                 "shotThresholds": {
+                    "maximumLaunchLookbackSeconds": 2.5,
+                    "requiresShotHeightOrHandEvidence": True,
                     "minimumRisePlayerHeights": args.shot_minimum_rise,
                     "maximumRimDistancePlayerHeights": (
                         args.shot_maximum_rim_distance

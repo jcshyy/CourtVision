@@ -113,9 +113,14 @@ The event layer now consumes an explicit possession timeline instead of
 inferring every event from adjacent holder IDs. A shot candidate requires a
 release, rising ball flight, and approach to an E-BARD hoop. Local rim
 approaches split long possession segments so a block, retained offensive ball,
-and a quick second attempt can be represented separately. A validated pass or
-interception that resumes after the proposed rim contact preempts the shot
-hypothesis.
+and a quick second attempt can be represented separately. Possession events
+are provisional until final flight arbitration: a later rebound/outlet cannot
+erase an earlier shot, and an ID switch cannot create a simultaneous pass.
+Stable pre-rim catches can refute lob-like hypotheses. A ball underneath the
+hoop still needs shooting-height or elevated-release evidence. Rim-seeded
+recovery handles missing holder transitions, but known release boundaries take
+precedence over those broad recovery windows. Overlapping shot flights merge;
+new post-rim control/release can start a distinct attempt.
 
 The production contract deliberately stops at `shot_attempt`. It does not
 publish makes, misses, rebounds, dead balls, or putback subtypes. Broadcast
@@ -127,7 +132,14 @@ rim-approach, shooter/team, and confidence evidence without an `outcome` field.
 
 `--event-only` regenerates player, ball, possession, and event overlays while
 skipping unrelated court homography and speed/distance work. `--analysis-only`
-also skips video encoding, which is useful for threshold sweeps.
+also skips video encoding, which is useful for threshold sweeps. Both modes
+may infer sparse court keypoints at pass boundaries to identify supported
+throw-ins. Missing geometry causes abstention; no made basket is inferred.
+
+The September 3 lifecycle replay and its accuracy limitations are recorded in
+[event-lifecycle-results.md](event-lifecycle-results.md). Earlier perfect
+clip-count F1 is not temporal event accuracy: a wrong-time false shot can
+compensate numerically for a missed real shot in the same clip.
 
 ## Shared-runtime verification
 

@@ -128,7 +128,7 @@ components:
 
 CourtVision is a live production desk for interrogating a model result against the footage that produced it. Matte monitor black lets the annotated replay dominate; cool-gray rundown stock gives events, forms, capability bands, and recovery steps the familiar order of a broadcast control sheet. Cobalt behaves like a digital grease pencil—an active annotation, synchronized position, or available action—not ambient brand decoration.
 
-The system is dense, exact, and deliberately non-authoritative across three separated surfaces: the official public site, a public upload-preview desk whose live-analysis path is runtime-controlled, and a permanent API-independent synthetic demo. Amber makes beta status, capacity limits, and unresolved evidence conspicuous, while tabular timecodes make every cue recoverable. Narrow broadcast lettering gives the interface urgency without imitating a scoreboard or turning experimental output into a settled game record.
+The system is dense, exact, and deliberately non-authoritative across three separated surfaces: the official public site, a public upload-preview desk whose live-analysis path is runtime-controlled, and a permanent API-independent synthetic demo. Amber makes preview status, capacity limits, and unresolved evidence conspicuous, while tabular timecodes make every cue recoverable. Narrow broadcast lettering gives the interface urgency without imitating a scoreboard or turning experimental output into a settled game record.
 
 **Key Characteristics:**
 
@@ -152,7 +152,7 @@ The palette separates the replay desk from its paper rundown, then reserves chro
 
 ### Secondary
 
-- **Uncertainty Amber** (`amber`): Private-beta state, focus outlines, unknown markers, and possible-holder emphasis.
+- **Uncertainty Amber** (`amber`): Public-preview capacity state, focus outlines, unknown markers, and possible-holder emphasis.
 - **Uncertainty Ink** (`amber-ink`): Legible text and strokes against amber fills.
 - **Uncertainty Wash** (`amber-soft`): Unknown-player surfaces on the tactical court.
 
@@ -179,7 +179,7 @@ The palette separates the replay desk from its paper rundown, then reserves chro
 
 **The Grease-Pencil Economy Rule.** Cobalt marks an action, selection, synchronized cue, or tracked subject; it does not wash large passive surfaces.
 
-**The Amber Means Uncertainty Rule.** Amber always signals beta status, unknown state, possible possession, or keyboard focus. Never use it as generic decoration.
+**The Amber Means Uncertainty Rule.** Amber always signals preview status, unknown state, possible possession, or keyboard focus. Never use it as generic decoration.
 
 **The Two Stocks Rule.** Monitor neutrals hold the replay and its instrumentation; paper neutrals hold ordered lists, forms, recovery steps, and disclosures.
 
@@ -214,7 +214,7 @@ The official public site at `/` uses a direct split hero: exact evidence-first c
 
 The three surfaces stay separate by route and responsibility. `/` is the official public site and explains the implemented capability contract. `/app.html` is a public local-validation preview while `publicPreview=true` and `analysisAvailable=false`: it checks format, size, and duration without sending the selected video, stops before network upload, and returns a capacity-pending recovery state that explicitly says the video was not uploaded. `/demo.html` remains the permanent, fully interactive, preprocessed sample independent of the analysis API. When live GPU capacity becomes available, runtime configuration may restore the authenticated live-analysis path without changing this visual world.
 
-The desktop review is an immersive two-column desk: the replay takes the fluid column and the persistent rundown rail clamps between 19rem and 27rem. A 4.25rem status rail keeps identity, beta state, deletion deadline, download, report, and sign-out controls visible without becoming global navigation. The tactical court docks over the replay at up to 40% of its width, while the timeline and Evidence & Unknowns stay attached below the monitor.
+The desktop review is an immersive two-column desk: the replay takes the fluid column and the persistent rundown rail clamps between 19rem and 27rem. A 4.25rem status rail keeps identity, service state, deletion deadline, download, report, and sign-out controls visible without becoming global navigation. The tactical court docks over the replay at up to 40% of its width, while the timeline and Evidence & Unknowns stay attached below the monitor.
 
 Upload and processing reuse the same desk grammar: a dominant monitor field paired with a narrower paper rundown. Page padding is fluid through the `page-pad` token. Major paired desks use a regular 14px corner and clip their contrasting stocks into one bounded artifact.
 
@@ -263,7 +263,7 @@ Buttons are compact, tactile controls that lift by one pixel on hover while pres
 
 ### Status Chips
 
-The operational-status chip is a compact amber pill with uppercase condensed type and a leading current-color dot. It communicates public preview, beta, capacity, or uncertainty state, never marketing promotion.
+The operational-status chip is a compact amber pill with uppercase condensed type and a leading current-color dot. It communicates public preview, capacity, or uncertainty state, never marketing promotion.
 
 ### Cards / Containers
 

@@ -1,0 +1,145 @@
+{
+  "benchmark": "Local BARD coarse shot-action windows (calibration only)",
+  "split": "all",
+  "metric": "temporal event point-to-action-interval F1; not official spatial tube mAP",
+  "tolerance_seconds": 0.25,
+  "video_count": 6,
+  "processed_video_count": 6,
+  "missing_videos": [],
+  "coverage": 1.0,
+  "micro": {
+    "tp": 6,
+    "fp": 3,
+    "fn": 3,
+    "precision": 0.6667,
+    "recall": 0.6667,
+    "f1": 0.6667
+  },
+  "by_class": {
+    "shot_attempt": {
+      "tp": 6,
+      "fp": 3,
+      "fn": 3,
+      "precision": 0.6667,
+      "recall": 0.6667,
+      "f1": 0.6667
+    }
+  },
+  "confusion": {
+    "no_event": {
+      "shot_attempt": 3
+    },
+    "shot_attempt": {
+      "shot_attempt": 6,
+      "missed": 3
+    }
+  },
+  "duplicate_predictions": 0,
+  "duplicate_rate": 0.0,
+  "per_video": [
+    {
+      "video_id": "bard_bkn_hou_366",
+      "truth": 3,
+      "predicted": 3,
+      "tp": 2,
+      "fp": 1,
+      "fn": 1,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 1,
+          "prediction_index": 1,
+          "interval_distance_seconds": 0.0
+        },
+        {
+          "truth_index": 2,
+          "prediction_index": 2,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "bard_bos_ind_366",
+      "truth": 1,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.1333
+        }
+      ]
+    },
+    {
+      "video_id": "bard_det_okc_24",
+      "truth": 2,
+      "predicted": 2,
+      "tp": 1,
+      "fp": 1,
+      "fn": 1,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0667
+        }
+      ]
+    },
+    {
+      "video_id": "bard_gsw_mem_17",
+      "truth": 1,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "bard_gsw_mem_21",
+      "truth": 1,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.1167
+        }
+      ]
+    },
+    {
+      "video_id": "bard_gsw_mem_9",
+      "truth": 1,
+      "predicted": 1,
+      "tp": 0,
+      "fp": 1,
+      "fn": 1,
+      "duplicate_predictions": 0,
+      "matches": []
+    }
+  ],
+  "provenance": "archived August 21 E-BARD/WASB manifest",
+  "prediction_sha256": {
+    "bard_bkn_hou_366": "a5b97c625c769f29b27a2ac0bb6eff42525a67a220d2fdcf4b6c884fd732e75d",
+    "bard_bos_ind_366": "507954e5264dd41625bb7845cd756a5bf4872905c67d74149bbdad81219ac717",
+    "bard_det_okc_24": "88ee09561db4c519f1baec877ed1473eaa71663d5858a6365a335d400aed3d78",
+    "bard_gsw_mem_17": "1f06375d0b06c2c14838ff52d89c9b44bdbfa0ef0f0a540b92ca407173c10db9",
+    "bard_gsw_mem_21": "68478d041b9fdaeda6344cb405b454671fd160f271a704e3b5945832076a610b",
+    "bard_gsw_mem_9": "a7560efc87928249de505154d08aa57c5946e828836102314f3a194438426b43"
+  }
+}
