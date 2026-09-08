@@ -253,6 +253,7 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
   gap: 0.55rem;
   color: var(--text-muted);
   font-size: 0.92rem;
@@ -1262,13 +1263,16 @@ dialog .button-secondary:hover:not([disabled]) {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   background: var(--monitor-deep);
 }
 
 .video-monitor {
   position: relative;
   display: grid;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   aspect-ratio: 16 / 9;
   min-height: 0;
   overflow: hidden;
@@ -1724,6 +1728,28 @@ dialog .button-secondary:hover:not([disabled]) {
   color: var(--text);
 }
 
+.game-summary {
+  padding: var(--page-pad);
+  border-top: 1px solid var(--rule);
+  background: var(--monitor);
+  overflow-wrap: anywhere;
+  scroll-margin-top: 1rem;
+}
+
+.game-summary:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: -3px;
+}
+
+.game-summary p,
+.game-summary li {
+  max-width: 72ch;
+}
+
+.game-summary h2 { margin-bottom: 1rem; }
+.game-summary h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; }
+.game-summary .field-hint { color: var(--text-muted); }
+
 .evidence-content {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1812,8 +1838,30 @@ dialog .button-secondary:hover:not([disabled]) {
   background: var(--paper-muted);
 }
 
+.summary-jump {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: -0.15rem 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--rule-light);
+  color: var(--cobalt-strong);
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.summary-jump span { flex: 1; }
+
+.summary-jump .icon:last-child {
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.summary-jump:hover .icon:last-child { transform: translateX(0.2rem); }
+
 .topbar-status-copy {
   display: grid;
+  min-width: 0;
   line-height: 1.2;
 }
 
@@ -2189,6 +2237,53 @@ dialog::backdrop {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 1480px) {
+  .topbar-review {
+    grid-template-columns: auto minmax(7rem, 1fr) auto;
+  }
+
+  .topbar-review .topbar-center {
+    justify-content: flex-start;
+    overflow: hidden;
+    text-align: left;
+  }
+
+  .topbar-review .topbar-status-copy,
+  .topbar-review .topbar-source,
+  .topbar-review .topbar-status-copy > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar-review .topbar-actions .button-secondary,
+  .topbar-review .topbar-actions .button-quiet {
+    width: 2.75rem;
+    padding-inline: 0;
+    overflow: hidden;
+  }
+
+  .topbar-review .topbar-actions .button-secondary span,
+  .topbar-review .topbar-actions .button-quiet span,
+  .topbar-review .topbar-view-tab span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .topbar-review .topbar-view-tabs { margin-right: 0; }
+  .topbar-review .topbar-view-tab { width: 2.5rem; padding-inline: 0; }
+}
+
+@media (max-width: 1180px) {
+  .topbar-review .brand-divider,
+  .topbar-review .brand-lockup .status-chip {
+    display: none;
   }
 }
 

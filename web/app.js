@@ -1138,6 +1138,7 @@
               </div>
               ${timelineMarkup(events, duration)}
               ${evidenceMarkup(selected, analysis)}
+              ${gameSummaryMarkup(analysis)}
             </section>
             <aside class="rundown-rail" aria-labelledby="rundown-title">
               <header class="rundown-header">
@@ -1149,6 +1150,7 @@
               </header>
               ${eventListMarkup(events, selected)}
               <footer class="rundown-footer">
+                ${gameSummaryLinkMarkup(analysis)}
                 ${events.length ? '<div class="timeline-legend" aria-label="Cue states"><span><i class="legend-shape"></i>Candidate</span><span><i class="legend-shape unknown"></i>Unknown</span></div>' : ""}
                 <p>${escapeHtml(analysis.disclaimer || "Experimental analysis. Review every result against the source play.")}</p>
               </footer>
@@ -1189,7 +1191,7 @@
       : `${config.resultRetentionHours}-hour ${config.localRuntime ? "local session" : "retention"}`;
     const canDownload = review && state.downloads?.videoUrl;
     return `
-      <header class="topbar">
+      <header class="topbar${review ? " topbar-review" : ""}">
         <div class="brand-lockup">
           <a class="brand" href="./" aria-label="CourtVision home">CourtVision</a>
           <span class="brand-divider" aria-hidden="true"></span>
@@ -1402,6 +1404,39 @@
         </div>
       </section>
     `;
+  }
+
+  function gameSummaryMarkup(analysis) {
+    const report = analysis.gameSummary;
+    if (!report || report.status === "disabled") return "";
+    if (report.status !== "complete") {
+      return '<section class="game-summary" id="openai-clip-summary" tabindex="-1" aria-labelledby="game-summary-title"><h2 id="game-summary-title">OpenAI clip summary</h2><p>OpenAI summary unavailable for this run. You can still review the video and event rundown.</p></section>';
+    }
+    const facts = new Map((report.evidence || []).map((fact) => [fact.id, fact]));
+    const references = (ids) => (ids || []).map((id) => {
+      const fact = facts.get(id);
+      if (!fact) return "";
+      return Number.isFinite(fact.timeSeconds)
+        ? `${formatTime(fact.timeSeconds)} ${escapeHtml(fact.type.replaceAll("_", " "))} ${fact.status === "unknown" ? "unknown" : "candidate"}`
+        : fact.id === "coverage" ? "Analyzed clip duration" : "Clip observation totals";
+    }).filter(Boolean).join(" · ");
+    return `<section class="game-summary" id="openai-clip-summary" tabindex="-1" aria-labelledby="game-summary-title">
+      <h2 id="game-summary-title">OpenAI clip summary & tactical review</h2>
+      <p class="field-hint">Generated from experimental observations in this clip. Verify against the replay; this is not a full-game report.</p>
+      <p>${escapeHtml(report.summary)}</p>
+      ${(report.tacticalInsights || []).map((item) => `<div class="tactical-insight">
+        <h3>${escapeHtml(item.observation)}</h3>
+        <p>${escapeHtml(item.reviewSuggestion)}</p>
+        <p class="field-hint">Evidence: ${references(item.evidenceIds)}</p>
+      </div>`).join("")}
+      ${(report.limitations || []).length ? `<h3>Limits of this review</h3><ul>${report.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+    </section>`;
+  }
+
+  function gameSummaryLinkMarkup(analysis) {
+    const report = analysis.gameSummary;
+    if (!report || report.status === "disabled") return "";
+    return `<a class="summary-jump" href="#openai-clip-summary">${icon("evidence")}<span>${report.status === "complete" ? "OpenAI clip summary" : "Summary status"}</span>${icon("arrow")}</a>`;
   }
 
   function evidenceMarkup(event, analysis) {
