@@ -1,0 +1,587 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "enum": [
+        "2.0"
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "durationSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "frameCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sampledFrameCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "usableFrameCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "usableFrameRatio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "knownPossessionFrames": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknownPossessionFrames": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calibratedFrameCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calibrationCoverage": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "knownTeamObservations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknownTeamObservations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "knownTeamRatio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "omittedEventCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "durationSeconds",
+        "frameCount",
+        "sampledFrameCount",
+        "usableFrameCount",
+        "usableFrameRatio",
+        "knownPossessionFrames",
+        "unknownPossessionFrames",
+        "calibratedFrameCount",
+        "calibrationCoverage",
+        "knownTeamObservations",
+        "unknownTeamObservations",
+        "knownTeamRatio",
+        "omittedEventCount"
+      ],
+      "additionalProperties": false
+    },
+    "possession": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "denominator": {
+          "enum": [
+            "sampled_frames_with_possession_diagnostics"
+          ]
+        },
+        "eligibleFrames": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "team1Frames": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "team2Frames": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknownFrames": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "team1Share": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "team2Share": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "unknownShare": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "trackId": {
+                "type": "string"
+              },
+              "teamId": {
+                "enum": [
+                  null,
+                  1,
+                  2
+                ]
+              },
+              "startFrame": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "endFrame": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "timeSeconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "endSeconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "supportFrames": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "id",
+              "trackId",
+              "teamId",
+              "startFrame",
+              "endFrame",
+              "timeSeconds",
+              "endSeconds",
+              "supportFrames"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "id",
+        "denominator",
+        "eligibleFrames",
+        "team1Frames",
+        "team2Frames",
+        "unknownFrames",
+        "team1Share",
+        "team2Share",
+        "unknownShare",
+        "segments"
+      ],
+      "additionalProperties": false
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "trackId": {
+            "type": "string"
+          },
+          "teamId": {
+            "enum": [
+              null,
+              1,
+              2
+            ]
+          },
+          "observedFrames": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "observationSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "continuityRatio": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "continuousRuns": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "calibratedFrames": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "measurementQuality": {
+            "type": "string"
+          },
+          "uncertaintyReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "distanceMeters": {
+            "type": "number",
+            "minimum": 0
+          },
+          "measuredSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "averageSpeedMps": {
+            "type": "number",
+            "minimum": 0
+          },
+          "p95SpeedMps": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sustainedPeakSpeedMps": {
+            "type": "number",
+            "minimum": 0
+          },
+          "peakTimeSeconds": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "trackId",
+          "teamId",
+          "observedFrames",
+          "observationSeconds",
+          "continuityRatio",
+          "continuousRuns",
+          "calibratedFrames",
+          "measurementQuality",
+          "uncertaintyReasons"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "pass",
+              "interception",
+              "shot_attempt"
+            ]
+          },
+          "status": {
+            "enum": [
+              "candidate"
+            ]
+          },
+          "timeSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "frameIndex": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "replayStartSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "replayEndSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "fromTrackId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "toTrackId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fromTeamId": {
+            "enum": [
+              null,
+              1,
+              2
+            ]
+          },
+          "toTeamId": {
+            "enum": [
+              null,
+              1,
+              2
+            ]
+          },
+          "supportFrames": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uncertaintyReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "releaseFrame": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "catchFrame": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "timeSeconds",
+          "frameIndex",
+          "replayStartSeconds",
+          "replayEndSeconds",
+          "fromTrackId",
+          "toTrackId",
+          "fromTeamId",
+          "toTeamId",
+          "supportFrames",
+          "uncertaintyReasons"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "sequences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "evidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "relation": {
+            "enum": [
+              "temporal_adjacency_only"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "evidenceIds",
+          "relation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "fps": {
+          "type": "number",
+          "minimum": 0
+        },
+        "algorithms": {
+          "type": "object",
+          "properties": {
+            "evidence": {
+              "type": "string"
+            },
+            "possession": {
+              "type": "string"
+            },
+            "movement": {
+              "type": "string"
+            },
+            "events": {
+              "type": "string"
+            },
+            "review": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "evidence",
+            "possession",
+            "movement",
+            "events"
+          ],
+          "additionalProperties": false
+        },
+        "units": {
+          "type": "object",
+          "properties": {
+            "time": {
+              "type": "string"
+            },
+            "distance": {
+              "type": "string"
+            },
+            "speed": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "time",
+            "distance",
+            "speed"
+          ],
+          "additionalProperties": false
+        },
+        "thresholds": {
+          "type": "object",
+          "properties": {
+            "minimumSupportFrames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maximumEvents": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minimumObservationSeconds": {
+              "type": "number",
+              "minimum": 0
+            },
+            "maximumSpeedMps": {
+              "type": "number",
+              "minimum": 0
+            },
+            "sustainedWindowSeconds": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "minimumSupportFrames",
+            "maximumEvents",
+            "minimumObservationSeconds",
+            "maximumSpeedMps",
+            "sustainedWindowSeconds"
+          ],
+          "additionalProperties": false
+        },
+        "calibrationStatus": {
+          "type": "string"
+        },
+        "verificationGate": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fps",
+        "algorithms",
+        "units",
+        "thresholds",
+        "calibrationStatus",
+        "verificationGate"
+      ],
+      "additionalProperties": false
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "summaryOptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "supportedClaims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "claim": {
+            "type": "string"
+          },
+          "evidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "claim",
+          "evidenceIds"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "coverage",
+    "possession",
+    "tracks",
+    "events",
+    "sequences",
+    "provenance",
+    "limitations",
+    "summaryOptions",
+    "supportedClaims"
+  ],
+  "additionalProperties": false
+}

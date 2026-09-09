@@ -1412,24 +1412,35 @@
     if (report.status !== "complete") {
       return '<section class="game-summary" id="openai-clip-summary" tabindex="-1" aria-labelledby="game-summary-title"><h2 id="game-summary-title">OpenAI clip summary</h2><p>OpenAI summary unavailable for this run. You can still review the video and event rundown.</p></section>';
     }
-    const facts = new Map((report.evidence || []).map((fact) => [fact.id, fact]));
-    const references = (ids) => (ids || []).map((id) => {
+    const evidence = report.evidence;
+    const v2 = evidence?.schemaVersion === "2.0";
+    const factList = v2 ? [evidence.coverage, evidence.possession, ...evidence.possession.segments, ...evidence.tracks, ...evidence.events, ...evidence.sequences] : (Array.isArray(evidence) ? evidence : []);
+    const facts = new Map(factList.map((fact) => [fact.id, fact]));
+    const referenceIds = (ids) => [...new Set((ids || []).flatMap((id) => {
+      const fact = facts.get(id);
+      return fact?.relation === "temporal_adjacency_only" ? fact.evidenceIds : [id];
+    }))];
+    const references = (ids) => referenceIds(ids).map((id) => {
       const fact = facts.get(id);
       if (!fact) return "";
       return Number.isFinite(fact.timeSeconds)
-        ? `${formatTime(fact.timeSeconds)} ${escapeHtml(fact.type.replaceAll("_", " "))} ${fact.status === "unknown" ? "unknown" : "candidate"}`
+        ? `<button type="button" class="summary-replay button button-quiet" data-summary-seek="${Number.isFinite(fact.replayStartSeconds) ? fact.replayStartSeconds : fact.timeSeconds}">Replay ${formatTime(Math.round(fact.timeSeconds * 10) / 10)} ${escapeHtml((fact.type || "possession").replaceAll("_", " "))} ${fact.status === "unknown" ? "unknown" : fact.status || ""}</button>`
         : fact.id === "coverage" ? "Analyzed clip duration" : "Clip observation totals";
     }).filter(Boolean).join(" · ");
     return `<section class="game-summary" id="openai-clip-summary" tabindex="-1" aria-labelledby="game-summary-title">
-      <h2 id="game-summary-title">OpenAI clip summary & tactical review</h2>
+      <h2 id="game-summary-title">AI clip summary</h2>
       <p class="field-hint">Generated from experimental observations in this clip. Verify against the replay; this is not a full-game report.</p>
       <p>${escapeHtml(report.summary)}</p>
+      ${(report.tacticalInsights || []).length ? "<h3>Key moments to review</h3>" : ""}
       ${(report.tacticalInsights || []).map((item) => `<div class="tactical-insight">
-        <h3>${escapeHtml(item.observation)}</h3>
-        <p>${escapeHtml(item.reviewSuggestion)}</p>
+        <p>${escapeHtml(item.claim || item.observation)}</p>
+        ${item.caveat || item.reviewSuggestion ? `<p>${escapeHtml(item.caveat || item.reviewSuggestion)}</p>` : ""}
         <p class="field-hint">Evidence: ${references(item.evidenceIds)}</p>
       </div>`).join("")}
+      <details class="summary-details"><summary>Coverage and limitations</summary>
+      ${v2 ? `<h3>Coverage</h3><p>${evidence.coverage.usableFrameCount} of ${evidence.coverage.frameCount} frames contain usable player observations. ${evidence.coverage.unknownPossessionFrames} frames have unknown team possession. Court calibration supports ${evidence.coverage.calibratedFrameCount} frames.</p>` : ""}
       ${(report.limitations || []).length ? `<h3>Limits of this review</h3><ul>${report.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+      </details>
     </section>`;
   }
 
@@ -1569,6 +1580,14 @@
     });
     app.querySelectorAll("[data-event-id]").forEach((button) => {
       button.addEventListener("click", () => selectEvent(button.dataset.eventId, video));
+    });
+    app.querySelectorAll("[data-summary-seek]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.currentTime = clamp(Number(button.dataset.summarySeek), 0, duration);
+        if (video) video.currentTime = state.currentTime;
+        updateCourtAndTimeline();
+        video?.scrollIntoView({ block: "center", behavior: "auto" });
+      });
     });
     const inspectorTabs = Array.from(app.querySelectorAll(".inspector-tab"));
     inspectorTabs.forEach((button, index) => {
