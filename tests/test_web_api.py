@@ -1,6 +1,7 @@
 import json
 import time
 import unittest
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 from backend.app import web_api
@@ -217,6 +218,116 @@ class WebApiTests(unittest.TestCase):
         response = web_api.lambda_handler(event, None)
 
         self.assertEqual(response["statusCode"], 401)
+
+    def test_admin_overview_rejects_a_signed_in_non_admin(self):
+        with patch.dict("os.environ", {"ADMIN_EMAIL": "owner@example.com"}, clear=False):
+            with self.assertRaises(web_api.ApiError) as raised:
+                web_api._admin_overview({"email": "analyst@example.com"})
+
+        self.assertEqual(raised.exception.code, "admin_required")
+
+    def test_admin_overview_lists_signups_and_analysis_activity(self):
+        class Cognito:
+            def __init__(self):
+                self.calls = []
+
+            def list_users(self, **kwargs):
+                self.calls.append(kwargs)
+                if "PaginationToken" not in kwargs:
+                    return {
+                        "Users": [
+                            {
+                                "Username": "owner-id",
+                                "UserStatus": "CONFIRMED",
+                                "Enabled": True,
+                                "UserCreateDate": datetime(2026, 9, 1, 12, tzinfo=UTC),
+                                "Attributes": [
+                                    {"Name": "email", "Value": "owner@example.com"},
+                                    {"Name": "email_verified", "Value": "true"},
+                                ],
+                            }
+                        ],
+                        "PaginationToken": "next-users",
+                    }
+                return {
+                    "Users": [
+                        {
+                            "Username": "viewer@example.com",
+                            "UserStatus": "UNCONFIRMED",
+                            "Enabled": True,
+                            "UserCreateDate": datetime(2026, 9, 2, 12, tzinfo=UTC),
+                            "Attributes": [{"Name": "email", "Value": "viewer@example.com"}],
+                        }
+                    ]
+                }
+
+        class ActivityTable:
+            def __init__(self):
+                self.calls = []
+
+            def scan(self, **kwargs):
+                self.calls.append(kwargs)
+                if "ExclusiveStartKey" not in kwargs:
+                    return {
+                        "Items": [
+                            {"ownerEmail": "owner@example.com", "analysisCount": 2, "lastAnalysisAt": 200},
+                        ],
+                        "LastEvaluatedKey": {"jobId": "second"},
+                    }
+                return {
+                    "Items": [
+                        {"ownerEmail": "legacy@example.com", "analysisCount": 1, "lastAnalysisAt": 150}
+                    ]
+                }
+
+        cognito = Cognito()
+        activity = ActivityTable()
+        with patch.dict(
+            "os.environ",
+            {"ADMIN_EMAIL": "owner@example.com", "COGNITO_USER_POOL_ID": "pool-id"},
+            clear=False,
+        ), patch.object(web_api, "_client", return_value=cognito), patch.object(
+            web_api, "_table", return_value=activity
+        ):
+            response = web_api._admin_overview({"email": "OWNER@example.com"})
+
+        body = json.loads(response["body"])
+        self.assertEqual(body["totals"], {"signups": 2, "confirmedUsers": 1, "analysisUsers": 2, "analyses": 3})
+        self.assertEqual(body["users"][1]["analysisCount"], 2)
+        self.assertEqual(body["users"][1]["lastAnalysisAt"], "1970-01-01T00:03:20Z")
+        self.assertEqual(cognito.calls[1]["PaginationToken"], "next-users")
+        self.assertEqual(activity.calls[1]["ExclusiveStartKey"], {"jobId": "second"})
+
+    def test_analysis_activity_is_recorded_persistently(self):
+        class ActivityTable:
+            def __init__(self):
+                self.request = None
+
+            def update_item(self, **kwargs):
+                self.request = kwargs
+
+        table = ActivityTable()
+        with patch.object(web_api, "_table", return_value=table):
+            web_api._record_analysis_activity(
+                {"ownerEmail": "analyst@example.com", "createdAt": 1_799_000_000}
+            )
+
+        self.assertEqual(table.request["Key"], {"ownerEmail": "analyst@example.com"})
+        self.assertIn("ADD analysisCount", table.request["UpdateExpression"])
+        self.assertEqual(table.request["ExpressionAttributeValues"][":one"], 1)
+
+    def test_session_marks_only_the_configured_email_as_admin(self):
+        payload = {"v": 1, "email": "owner@example.com", "csrf": "csrf", "exp": int(time.time()) + 60}
+        token = web_api._encode_session(payload)
+        event = {
+            "rawPath": "/api/auth/session",
+            "requestContext": {"http": {"method": "GET"}},
+            "headers": {"cookie": f"cv_session={token}"},
+        }
+        with patch.dict("os.environ", {"ADMIN_EMAIL": "OWNER@example.com"}, clear=False):
+            response = web_api.lambda_handler(event, None)
+
+        self.assertTrue(json.loads(response["body"])["isAdmin"])
 
     def test_uncertain_team_continuation_sets_batch_override(self):
         job = {

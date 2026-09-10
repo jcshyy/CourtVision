@@ -3,6 +3,10 @@ Transform: AWS::Serverless-2016-10-31
 Description: CourtVision public-preview web application and job-control plane
 
 Parameters:
+  AdminEmail:
+    Type: String
+    Description: Confirmed Cognito email allowed to view the private admin dashboard.
+    AllowedPattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
   OpenAISummaryModel:
     Type: String
     Default: gpt-4.1-mini
@@ -270,6 +274,21 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
+  UserActivityTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: ownerEmail
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ownerEmail
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
   ReportsTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -381,8 +400,11 @@ Resources:
           API_PREFIX: /api
           ALLOWED_WEB_ORIGIN: !Ref AllowedWebOrigin
           ARTIFACT_BUCKET: !Ref ArtifactBucket
+          ADMIN_EMAIL: !Ref AdminEmail
           COGNITO_APP_CLIENT_ID: !Ref UserPoolClient
+          COGNITO_USER_POOL_ID: !Ref UserPool
           JOBS_TABLE: !Ref JobsTable
+          USER_ACTIVITY_TABLE: !Ref UserActivityTable
           REPORTS_TABLE: !Ref ReportsTable
           SESSION_SECRET_ARN: !Ref SessionSecret
           BATCH_JOB_QUEUE: !Ref GpuJobQueue
@@ -396,6 +418,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserActivityTable
         - DynamoDBCrudPolicy:
             TableName: !Ref ReportsTable
         - S3CrudPolicy:
@@ -411,6 +435,9 @@ Resources:
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
               Resource: !Ref SessionSecret
+            - Effect: Allow
+              Action: cognito-idp:ListUsers
+              Resource: !GetAtt UserPool.Arn
 
   LambdaApiIntegration:
     Type: AWS::ApiGatewayV2::Integration
@@ -643,9 +670,11 @@ Resources:
                   - dynamodb:DeleteItem
                   - dynamodb:GetItem
                   - dynamodb:PutItem
+                  - dynamodb:Scan
                   - dynamodb:UpdateItem
                 Resource:
                   - !GetAtt JobsTable.Arn
+                  - !GetAtt UserActivityTable.Arn
                   - !GetAtt ReportsTable.Arn
               - Effect: Allow
                 Action: [s3:GetObject, s3:PutObject]
@@ -661,6 +690,9 @@ Resources:
               - Effect: Allow
                 Action: ses:SendEmail
                 Resource: "*"
+              - Effect: Allow
+                Action: cognito-idp:ListUsers
+                Resource: !GetAtt UserPool.Arn
 
   ApiLogs:
     Type: AWS::Logs::LogGroup
@@ -692,10 +724,16 @@ Resources:
               Value: /api
             - Name: ARTIFACT_BUCKET
               Value: !Ref ArtifactBucket
+            - Name: ADMIN_EMAIL
+              Value: !Ref AdminEmail
             - Name: COGNITO_APP_CLIENT_ID
               Value: !Ref UserPoolClient
+            - Name: COGNITO_USER_POOL_ID
+              Value: !Ref UserPool
             - Name: JOBS_TABLE
               Value: !Ref JobsTable
+            - Name: USER_ACTIVITY_TABLE
+              Value: !Ref UserActivityTable
             - Name: REPORTS_TABLE
               Value: !Ref ReportsTable
             - Name: SESSION_SECRET_ARN
@@ -976,6 +1014,8 @@ Outputs:
     Value: !Ref ModelBucket
   JobsTableName:
     Value: !Ref JobsTable
+  UserActivityTableName:
+    Value: !Ref UserActivityTable
   ReportsTableName:
     Value: !Ref ReportsTable
   SessionSecretArn:

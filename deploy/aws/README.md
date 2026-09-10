@@ -33,7 +33,7 @@ with `ApiRuntime=Flask`; both adapters expose the same tested API contract.
 1. AWS SAM CLI and AWS CLI authenticated to the target account.
 2. Amazon Cognito's built-in email delivery is used for account confirmation
    and password recovery. Its default account quota is intended for low-volume
-   low-volume public use.
+   public use.
 3. One ECR worker image built from `Dockerfile`. The Lambda API is packaged by
    SAM and does not need an API container image.
 4. Worker subnets with outbound access to ECR, S3, DynamoDB, and CloudWatch
@@ -93,6 +93,7 @@ sam deploy --guided `
   --parameter-overrides `
     ApiRuntime=Lambda `
     EnableCloudFront=false `
+    AdminEmail=you@example.com `
     WorkerImageUri=ACCOUNT.dkr.ecr.REGION.amazonaws.com/courtvision-worker:COMMIT `
     AllowedWebOrigin=https://courtvision.video `
     BallDetectorBackend=hybrid `
@@ -103,6 +104,11 @@ sam deploy --guided `
 The checked-in `web/config.js` enables public account creation and authenticated
 analysis against `https://api.courtvision.video/api`. Keep the API, Cognito,
 private job bucket, and Batch worker healthy before publishing the static client.
+`AdminEmail` must match your confirmed CourtVision signup. That account alone sees
+the Admin shortcut and can retrieve the private signup and analysis ledger at
+`/admin.html`; the API independently enforces the same email restriction. Analysis
+totals are recorded in a persistent usage table from the time this stack version is
+deployed, while uploaded clips and detailed job results retain their existing expiry.
 If CourtVision moves fully behind CloudFront, update the stack with
 `EnableCloudFront=true` plus the custom domain and certificate parameters.
 
