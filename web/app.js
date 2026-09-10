@@ -77,6 +77,7 @@
     chevron: '<path d="M8 10l4 4 4-4"/>',
     profile: '<circle cx="12" cy="8" r="3.5"/><path d="M5.5 20a6.5 6.5 0 0113 0"/>',
     video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 9l6 3-6 3z"/>',
+    users: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0111 0m0-5a5 5 0 016 5"/>',
   };
 
   function icon(name, label = "") {
@@ -1244,6 +1245,7 @@
       <span class="topbar-view-tabs" aria-label="Account views">
         <button class="topbar-view-tab" type="button" data-app-view="upload" ${profileActive ? "" : 'aria-current="page"'}>${icon("video")}<span>Analyze</span></button>
         <button class="topbar-view-tab" type="button" data-app-view="profile" ${profileActive ? 'aria-current="page"' : ""}>${icon("profile")}<span>Profile</span></button>
+        ${state.session?.isAdmin ? `<a class="topbar-view-tab" href="admin.html">${icon("users")}<span>Admin</span></a>` : ""}
       </span>
     `;
   }

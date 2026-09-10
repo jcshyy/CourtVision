@@ -108,6 +108,7 @@ def handle_request(request):
                 {
                     "authenticated": True,
                     "email": session["email"],
+                    "isAdmin": _is_admin(session),
                     "csrfToken": session["csrf"],
                     "expiresAt": _iso(session["exp"]),
                 },
@@ -118,6 +119,8 @@ def handle_request(request):
             return _list_jobs(session)
         if method == "POST" and path == "/jobs":
             return _create_job(session, _json_body(request))
+        if method == "GET" and path == "/admin/overview":
+            return _admin_overview(session)
 
         job_match = re.fullmatch(
             r"/jobs/([0-9a-f-]+)(?:/(start|download|reports|team-colors|continue-with-uncertain-teams))?",
@@ -296,6 +299,7 @@ def _session_response(email):
         {
             "authenticated": True,
             "email": email,
+            "isAdmin": _is_admin({"email": email}),
             "csrfToken": payload["csrf"],
             "expiresAt": _iso(payload["exp"]),
         },
@@ -369,6 +373,7 @@ def _create_job(session, body):
         "expiresAt": now + retention,
     }
     _table("JOBS_TABLE").put_item(Item=item)
+    _record_analysis_activity(item)
 
     upload = _client("s3").generate_presigned_post(
         Bucket=_env("ARTIFACT_BUCKET"),
@@ -424,6 +429,119 @@ def _list_jobs(session):
             break
 
     return _response(200, {"jobs": [_public_job(item) for item in jobs[:25]]})
+
+
+def _admin_overview(session):
+    """Return private account and analysis totals for the configured owner."""
+
+    if not _is_admin(session):
+        raise ApiError(403, "This page is restricted to the CourtVision administrator.", code="admin_required")
+
+    users = _all_cognito_users()
+    usage_rows = _all_analysis_activity()
+    activity = {}
+
+    for row in usage_rows:
+        email = str(row.get("ownerEmail") or "").strip().lower()
+        if not email:
+            continue
+        activity[email] = {
+            "analysisCount": int(row.get("analysisCount") or 0),
+            "lastAnalysisAt": int(row.get("lastAnalysisAt") or 0) or None,
+        }
+
+    accounts = []
+    for user in users:
+        attributes = {
+            str(item.get("Name") or ""): str(item.get("Value") or "")
+            for item in user.get("Attributes", [])
+        }
+        email = attributes.get("email", str(user.get("Username") or "")).strip().lower()
+        user_activity = activity.get(email, {})
+        created_at = user.get("UserCreateDate")
+        accounts.append(
+            {
+                "email": email,
+                "status": str(user.get("UserStatus") or "UNKNOWN"),
+                "enabled": bool(user.get("Enabled", True)),
+                "emailVerified": attributes.get("email_verified", "false").lower() == "true",
+                "signedUpAt": _aws_datetime_iso(created_at),
+                "analysisCount": int(user_activity.get("analysisCount", 0)),
+                "lastAnalysisAt": _iso(user_activity["lastAnalysisAt"])
+                if user_activity.get("lastAnalysisAt")
+                else None,
+            }
+        )
+
+    accounts.sort(key=lambda account: account.get("signedUpAt") or "", reverse=True)
+    return _response(
+        200,
+        {
+            "generatedAt": _iso(int(time.time())),
+            "totals": {
+                "signups": len(accounts),
+                "confirmedUsers": sum(1 for account in accounts if account["status"] == "CONFIRMED"),
+                "analysisUsers": len(activity),
+                "analyses": sum(record["analysisCount"] for record in activity.values()),
+            },
+            "users": accounts,
+        },
+    )
+
+
+def _all_cognito_users():
+    client = _client("cognito-idp")
+    users = []
+    pagination_token = None
+    while True:
+        request = {"UserPoolId": _env("COGNITO_USER_POOL_ID"), "Limit": 60}
+        if pagination_token:
+            request["PaginationToken"] = pagination_token
+        page = client.list_users(**request)
+        users.extend(page.get("Users", []))
+        pagination_token = page.get("PaginationToken")
+        if not pagination_token:
+            return users
+
+
+def _record_analysis_activity(job):
+    _table("USER_ACTIVITY_TABLE").update_item(
+        Key={"ownerEmail": job["ownerEmail"]},
+        UpdateExpression=(
+            "SET firstAnalysisAt = if_not_exists(firstAnalysisAt, :created), "
+            "lastAnalysisAt = :created ADD analysisCount :one"
+        ),
+        ExpressionAttributeValues={":created": job["createdAt"], ":one": 1},
+    )
+
+
+def _all_analysis_activity():
+    table = _table("USER_ACTIVITY_TABLE")
+    rows = []
+    cursor = None
+    while True:
+        request = {"ProjectionExpression": "ownerEmail, analysisCount, lastAnalysisAt"}
+        if cursor:
+            request["ExclusiveStartKey"] = cursor
+        page = table.scan(**request)
+        rows.extend(page.get("Items", []))
+        cursor = page.get("LastEvaluatedKey")
+        if not cursor:
+            return rows
+
+
+def _is_admin(session):
+    configured = os.getenv("ADMIN_EMAIL", "").strip().lower()
+    supplied = str(session.get("email") or "").strip().lower()
+    return bool(configured and supplied and hmac.compare_digest(configured, supplied))
+
+
+def _aws_datetime_iso(value):
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=UTC)
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return None
 
 
 def _start_job(session, job_id):
