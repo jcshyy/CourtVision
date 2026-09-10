@@ -2,7 +2,6 @@ import argparse
 import json
 from pathlib import Path
 
-from backend.app.cache_paths import cache_path, default_job_output_path, video_cache_dir
 from backend.app.analytics import (
     BallAcquisitionDetector,
     PassInterceptionDetector,
@@ -14,6 +13,7 @@ from backend.app.analytics import (
     build_event_team_hints,
     finalize_ball_events,
 )
+from backend.app.cache_paths import cache_path, default_job_output_path, video_cache_dir
 from backend.app.config import OUTPUT_DIR, STUBS_DIR
 from backend.app.detection import (
     CourtKeypointDetector,
@@ -252,6 +252,9 @@ def write_analysis_manifest(
     detector_architecture=None,
     possession_timeline=None,
     shot_rebound_timeline=None,
+    player_distances_per_frame=None,
+    discontinuity_frames=None,
+    player_tracks=None,
 ):
     """Write the evidence used by the web review surface.
 
@@ -292,11 +295,21 @@ def write_analysis_manifest(
                     "isHolder": bool(player_id == holder_id),
                 }
             )
+        # Export existing metric intervals; never reconstruct physical units in the LLM.
+        unavailable = set(tactical_diagnostics.get("homography_unavailable", []))
+        fallback = set(tactical_diagnostics.get("fallback_used", []))
+        calibrated = bool(tactical_positions) and frame_index not in unavailable | fallback and not tactical_diagnostics.get("event_only")
+        for player in players:
+            if player_distances_per_frame is not None and frame_index < len(player_distances_per_frame):
+                distance = player_distances_per_frame[frame_index].get(player["id"])
+                if distance is not None:
+                    player["distanceMeters"] = _json_safe(distance)
         frames.append(
             {
                 "frameIndex": frame_index,
                 "timeSeconds": round(frame_index / fps, 3),
                 "possessionTeamId": possession_team_id,
+                "courtCalibrated": calibrated,
                 "players": players,
             }
         )
@@ -325,6 +338,17 @@ def write_analysis_manifest(
             }
         )
 
+    evidence_frames = []
+    if player_tracks is not None:
+        for index, observed in enumerate(player_tracks):
+            assignments = player_assignment[index] if index < len(player_assignment) else {}
+            projected = {p["id"]: p for p in frames[index]["players"]} if index < len(frames) else {}
+            evidence_frames.append({"frameIndex": index,
+                "courtCalibrated": frames[index]["courtCalibrated"] if index < len(frames) else False,
+                "players": [{"id": int(pid), "teamId": _json_safe(assignments.get(pid)),
+                    **({"distanceMeters": projected[int(pid)]["distanceMeters"]}
+                       if int(pid) in projected and "distanceMeters" in projected[int(pid)] else {})}
+                    for pid in observed]})
     payload = {
         "schemaVersion": 1,
         "beta": True,
@@ -338,8 +362,10 @@ def write_analysis_manifest(
             "durationSeconds": round(frame_count / fps, 3),
         },
         "court": {"width": court_width, "height": court_height},
+        "measurements": {"discontinuityFrames": sorted(discontinuity_frames or [])},
         "events": review_events,
         "frames": frames,
+        "evidenceFrames": evidence_frames if player_tracks is not None else frames,
         "diagnostics": {
             "tacticalView": _json_safe(tactical_diagnostics),
             "teamAssignment": _json_safe(assignment_metadata),
@@ -829,6 +855,9 @@ def main():
                 "fused": fused_possession_timeline.to_dict(),
             },
             shot_rebound_timeline=shot_rebound_timeline,
+            player_distances_per_frame=player_distances_per_frame,
+            discontinuity_frames=sorted(set(scene_discontinuity_frames) | set(tactical_view_converter.last_diagnostics.get("temporal_discontinuity", []))),
+            player_tracks=player_tracks,
         )
         print(f"Saved analysis manifest to {args.output_analysis}")
 

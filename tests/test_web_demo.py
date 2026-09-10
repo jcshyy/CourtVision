@@ -68,7 +68,7 @@ class WebDemoTests(unittest.TestCase):
         self.assertIn("${summaryDockMarkup(analysis)}", client)
         self.assertIn("${gameSummaryLinkMarkup(analysis)}", client)
         self.assertIn('id="openai-clip-summary"', client)
-        self.assertIn("OpenAI clip summary & tactical review", client)
+        self.assertIn("AI clip summary", client)
         self.assertIn("Ball control estimate", client)
         self.assertIn('role="tablist" aria-label="Replay inspector view"', client)
         self.assertIn('inspectorTab: "court"', client)

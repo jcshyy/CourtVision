@@ -11,6 +11,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from backend.app.game_summary import enrich_analysis
+
 try:
     import boto3
 except ImportError:  # Keeps pure helper tests importable without the AWS runtime extras.
@@ -105,6 +107,8 @@ def main():
             if not output_path.exists() or not analysis_path.exists():
                 raise RuntimeError("Pipeline completed without the required review artifacts")
 
+            _update_job(jobs_table, job_id, "processing", "Preparing the clip summary")
+            enrich_analysis(analysis_path)
             _update_job(jobs_table, job_id, "processing", "Finalizing review artifacts")
             output_key = f"jobs/{job_id}/result/annotated.mp4"
             analysis_key = f"jobs/{job_id}/result/analysis.json"

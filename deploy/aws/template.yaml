@@ -3,6 +3,14 @@ Transform: AWS::Serverless-2016-10-31
 Description: CourtVision public-preview web application and job-control plane
 
 Parameters:
+  OpenAISummaryModel:
+    Type: String
+    Default: gpt-4.1-mini
+    Description: OpenAI Responses model for evidence-grounded clip summaries.
+  OpenAIApiKeySecretArn:
+    Type: String
+    Default: ""
+    Description: Optional Secrets Manager ARN containing the OpenAI API key. Empty disables summaries.
   ApiRuntime:
     Type: String
     Default: Lambda
@@ -141,6 +149,7 @@ Rules:
         AssertDescription: External static hosting currently requires the Lambda API runtime.
 
 Conditions:
+  EnableOpenAISummaries: !Not [!Equals [!Ref OpenAIApiKeySecretArn, ""]]
   UseFlaskApi: !Equals [!Ref ApiRuntime, Flask]
   UseLambdaApi: !Not [!Condition UseFlaskApi]
   UseCloudFront: !Equals [!Ref EnableCloudFront, "true"]
@@ -488,6 +497,12 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              - !If
+                - EnableOpenAISummaries
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref OpenAIApiKeySecretArn
+                - !Ref AWS::NoValue
               - Effect: Allow
                 Action: [s3:GetObject, s3:PutObject]
                 Resource: !Sub ${ArtifactBucket.Arn}/jobs/*
@@ -568,6 +583,10 @@ Resources:
         Environment:
           - Name: COURTVISION_MODEL_BUCKET
             Value: !Ref ModelBucket
+          - Name: OPENAI_API_KEY_SECRET_ARN
+            Value: !Ref OpenAIApiKeySecretArn
+          - Name: OPENAI_SUMMARY_MODEL
+            Value: !Ref OpenAISummaryModel
           - Name: COURTVISION_MODEL_PREFIX
             Value: models
           - Name: COURTVISION_BALL_DETECTOR_BACKEND

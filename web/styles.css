@@ -2649,3 +2649,12 @@ dialog::backdrop {
     flex-direction: column-reverse;
   }
 }
+
+/* Evidence summary remains in document flow below the replay workspace. */
+.game-summary { min-width: 0; }
+.summary-replay { min-height: 44px; white-space: normal; text-align: left; }
+.tactical-insight { max-width: 72ch; }
+
+.summary-details { margin-top: 1.5rem; border-top: 1px solid var(--rule); padding-top: 1rem; }
+.summary-details > summary { cursor: pointer; min-height: 44px; padding-block: 0.5rem; }
+.summary-details > summary:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
