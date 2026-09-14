@@ -197,7 +197,11 @@ class TrustedEvidenceTests(unittest.TestCase):
         from pathlib import Path
 
         p = build(
-            json.loads(Path("web/assets/courtvision-demo-analysis.json").read_text())
+            json.loads(
+                Path(
+                    "benchmarks/demo_history/2026-09-13/courtvision-demo-analysis.json"
+                ).read_text()
+            )
         )
         self.assertEqual(p["coverage"]["calibratedFrameCount"], 0)
 
