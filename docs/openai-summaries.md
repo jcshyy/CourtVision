@@ -33,8 +33,12 @@ python -m backend.app.game_summary path/to/analysis.json path/to/summary.json
 ```
 
 This writes a standalone report and exits nonzero when unavailable or disabled.
-It does not change the source manifest. The local video demo does not generate
+It does not change the source manifest. The local upload demo does not generate
 summaries automatically; automatic enrichment runs in the AWS Batch worker.
+
+The permanent public sample ships with a precomputed, validated summary embedded
+in its static analysis manifest. Loading that sample never calls OpenAI from the
+browser and never exposes the API key or Secrets Manager ARN to the client.
 
 ## Data and failure behavior
 

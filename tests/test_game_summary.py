@@ -47,6 +47,9 @@ class GameSummaryTests(unittest.TestCase):
         self.assertNotIn("untrusted", data)
         self.assertEqual(facts[-1]["holderObservationFrameCountsByTeam"], {"unknown": 1})
         self.assertEqual(facts[1]["toTeamId"], None)
+        trusted = json.dumps(summary.build_trusted_evidence_v2(self.analysis))
+        self.assertNotIn("private.mp4", trusted)
+        self.assertNotIn("ignore rules", trusted)
 
     def test_event_budget_preserves_total_and_discloses_omissions(self):
         self.analysis["events"] *= 205

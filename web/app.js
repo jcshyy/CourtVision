@@ -26,9 +26,9 @@
   const activeJobKey = "courtvision.activeJob";
   const defaultTeamColors = Object.freeze({ team1Color: "#F4F5F7", team2Color: "#1E55D6" });
   const permanentDemoAssets = {
-    videoUrl: "assets/courtvision-demo-updated.mp4",
-    analysisUrl: "assets/courtvision-demo-analysis.json",
-    posterUrl: "assets/courtvision-demo-poster.webp",
+    videoUrl: "assets/courtvision-demo-updated.mp4?v=summary-20260913",
+    analysisUrl: "assets/courtvision-demo-analysis.json?v=summary-20260913",
+    posterUrl: "assets/courtvision-demo-poster.webp?v=summary-20260913",
   };
 
   const state = {
@@ -1216,7 +1216,7 @@
           ${review ? `<button class="button button-secondary" id="report-issue" type="button">${icon("flag")}<span>Report issue</span></button>` : ""}
           ${
             config.publicPreview
-              ? `<a class="button button-secondary" href="demo.html?v=official-preview-2">${icon("play")}<span>View sample</span></a>`
+              ? `<a class="button button-secondary" href="demo.html?v=summary-demo-1">${icon("play")}<span>View sample</span></a>`
               : config.localRuntime
                 ? ""
                 : `<button class="button button-quiet" id="sign-out" type="button">${icon("signout")}<span>Sign out</span></button>`
@@ -1256,7 +1256,7 @@
       <aside class="capacity-notice" aria-labelledby="capacity-title">
         <span class="capacity-marker" aria-hidden="true"></span>
         <div><strong id="capacity-title">Analysis capacity pending</strong><span>The upload desk is open for preview. GPU processing is awaiting approval, so selected videos remain on this device.</span></div>
-        <a href="demo.html?v=official-preview-2">View working sample</a>
+        <a href="demo.html?v=summary-demo-1">View working sample</a>
       </aside>
     `;
   }
