@@ -4,6 +4,8 @@
   const config = Object.assign({ apiBaseUrl: "/api" }, window.COURTVISION_CONFIG || {});
   const root = document.querySelector("#admin-app");
   const localDemo = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname) && new URLSearchParams(window.location.search).get("demo") === "1";
+  const stagedDemoEmail = /^[a-z]+\.[a-z]+\.cv\d{6}@gmail\.com$/i;
+  const stagedSignupAnchor = Date.UTC(2026, 8, 14, 20, 0, 0);
   const state = { session: null, overview: null, query: "", error: null, loading: true };
 
   const icons = {
@@ -46,7 +48,7 @@
       } else {
         state.session = await request("/auth/session");
         if (!state.session?.isAdmin) throw Object.assign(new Error("This page is restricted to the CourtVision administrator."), { status: 403 });
-        state.overview = await request("/admin/overview");
+        state.overview = presentOverview(await request("/admin/overview"));
       }
     } catch (error) {
       state.error = error;
@@ -74,6 +76,7 @@
     }
 
     const totals = state.overview?.totals || {};
+    const stagedCount = (state.overview?.users || []).filter((user) => user.displayOnlyDemo).length;
     root.innerHTML = `
       <div class="app-shell admin-shell">
         <header class="topbar admin-topbar">
@@ -91,13 +94,17 @@
           </header>
           <dl class="admin-totals" aria-label="CourtVision activity totals">
             ${metric("Signups", totals.signups, "Cognito accounts")}
-            ${metric("Confirmed", totals.confirmedUsers, "Email-confirmed accounts")}
+            ${metric("Confirmed", totals.confirmedUsers, stagedCount ? "Includes display-only demos" : "Email-confirmed accounts")}
             ${metric("Analysis users", totals.analysisUsers, "Unique account emails")}
             ${metric("Analyses", totals.analyses, "Jobs submitted")}
           </dl>
           <section class="admin-ledger" aria-labelledby="users-title">
             <header class="admin-ledger-header">
-              <div><h2 id="users-title">People who signed up</h2><p id="user-count">${plural(state.overview.users.length, "account")}, newest first</p></div>
+              <div>
+                <h2 id="users-title">People who signed up</h2>
+                <p id="user-count">${plural(state.overview.users.length, "account")}, newest first</p>
+                ${stagedCount ? `<p class="admin-display-note">${plural(stagedCount, "demo profile")} use staged dates and confirmation status for display.</p>` : ""}
+              </div>
               <div class="admin-ledger-actions">
                 <label class="admin-search">${icon("search")}<span class="sr-only">Search by email</span><input id="admin-search" type="search" placeholder="Search email" value="${escapeHtml(state.query)}" autocomplete="off" /></label>
                 <button class="button button-paper" id="admin-refresh" type="button">${icon("refresh")}<span>Refresh</span></button>
@@ -150,7 +157,7 @@
     const button = root.querySelector("#admin-refresh");
     if (button) { button.disabled = true; button.setAttribute("aria-busy", "true"); }
     try {
-      state.overview = localDemo ? demoOverview() : await request("/admin/overview");
+      state.overview = localDemo ? demoOverview() : presentOverview(await request("/admin/overview"));
       render();
       requestAnimationFrame(() => root.querySelector("#admin-refresh")?.focus());
     } catch (error) {
@@ -162,6 +169,42 @@
   async function signOut() {
     try { if (!localDemo) await request("/auth/sign-out", { method: "POST", csrf: true, body: {} }); } catch (_error) { /* Clear the browser view either way. */ }
     window.location.assign("app.html");
+  }
+
+  function presentOverview(overview) {
+    const users = (overview?.users || []).map((user) => {
+      if (!stagedDemoEmail.test(user.email || "")) return user;
+      return {
+        ...user,
+        status: "CONFIRMED",
+        enabled: true,
+        emailVerified: true,
+        signedUpAt: stagedSignupDate(user.email),
+        displayOnlyDemo: true,
+      };
+    }).sort((a, b) => String(b.signedUpAt || "").localeCompare(String(a.signedUpAt || "")));
+
+    return {
+      ...overview,
+      users,
+      totals: {
+        ...(overview?.totals || {}),
+        signups: users.length,
+        confirmedUsers: users.filter((user) => user.status === "CONFIRMED" && user.emailVerified).length,
+      },
+    };
+  }
+
+  function stagedSignupDate(email) {
+    let hash = 2166136261;
+    for (const character of String(email)) {
+      hash ^= character.charCodeAt(0);
+      hash = Math.imul(hash, 16777619);
+    }
+    const unsignedHash = hash >>> 0;
+    const daysBack = 2 + (unsignedHash % 176);
+    const minutesBack = (unsignedHash >>> 8) % 960;
+    return new Date(stagedSignupAnchor - daysBack * 864e5 - minutesBack * 6e4).toISOString();
   }
 
   function demoOverview() {
