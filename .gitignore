@@ -24,3 +24,12 @@ benchmarks/ebard_detection/data/
 
 *.pt
 !backend/models/.gitkeep
+
+# Local tooling, scratch data and deployment working copies
+.tools/
+.deploy-tools/
+.deploy-*/
+.codex/
+tmp/
+*.err.log
+*.out.log
