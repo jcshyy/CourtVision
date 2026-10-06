@@ -2,7 +2,7 @@
   "use strict";
 
   const configuredAppUrl = String(window.COURTVISION_CONFIG?.appUrl || "").trim();
-  const appUrl = configuredAppUrl || "app.html";
+  const appUrl = configuredAppUrl || "app";
 
   document.querySelectorAll("[data-analyze-link]").forEach((link) => {
     link.href = appUrl;
@@ -33,6 +33,21 @@
     );
     observer.observe(landingRuler);
   }
+
+  function cueOnce(element, className, threshold = 0.35) {
+    if (!element || reducedMotion || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        element.classList.add(className);
+        observer.disconnect();
+      },
+      { threshold },
+    );
+    observer.observe(element);
+  }
+
+  cueOnce(demoBrowser, "is-preview-live", 0.28);
 
   const year = document.querySelector("#current-year");
   if (year) year.textContent = String(new Date().getFullYear());

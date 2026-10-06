@@ -32,6 +32,7 @@ from backend.app.web_api import (
     ApiError,
     _extension_for,
     _format_bytes,
+    _can_change_team_colors,
     _iso,
     _positive_int,
     _positive_number,
@@ -115,6 +116,22 @@ class LocalJobStore:
         with self._lock:
             temporary.write_text(json.dumps(job, indent=2) + "\n", encoding="utf-8")
             temporary.replace(path)
+
+    def list_recent(self, limit=25):
+        now = int(time.time())
+        jobs = []
+        with self._lock:
+            paths = list(self.jobs_root.glob("*/job.json"))
+            for path in paths:
+                try:
+                    job = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    LOGGER.warning("Skipping unreadable local job record: %s", path)
+                    continue
+                if int(job.get("expiresAt", 0)) > now:
+                    jobs.append(job)
+        jobs.sort(key=lambda item: int(item.get("createdAt", 0)), reverse=True)
+        return jobs[:limit]
 
     def update(self, job_id, **changes):
         with self._lock:
@@ -200,6 +217,10 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
         require_csrf()
         return api_response({"signedOut": True})
 
+    @app.get("/api/jobs")
+    def list_jobs():
+        return api_response({"jobs": [_public_job(job) for job in store.list_recent()]})
+
     @app.post("/api/jobs")
     def create_job():
         require_csrf()
@@ -251,7 +272,7 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
     def team_colors(job_id):
         require_csrf()
         job = store.read(job_id)
-        if job["status"] != "needs_team_colors":
+        if not _can_change_team_colors(job):
             raise ApiError(409, "Team colors are not required for this job.", code="colors_not_required")
         body = request.get_json(silent=False) or {}
         first = str(body.get("team1Color", "")).upper()
@@ -272,7 +293,7 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
     def continue_with_uncertain_teams(job_id):
         require_csrf()
         job = store.read(job_id)
-        if job["status"] != "needs_team_colors":
+        if not _can_change_team_colors(job):
             raise ApiError(
                 409,
                 "Team assignment is not waiting for a decision.",
@@ -371,6 +392,9 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
 
     @app.get("/<path:asset_path>")
     def static_asset(asset_path):
+        # Mirror GitHub Pages: "/app" serves "app.html".
+        if not Path(asset_path).suffix and (WEB_ROOT / f"{asset_path}.html").is_file():
+            asset_path = f"{asset_path}.html"
         return send_from_directory(WEB_ROOT, asset_path)
 
     @app.errorhandler(ApiError)
@@ -474,6 +498,10 @@ def _run_pipeline(job, source, output, analysis, cache, update_stage):
         str(_env_float("TARGET_FPS", 30)),
         "--max-width",
         str(_env_int("MAX_WIDTH", 1280)),
+        "--player-detector-backend",
+        os.getenv("COURTVISION_PLAYER_DETECTOR_BACKEND", "ebard"),
+        "--ball-detector-backend",
+        os.getenv("COURTVISION_BALL_DETECTOR_BACKEND", "hybrid"),
     ]
     if job.get("team1Color") and job.get("team2Color"):
         command.extend(["--team-1-color", job["team1Color"], "--team-2-color", job["team2Color"]])
@@ -530,6 +558,7 @@ def _public_job(job):
         "expiresAt": _iso(int(job["expiresAt"])),
         "errorMessage": job.get("errorMessage"),
         "teamColorReason": job.get("teamColorReason"),
+        "canChangeTeamColors": _can_change_team_colors(job),
     }
 
 

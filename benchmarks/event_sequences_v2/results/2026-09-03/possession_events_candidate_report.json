@@ -1,0 +1,137 @@
+{
+  "benchmark": "Existing courtvision_v1 verified possession events",
+  "split": "all",
+  "metric": "temporal event point-to-action-interval F1; not official spatial tube mAP",
+  "tolerance_seconds": 0.25,
+  "video_count": 5,
+  "processed_video_count": 5,
+  "missing_videos": [],
+  "coverage": 1.0,
+  "micro": {
+    "tp": 3,
+    "fp": 4,
+    "fn": 5,
+    "precision": 0.4286,
+    "recall": 0.375,
+    "f1": 0.4
+  },
+  "by_class": {
+    "interception": {
+      "tp": 0,
+      "fp": 1,
+      "fn": 1,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "pass": {
+      "tp": 3,
+      "fp": 3,
+      "fn": 4,
+      "precision": 0.5,
+      "recall": 0.4286,
+      "f1": 0.4615
+    }
+  },
+  "confusion": {
+    "interception": {
+      "missed": 1
+    },
+    "no_event": {
+      "pass": 3,
+      "interception": 1
+    },
+    "pass": {
+      "pass": 3,
+      "missed": 4
+    }
+  },
+  "duplicate_predictions": 0,
+  "duplicate_rate": 0.0,
+  "per_video": [
+    {
+      "video_id": "video_1",
+      "truth": 0,
+      "predicted": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": []
+    },
+    {
+      "video_id": "video_2",
+      "truth": 4,
+      "predicted": 4,
+      "tp": 1,
+      "fp": 3,
+      "fn": 3,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 2,
+          "prediction_index": 2,
+          "interval_distance_seconds": 0.1333
+        }
+      ]
+    },
+    {
+      "video_id": "video_3",
+      "truth": 3,
+      "predicted": 2,
+      "tp": 1,
+      "fp": 1,
+      "fn": 2,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 1,
+          "prediction_index": 1,
+          "interval_distance_seconds": 0.1
+        }
+      ]
+    },
+    {
+      "video_id": "spursknicksclip",
+      "truth": 0,
+      "predicted": 0,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": []
+    },
+    {
+      "video_id": "spursknicks2",
+      "truth": 1,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.1333
+        }
+      ]
+    }
+  ],
+  "provenance": "fresh event replay on fixed detector caches",
+  "prediction_sha256": {
+    "video_1": "e3beb13a1e4f5902459242eaf52fd66fe225f937c8d4bc06b6335309fc1639bf",
+    "video_2": "dbeefbc5cecb7e1c5ffb64350aaf505cf429b4e641ba2ed5c572066db75122c9",
+    "video_3": "7912da674a764628ebe21180433e2a5a4b435efa53926a7f749cfded529b9df8",
+    "spursknicksclip": "315f4b3b2d6d19eed73d3cd9e8d8e5206cbcd975aeaa3c187a28be3da189f25e",
+    "spursknicks2": "bb27acc26c7f2cf9536103d0af295ec524b52f8239a1b3609d74b78d5a80826c"
+  },
+  "candidate_source_sha256": {
+    "main.py": "88117876902a48d041b22d5f2ecf3889e18024f5ef55d52e8b2cb4f5f5525bdd",
+    "backend/app/analytics/shot_rebound.py": "563a194a6e245aef5422c25d83e147c1d1a17d5984e33f7ff431ed3a870f6308",
+    "backend/app/analytics/event_lifecycle.py": "9e354cf9913145ed2750740d25f7d896a98dc3b88ba848268cf0a9579c3e1424",
+    "backend/app/analytics/pass_interception.py": "1e7bd7bc26bad8ba63854ee19259aa54d01dd5e58a6c12b223c2309e950b67de",
+    "backend/app/analytics/possession_timeline.py": "af560c4abbe81ef3e598e9260f96b689a683320f7afc3a7dedf2e34d46f0b0ea",
+    "scripts/evaluate_event_sequences.py": "c7ab74b0b6e53858b152e68da51bb0093c9ba2a243e9bf1e6d7768585fff7f12"
+  }
+}

@@ -1,9 +1,10 @@
 import json
-from pathlib import Path
 import unittest
+from pathlib import Path
 
+from backend.app import game_summary
+from backend.app.trusted_evidence import build_trusted_evidence_v2
 from backend.app.utils import probe_video
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = ROOT / "web"
@@ -47,6 +48,24 @@ class WebDemoTests(unittest.TestCase):
             )
         )
 
+        report = analysis["gameSummary"]
+        self.assertEqual(report["status"], "complete")
+        self.assertEqual(report["scope"], "analyzed_clip")
+        expected_evidence = build_trusted_evidence_v2(analysis)
+        self.assertEqual(report["evidence"], expected_evidence)
+        generated = {
+            key: report[key]
+            for key in ("summary", "tacticalInsights", "limitations")
+        }
+        self.assertEqual(game_summary._validate(generated, expected_evidence), generated)
+
+        archived = json.loads(
+            (ROOT / "benchmarks/demo_history/2026-09-13/courtvision-demo-analysis.json")
+            .read_text(encoding="utf-8")
+        )
+        self.assertNotIn("gameSummary", archived)
+        self.assertNotEqual(archived, analysis)
+
     def test_public_demo_is_labeled_as_preprocessed_experimental_analysis(self):
         landing = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
         demo = (WEB_ROOT / "demo.html").read_text(encoding="utf-8")
@@ -58,14 +77,17 @@ class WebDemoTests(unittest.TestCase):
         self.assertNotIn("Preprocessed experimental output", landing)
         self.assertNotIn("Synthetic interface demo", landing)
         self.assertIn(
-            "demo.html?embedded=1&amp;v=official-preview-2", landing
+            "demo?embedded=1&amp;v=summary-demo-1", landing
         )
-        self.assertIn("app.js?v=official-preview-2", demo)
+        self.assertIn("app.js?v=summary-demo-1", demo)
         self.assertIn(
-            'videoUrl: "assets/courtvision-demo-updated.mp4"', client
+            'videoUrl: "assets/courtvision-demo-updated.mp4?v=summary-20260913"', client
         )
         self.assertIn("${tacticalDockMarkup(analysis)}", client)
         self.assertIn("${summaryDockMarkup(analysis)}", client)
+        self.assertIn("${gameSummaryLinkMarkup(analysis)}", client)
+        self.assertIn('id="openai-clip-summary"', client)
+        self.assertIn("AI clip summary", client)
         self.assertIn("Ball control estimate", client)
         self.assertIn('role="tablist" aria-label="Replay inspector view"', client)
         self.assertIn('inspectorTab: "court"', client)
@@ -78,14 +100,15 @@ class WebDemoTests(unittest.TestCase):
         self.assertIn("Measured release path", client)
         self.assertIn("Rim proximity signal", client)
         self.assertNotIn("Shot outcome", client)
-        self.assertIn("The previous result remains stored until its expiry.", client)
+        self.assertIn("Recent analyses", client)
+        self.assertIn("You can reopen the previous result under Recent analyses until it expires.", client)
         self.assertIn("targetFps: 30", client)
         self.assertIn("maxWidth: 1280", client)
         self.assertIn("analysis.court?.mirrorXFrameRanges", client)
         self.assertNotIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
-        self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json"', client)
+        self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json?v=summary-20260913"', client)
 
-    def test_landing_exposes_honest_public_preview_entry(self):
+    def test_landing_exposes_live_public_analysis_entry(self):
         root = Path(__file__).resolve().parents[1]
         landing = (root / "web" / "index.html").read_text(encoding="utf-8")
         config = (root / "web" / "config.js").read_text(encoding="utf-8")
@@ -93,10 +116,12 @@ class WebDemoTests(unittest.TestCase):
 
         self.assertIn('id="analyze"', landing)
         self.assertIn("Analyze video", landing)
-        self.assertIn("The review desk is live. New analysis is not.", landing)
-        self.assertIn("Selected preview videos stay on your device", landing)
-        self.assertIn("publicPreview: true", config)
-        self.assertIn("analysisAvailable: false", config)
+        self.assertIn("The review desk and live analysis are open.", landing)
+        self.assertIn("Public analysis is live.", landing)
+        self.assertIn("authConnected: true", config)
+        self.assertIn("publicPreview: false", config)
+        self.assertIn("analysisAvailable: true", config)
+        self.assertNotIn("waiting on GPU capacity", landing)
         self.assertIn("This video was not uploaded", client)
         self.assertIn("Analysis capacity pending", client)
         self.assertIn("targetFps: 30", config)

@@ -22,20 +22,21 @@ CourtVision is an evidence-first basketball video analysis system. Its defining 
 
 ## Operating Context
 
-Users supply basketball footage for bounded analysis jobs and review the rendered video, tactical court view, team assignments, possession estimates, passes or interceptions, speed, and distance outputs. Analysts and researchers may also use diagnostic galleries, benchmark reports, annotation tools, and cached intermediate results to validate behavior.
+Users supply basketball footage for bounded analysis jobs and review the rendered video, tactical court view, team assignments, possession estimates, pass, interception, and shot-attempt candidates, speed, and distance outputs. Shot attempts remain plain candidates: the production contract does not publish make, miss, rebound, dead-ball, or putback-subtype claims. Analysts and researchers may also use diagnostic galleries, benchmark reports, annotation tools, and cached intermediate results to validate behavior.
 
-The current implementation combines a Python batch pipeline with a private-beta web control plane: a static browser client, passwordless allowlisted access, direct temporary uploads, a Lambda job API, an AWS Batch worker entrypoint, and an evidence-first review surface. The reference AWS stack provisions the web and API resources, while the GPU compute environment, Batch queue and job definition, model-weight provisioning, alarms, and capacity limits remain deployment responsibilities. Upload scanning and stronger per-user concurrency controls are still required before access expands beyond a tightly controlled beta.
+The current implementation combines a Python batch pipeline with a web control plane: a static browser client, public Cognito-backed email-and-password account creation, direct temporary uploads, a Lambda API, an AWS Batch GPU worker, and an evidence-first review surface. A Flask adapter remains available for sustained traffic. The reference AWS stack provisions the web, API, identity, GPU compute environment, Batch queue, and job definition. Private model uploads, CloudWatch alarms, account-specific network values, and GPU quota/capacity remain operational responsibilities. Upload scanning and stronger per-user concurrency controls remain production-hardening work; the interface must state the bounded retention and experimental-analysis contract plainly.
 
 ## Capabilities and Constraints
 
 - Detects and tracks basketball players and the ball from video.
 - Assigns teams from multi-frame jersey evidence and permits assignments to remain unknown when evidence is weak.
-- Estimates ball possession, passes, and interceptions; these outputs remain experimental and are not verified game statistics.
+- Estimates ball possession and publishes pass, interception, and shot-attempt candidates; these outputs remain experimental and are not verified game statistics.
+- Optionally generates OpenAI clip summaries and evidence-linked tactical review suggestions after AWS Batch processing; requires a server-side API key and never represents a short clip as a full-game report.
 - Detects court keypoints, projects player locations onto a tactical court, and estimates player speed and distance.
 - Renders an annotated output video and preserves bounded-job processing options for clip duration, frame rate, and width.
 - Requires local model weights that are excluded from the repository.
 - Currently materializes selected and rendered frames in memory; longer clips require stateful chunking before job limits can be raised safely.
-- Includes a reference private-beta web layer and AWS control-plane stack; the GPU worker infrastructure and a proven end-to-end staging deployment remain outstanding.
+- Includes a public live-analysis web layer and reference AWS stack with a Lambda control plane, Cognito identity, private S3 job storage, and a scale-to-zero AWS Batch GPU plane; the checked-in client enables authenticated analysis for 30-second clips and 24-hour result retention.
 - Commercial use must account for rights to uploaded and benchmark video footage.
 
 ## Brand Commitments

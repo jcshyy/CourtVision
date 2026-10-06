@@ -12,8 +12,11 @@
 
 </div>
 
-CourtVision is an offline basketball-video analysis pipeline and private-beta
-web application. It detects and tracks players and the ball, estimates teams
+Optional [OpenAI summaries and tactical review](docs/openai-summaries.md) turn
+completed clip observations into natural-language reports with evidence references.
+
+CourtVision is an offline basketball-video analysis pipeline with a public
+live-analysis web application. It detects and tracks players and the ball, estimates teams
 and possession, projects player positions onto a tactical court, identifies
 timecoded event candidates, and renders an annotated review video.
 
@@ -139,10 +142,10 @@ python -m http.server 8765 -d web
 Then open:
 
 - `http://127.0.0.1:8765/` for the landing page;
-- `http://127.0.0.1:8765/demo.html` for the permanent preprocessed sample; or
-- `http://127.0.0.1:8765/app.html?demo=review` for a synthetic review state.
+- `http://127.0.0.1:8765/demo` for the permanent preprocessed sample; or
+- `http://127.0.0.1:8765/app?demo=review` for a synthetic review state.
 
-The authenticated client lives at `app.html`. Other local interface fixtures
+The authenticated client lives at `app` (`app.html`). Other local interface fixtures
 are available through `?demo=signin`, `upload`, `processing`, `colors`, or
 `error`.
 
@@ -204,7 +207,7 @@ available behind detector flags:
 
 ## Deployment
 
-The [AWS reference stack](deploy/aws/README.md) provides a private-beta path
+The [AWS reference stack](deploy/aws/README.md) provides a bounded deployment path
 with Cognito email-and-password accounts, direct temporary uploads, a shared
 Lambda API handler, and a scale-to-zero AWS Batch GPU environment. Its initial
 limits—30 seconds, 30 FPS, 1280 px, and 24-hour retention—are configuration,

@@ -24,15 +24,16 @@
   const embeddedDemo = permanentDemo && query.get("embedded") === "1";
   const demoMode = permanentDemo ? query.get("state") || "review" : localHost ? query.get("demo") : null;
   const activeJobKey = "courtvision.activeJob";
+  const defaultTeamColors = Object.freeze({ team1Color: "#F4F5F7", team2Color: "#1E55D6" });
   const permanentDemoAssets = {
-    videoUrl: "assets/courtvision-demo-updated.mp4",
-    analysisUrl: "assets/courtvision-demo-analysis.json",
-    posterUrl: "assets/courtvision-demo-poster.webp",
+    videoUrl: "assets/courtvision-demo-updated.mp4?v=summary-20260913",
+    analysisUrl: "assets/courtvision-demo-analysis.json?v=summary-20260913",
+    posterUrl: "assets/courtvision-demo-poster.webp?v=summary-20260913",
   };
 
   const state = {
     view: "loading",
-    authStep: "email",
+    authStep: "signin",
     email: "",
     session: null,
     csrfToken: null,
@@ -42,6 +43,9 @@
     busy: false,
     message: null,
     job: null,
+    recentJobs: [],
+    recentJobsLoading: false,
+    recentJobsError: null,
     analysis: null,
     downloads: null,
     selectedEventId: null,
@@ -50,6 +54,7 @@
     pollTimer: null,
     toastTimer: null,
     syncAnimationTimer: null,
+    teamColors: { ...defaultTeamColors },
   };
 
   const iconPaths = {
@@ -70,6 +75,9 @@
     evidence: '<path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-9h.01"/>',
     chevron: '<path d="M8 10l4 4 4-4"/>',
+    profile: '<circle cx="12" cy="8" r="3.5"/><path d="M5.5 20a6.5 6.5 0 0113 0"/>',
+    video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 9l6 3-6 3z"/>',
+    users: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0111 0m0-5a5 5 0 016 5"/>',
   };
 
   function icon(name, label = "") {
@@ -205,6 +213,7 @@
       } else {
         state.session = session;
         state.csrfToken = session.csrfToken;
+        await loadRecentJobs(true);
         const activeJob = window.localStorage.getItem(activeJobKey);
         if (activeJob) {
           const resumed = await loadJob(activeJob, true);
@@ -216,7 +225,7 @@
     } catch (error) {
       state.view = "auth";
       if (error.status && error.status !== 401) {
-        state.message = { type: "error", text: "CourtVision could not reach the beta service. Try again." };
+        state.message = { type: "error", text: "CourtVision could not reach the analysis service. Try again." };
       }
     }
     render();
@@ -228,7 +237,7 @@
       id: "local-demo-job",
       status,
       stage,
-      filename: "synthetic-beta-clip.mp4",
+      filename: "synthetic-preview-clip.mp4",
       durationSeconds: 30,
       createdAt: new Date(now - 8 * 60e3).toISOString(),
       updatedAt: new Date(now - 20e3).toISOString(),
@@ -250,6 +259,7 @@
     else if (state.view === "colors") renderTeamColors();
     else if (state.view === "review") renderReview();
     else if (state.view === "failure") renderFailure();
+    else if (state.view === "profile") renderProfile();
     else renderUpload();
     app.removeAttribute("aria-busy");
     requestAnimationFrame(() => {
@@ -259,112 +269,130 @@
   }
 
   function renderAuth() {
-    const codeStep = state.authStep === "code";
+    const step = state.authStep;
+    const headings = {
+      signin: ["Sign in", "Use your confirmed email and password to continue."],
+      signup: ["Create your account", "Confirm your email before CourtVision accepts a video."],
+      confirm: ["Confirm your email", `Enter the six-digit code sent to <strong>${escapeHtml(state.email)}</strong>.`],
+      forgot: ["Reset your password", "Enter your account email and we’ll send a reset code."],
+      reset: ["Choose a new password", `Enter the reset code sent to <strong>${escapeHtml(state.email)}</strong>.`],
+    };
+    const [heading, intro] = headings[step] || headings.signin;
     app.innerHTML = `
       <main class="auth-view view">
         <section class="auth-scene" aria-labelledby="auth-title">
           <a class="auth-brand" href="./" aria-label="CourtVision home">
             <img src="assets/mark.svg" alt="" />
             <span class="brand">CourtVision</span>
-            <span class="status-chip">Private beta</span>
+            <span class="status-chip">Experimental analysis</span>
           </a>
           <div class="auth-copy">
             <h1 id="auth-title">Review the play. Keep the uncertainty.</h1>
             <p>CourtVision turns one basketball clip into an annotated replay, tactical court, and timecoded event rundown built for evidence—not automatic decisions.</p>
           </div>
-          <ul class="auth-proof" aria-label="Beta boundaries">
-            <li>Invite-only access</li>
+          <ul class="auth-proof" aria-label="Analysis boundaries">
+            <li>Verified account required</li>
             <li>30-second clip limit</li>
             <li>Automatic deletion after 24 hours</li>
           </ul>
         </section>
         <section class="auth-panel" aria-labelledby="signin-heading">
           <div class="auth-form-wrap">
-            <h2 id="signin-heading">${codeStep ? "Check your email" : "Enter your email"}</h2>
-            <p>${
-              codeStep
-                ? `We sent a six-digit sign-in code to <strong>${escapeHtml(state.email)}</strong>.`
-                : "Use the address approved for the CourtVision beta. There is no public signup."
-            }</p>
+            <h2 id="signin-heading">${heading}</h2>
+            <p>${intro}</p>
             ${messageMarkup()}
-            ${codeStep ? codeForm() : emailForm()}
+            ${authForm(step)}
           </div>
         </section>
       </main>
       ${toastRegion()}
     `;
-    if (codeStep) {
-      const form = app.querySelector("#code-form");
-      form.addEventListener("submit", verifyCode);
-      app.querySelector("#change-email").addEventListener("click", () => {
-        state.authStep = "email";
-        state.message = null;
-        render();
-      });
-      app.querySelector("#resend-code").addEventListener("click", requestCode);
-      app.querySelector("#code").focus();
-    } else {
-      app.querySelector("#email-form").addEventListener("submit", requestCode);
-      app.querySelector("#email").focus();
-    }
+    const handlers = { signin: signIn, signup: signUp, confirm: confirmSignUp, forgot: requestPasswordReset, reset: confirmPasswordReset };
+    app.querySelector("form")?.addEventListener("submit", handlers[step] || signIn);
+    app.querySelectorAll("[data-auth-step]").forEach((button) => button.addEventListener("click", () => setAuthStep(button.dataset.authStep)));
+    app.querySelector("#resend-confirmation")?.addEventListener("click", resendConfirmation);
+    app.querySelector(step === "confirm" || step === "reset" ? "#code" : "#email")?.focus();
   }
 
-  function emailForm() {
-    return `
-      <form id="email-form" class="form-stack" novalidate>
-        <div class="field">
-          <label class="field-label" for="email">Approved email</label>
-          <input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="254" value="${escapeHtml(state.email)}" placeholder="you@example.com" />
-        </div>
-        <button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>
-          ${icon("mail")}<span>${state.busy ? "Sending code…" : "Email me a code"}</span>
-        </button>
-        <p class="field-hint">For privacy, CourtVision gives the same response whether or not an address is allowlisted.</p>
-      </form>
-    `;
+  function setAuthStep(step, message = null) {
+    state.authStep = step;
+    state.message = message;
+    render();
   }
 
-  function codeForm() {
-    return `
-      <form id="code-form" class="form-stack" novalidate>
-        <div class="field">
-          <label class="field-label" for="code">Six-digit code</label>
-          <input class="input code-input" id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required aria-describedby="code-hint" />
-          <p class="field-hint" id="code-hint">Codes expire after 10 minutes and work once.</p>
-        </div>
-        <button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>
-          ${icon("lock")}<span>${state.busy ? "Checking code…" : "Enter CourtVision"}</span>
-        </button>
-        <div class="form-actions">
-          <button class="button button-secondary" id="resend-code" type="button" ${state.busy ? "disabled" : ""}>Send another code</button>
-          <button class="button button-quiet" id="change-email" type="button">Use a different email</button>
-        </div>
-      </form>
-    `;
+  function authForm(step) {
+    const emailField = `<div class="field"><label class="field-label" for="email">Email address</label><input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="254" value="${escapeHtml(state.email)}" placeholder="you@example.com" /></div>`;
+    const passwordField = (autocomplete = "current-password", label = "Password") => `<div class="field"><label class="field-label" for="password">${label}</label><input class="input" id="password" name="password" type="password" autocomplete="${autocomplete}" required minlength="10" maxlength="256" aria-describedby="password-hint" /><p class="field-hint" id="password-hint">Use at least 10 characters.</p></div>`;
+    const codeField = `<div class="field"><label class="field-label" for="code">Six-digit confirmation code</label><input class="input code-input" id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required aria-describedby="code-hint" /><p class="field-hint" id="code-hint">Use the newest code in your email.</p></div>`;
+    if (step === "signup") return `<form class="form-stack" novalidate>${emailField}${passwordField("new-password")}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("arrow")}<span>${state.busy ? "Creating account…" : "Create account"}</span></button><p class="auth-switch">Already have an account? <button class="text-action" type="button" data-auth-step="signin">Sign in</button></p></form>`;
+    if (step === "confirm") return `<form class="form-stack" novalidate>${codeField}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("check")}<span>${state.busy ? "Confirming email…" : "Confirm email"}</span></button><div class="form-actions"><button class="button button-secondary" id="resend-confirmation" type="button" ${state.busy ? "disabled" : ""}>Send a new code</button><button class="button button-quiet" type="button" data-auth-step="signin">Back to sign in</button></div></form>`;
+    if (step === "forgot") return `<form class="form-stack" novalidate>${emailField}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("mail")}<span>${state.busy ? "Sending reset code…" : "Send reset code"}</span></button><p class="auth-switch"><button class="text-action" type="button" data-auth-step="signin">Back to sign in</button></p></form>`;
+    if (step === "reset") return `<form class="form-stack" novalidate>${codeField}${passwordField("new-password", "New password")}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("lock")}<span>${state.busy ? "Saving password…" : "Save new password"}</span></button><p class="auth-switch"><button class="text-action" type="button" data-auth-step="signin">Back to sign in</button></p></form>`;
+    return `<form class="form-stack" novalidate>${emailField}${passwordField()}<button class="button button-primary" type="submit" ${state.busy ? "disabled" : ""}>${icon("arrow")}<span>${state.busy ? "Signing in…" : "Sign in"}</span></button><div class="auth-options"><button class="text-action" type="button" data-auth-step="forgot">Forgot password?</button><span>New to CourtVision? <button class="text-action" type="button" data-auth-step="signup">Create account</button></span></div></form>`;
   }
 
-  async function requestCode(event) {
+  function authValues(event, { code = false, password = false } = {}) {
     event.preventDefault();
-    const emailInput = app.querySelector("#email");
-    if (emailInput) {
-      if (!emailInput.reportValidity()) return;
-      state.email = emailInput.value.trim().toLowerCase();
-    }
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return null;
+    const emailInput = form.querySelector("#email");
+    if (emailInput) state.email = emailInput.value.trim().toLowerCase();
+    return { email: state.email, ...(code ? { code: form.querySelector("#code").value.trim() } : {}), ...(password ? { password: form.querySelector("#password").value } : {}) };
+  }
+
+  async function signUp(event) {
+    const body = authValues(event, { password: true });
+    if (!body) return;
     state.busy = true;
     state.message = null;
     renderAuth();
     try {
       if (demoMode) {
-        state.authStep = "code";
+        state.authStep = "confirm";
         state.message = { type: "success", text: "Local preview: use any six-digit code." };
         return;
       }
-      const result = await api("/auth/request-code", {
-        method: "POST",
-        body: { email: state.email },
-        publicRequest: true,
-      });
-      state.authStep = "code";
+      const result = await api("/auth/sign-up", { method: "POST", body, publicRequest: true });
+      state.authStep = result.confirmationRequired ? "confirm" : "signin";
+      state.message = { type: "success", text: result.message };
+    } catch (error) {
+      if (error.code === "account_exists") state.authStep = "signin";
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function confirmSignUp(event) {
+    const body = authValues(event, { code: true });
+    if (!body) return;
+    state.busy = true;
+    state.message = null;
+    renderAuth();
+    try {
+      if (demoMode) {
+        state.authStep = "signin";
+        state.message = { type: "success", text: "Email confirmed. Sign in to continue." };
+        return;
+      }
+      await api("/auth/confirm-sign-up", { method: "POST", body, publicRequest: true });
+      state.authStep = "signin";
+      state.message = { type: "success", text: "Email confirmed. Sign in to continue." };
+    } catch (error) {
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function resendConfirmation() {
+    state.busy = true;
+    state.message = null;
+    renderAuth();
+    try {
+      const result = demoMode ? { message: "Local preview: a new code is ready." } : await api("/auth/resend-confirmation", { method: "POST", body: { email: state.email }, publicRequest: true });
       state.message = { type: "success", text: result.message };
     } catch (error) {
       state.message = { type: "error", text: error.message };
@@ -374,27 +402,17 @@
     }
   }
 
-  async function verifyCode(event) {
-    event.preventDefault();
-    const input = app.querySelector("#code");
-    if (!input.reportValidity()) return;
+  async function signIn(event) {
+    const body = authValues(event, { password: true });
+    if (!body) return;
     state.busy = true;
     state.message = null;
     renderAuth();
     try {
-      if (demoMode) {
-        state.session = { email: state.email || "coach@example.com" };
-        state.csrfToken = "local-demo";
-        state.view = "upload";
-        return;
-      }
-      const session = await api("/auth/verify-code", {
-        method: "POST",
-        body: { email: state.email, code: input.value },
-        publicRequest: true,
-      });
+      const session = demoMode ? { email: state.email || "coach@example.com", csrfToken: "local-demo" } : await api("/auth/sign-in", { method: "POST", body, publicRequest: true });
       state.session = session;
       state.csrfToken = session.csrfToken;
+      await loadRecentJobs(true);
       const retainedJob = window.localStorage.getItem(activeJobKey);
       if (retainedJob) {
         const resumed = await loadJob(retainedJob, true);
@@ -403,6 +421,7 @@
         state.view = "upload";
       }
     } catch (error) {
+      if (error.code === "confirmation_required") state.authStep = "confirm";
       state.message = { type: "error", text: error.message };
     } finally {
       state.busy = false;
@@ -445,6 +464,7 @@
               <p class="field-hint">${config.analysisAvailable ? "Analysis is experimental. Review every result against the source play." : "Processing is not available yet. Preview videos are not uploaded."}</p>
             </aside>
           </form>
+          ${recentAnalysesShortcutMarkup()}
         </main>
         ${toastRegion()}
       </div>
@@ -472,9 +492,162 @@
     app.querySelector("#upload-form").addEventListener("submit", createAndUploadJob);
   }
 
+  function recentAnalysesShortcutMarkup() {
+    if (config.publicPreview && !config.analysisAvailable) return "";
+    const count = state.recentJobs.length;
+    const latest = state.recentJobs[0];
+    const status = latest ? recentJobStatus(latest) : null;
+    const summary = state.recentJobsError
+      ? "History is temporarily unavailable. Open Profile to try again."
+      : count
+        ? `${count} retained ${count === 1 ? "analysis" : "analyses"}. Latest: ${escapeHtml(latest.filename || "Uploaded clip")} · ${escapeHtml(status.label)}.`
+        : "Completed, processing, and failed jobs stay available here for 24 hours.";
+    return `
+      <aside class="recent-shortcut" aria-labelledby="recent-shortcut-title">
+        <div class="recent-shortcut-mark">${icon("evidence")}</div>
+        <div>
+          <h2 id="recent-shortcut-title">Your recent analyses</h2>
+          <p>${summary}</p>
+        </div>
+        <button class="button button-paper" type="button" data-app-view="profile">Open Profile${icon("arrow")}</button>
+      </aside>
+    `;
+  }
+
+  function renderProfile() {
+    app.innerHTML = `
+      <div class="app-shell">
+        ${topbar()}
+        <main class="profile-view view" aria-labelledby="profile-title">
+          <header class="profile-heading">
+            <div>
+              <h1 id="profile-title">Your analysis desk.</h1>
+              <p>Reopen any result that is still inside CourtVision’s private retention window.</p>
+            </div>
+            <dl class="profile-account" aria-label="Account details">
+              <div><dt>Signed in as</dt><dd>${escapeHtml(state.session?.email || "Confirmed account")}</dd></div>
+              <div><dt>Retention</dt><dd>${config.resultRetentionHours} hours</dd></div>
+            </dl>
+          </header>
+          ${messageMarkup()}
+          ${recentAnalysesMarkup()}
+        </main>
+        ${toastRegion()}
+      </div>
+    `;
+    bindGlobalActions();
+    app.querySelector("#refresh-recent")?.addEventListener("click", refreshRecentJobs);
+    app.querySelectorAll("[data-open-job]").forEach((button) =>
+      button.addEventListener("click", () => openRecentJob(button.dataset.openJob)),
+    );
+  }
+
+  function recentAnalysesMarkup() {
+    if (config.publicPreview && !config.analysisAvailable) return "";
+    const jobs = state.recentJobs;
+    let body = "";
+    if (state.recentJobsLoading) {
+      body = `<p class="recent-empty" role="status">Checking your retained analyses…</p>`;
+    } else if (state.recentJobsError) {
+      body = `<p class="recent-empty recent-error" role="alert">${escapeHtml(state.recentJobsError)}</p>`;
+    } else if (!jobs.length) {
+      body = `<div class="recent-empty"><h3>No retained analyses yet</h3><p>Your completed, processing, and failed jobs will appear here until automatic deletion.</p></div>`;
+    } else {
+      body = `<ol class="recent-list">${jobs.map(recentAnalysisRowMarkup).join("")}</ol>`;
+    }
+    return `
+      <section class="recent-analyses" aria-labelledby="recent-analyses-title">
+        <header class="recent-header">
+          <div>
+            <h2 id="recent-analyses-title">Recent analyses</h2>
+            <p>Private to ${escapeHtml(state.session?.email || "this account")}. Jobs disappear automatically after their retention window.</p>
+          </div>
+          <button class="button button-paper" id="refresh-recent" type="button" ${state.recentJobsLoading || state.busy ? "disabled" : ""}>${icon("refresh")}<span>Refresh</span></button>
+        </header>
+        ${body}
+      </section>
+    `;
+  }
+
+  function recentAnalysisRowMarkup(job) {
+    const ready = job.status === "complete";
+    const status = recentJobStatus(job);
+    const created = new Date(job.createdAt);
+    const createdLabel = Number.isNaN(created.getTime())
+      ? "Recently submitted"
+      : created.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return `
+      <li>
+        <button class="recent-job" type="button" data-open-job="${escapeHtml(job.id)}" ${state.busy ? "disabled" : ""} aria-label="${ready ? "View" : "Open"} ${escapeHtml(job.filename || "analysis job")}, ${escapeHtml(status.label)}">
+          <span class="recent-status recent-status-${status.tone}"><i aria-hidden="true"></i>${escapeHtml(status.label)}</span>
+          <span class="recent-file"><strong>${escapeHtml(job.filename || "Uploaded clip")}</strong><span>${escapeHtml(createdLabel)} · ${formatTime(job.durationSeconds || 0, true)} clip</span></span>
+          <span class="recent-expiry"><small>${config.localRuntime ? "Expires" : "Deletes"}</small><strong>${escapeHtml(relativeExpiration(job.expiresAt))}</strong></span>
+          <span class="recent-action">${ready ? "View result" : job.status === "failed" ? "Review issue" : "View progress"}${icon("arrow")}</span>
+        </button>
+      </li>
+    `;
+  }
+
+  function recentJobStatus(job) {
+    if (job.status === "complete") return { label: "Ready", tone: "ready" };
+    if (job.status === "failed") return { label: "Needs attention", tone: "error" };
+    if (job.status === "needs_team_colors") return { label: "Input needed", tone: "attention" };
+    if (job.status === "awaiting_upload") return { label: "Upload pending", tone: "quiet" };
+    return { label: job.stage || "Processing", tone: "active" };
+  }
+
+  async function loadRecentJobs(silent = false) {
+    if (demoMode || (config.publicPreview && !config.analysisAvailable)) return;
+    state.recentJobsLoading = true;
+    state.recentJobsError = null;
+    if (!silent && state.view === "profile") renderProfile();
+    try {
+      const response = await api("/jobs", { method: "GET" });
+      state.recentJobs = Array.isArray(response?.jobs) ? response.jobs : [];
+    } catch (error) {
+      if (!error.authenticationHandled) {
+        state.recentJobsError = "CourtVision could not load your recent analyses. Refresh to try again.";
+      }
+    } finally {
+      state.recentJobsLoading = false;
+    }
+  }
+
+  async function refreshRecentJobs() {
+    const button = app.querySelector("#refresh-recent");
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      const label = button.querySelector("span");
+      if (label) label.textContent = "Refreshing…";
+    }
+    await loadRecentJobs(true);
+    if (state.view === "profile") {
+      renderProfile();
+      requestAnimationFrame(() => app.querySelector("#refresh-recent")?.focus());
+    }
+  }
+
+  async function openRecentJob(jobId) {
+    if (!jobId || state.busy) return;
+    state.busy = true;
+    state.message = null;
+    render();
+    window.localStorage.setItem(activeJobKey, jobId);
+    const opened = await loadJob(jobId, true);
+    state.busy = false;
+    if (!opened) await loadRecentJobs(true);
+    render();
+  }
+
+  function upsertRecentJob(job) {
+    if (!job?.id) return;
+    state.recentJobs = [job, ...state.recentJobs.filter((item) => item.id !== job.id)].slice(0, 25);
+  }
+
   function limitStrip() {
     return `
-      <dl class="limit-strip" aria-label="Current beta processing limits">
+      <dl class="limit-strip" aria-label="Current processing limits">
         <div><dt>Clip</dt><dd>≤ ${config.maxDurationSeconds}s</dd></div>
         <div><dt>Analysis</dt><dd>${config.targetFps} FPS</dd></div>
         <div><dt>Width</dt><dd>${config.maxWidth}px</dd></div>
@@ -519,7 +692,7 @@
     }
     if (file.size > config.maxUploadBytes) {
       state.selectedFile = null;
-      state.message = { type: "error", text: `This video exceeds the ${formatBytes(config.maxUploadBytes)} beta limit.` };
+      state.message = { type: "error", text: `This video exceeds the ${formatBytes(config.maxUploadBytes)} preview limit.` };
       render();
       return;
     }
@@ -587,6 +760,7 @@
           },
         });
         state.job = response.job;
+        upsertRecentJob(state.job);
         window.localStorage.setItem(activeJobKey, state.job.id);
         await uploadToS3(response.upload, state.selectedFile, (progress) => {
           state.uploadProgress = progress;
@@ -630,13 +804,15 @@
 
   function renderProcessing() {
     const stages = processingStages(state.job);
+    const awaitingStart = state.job?.status === "awaiting_upload";
+    const processingHeading = awaitingStart ? "Ready to start" : state.job?.stage || "Preparing analysis";
     app.innerHTML = `
       <div class="app-shell">
         ${topbar()}
         <main class="workspace-view view" aria-labelledby="processing-title">
           <div class="processing-desk">
             <section class="processing-monitor" aria-live="polite">
-              <h1 id="processing-title">${escapeHtml(state.job?.stage || "Preparing analysis")}</h1>
+              <h1 id="processing-title">${escapeHtml(processingHeading)}</h1>
               <p>${escapeHtml(state.job?.filename || "Uploaded clip")} · results remain available for ${config.resultRetentionHours} hours.</p>
               <div class="processing-ruler" aria-hidden="true"><span class="processing-beam"></span></div>
             </section>
@@ -653,6 +829,17 @@
                   )
                   .join("")}
               </ol>
+              ${
+                awaitingStart
+                  ? `<div class="processing-recovery" role="status">
+                      <strong>Your upload is ready.</strong>
+                      <p>Analysis did not start on the previous attempt. Continue with the uploaded clip—there is no need to upload it again.</p>
+                      <button class="button button-primary" id="start-uploaded-analysis" type="button" ${state.busy ? "disabled" : ""}>
+                        ${icon("arrow")}<span>${state.busy ? "Starting analysis…" : "Start analysis"}</span>
+                      </button>
+                    </div>`
+                  : ""
+              }
               <p class="field-hint">${
                 config.localRuntime
                   ? "You can close this tab while the local server stays running. Reopen this address to recover the active job."
@@ -677,14 +864,35 @@
         render();
       });
     } else {
+      app.querySelector("#start-uploaded-analysis")?.addEventListener("click", startUploadedAnalysis);
       state.pollTimer = window.setTimeout(() => loadJob(state.job.id), config.pollIntervalMs);
+    }
+  }
+
+  async function startUploadedAnalysis() {
+    if (!state.job?.id || state.busy) return;
+    state.busy = true;
+    state.message = null;
+    renderProcessing();
+    try {
+      const started = await api(`/jobs/${state.job.id}/start`, { method: "POST", body: {} });
+      state.job = started.job;
+    } catch (error) {
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
     }
   }
 
   function processingStages(job) {
     const status = job?.status || "queued";
     const stageText = String(job?.stage || "").toLowerCase();
-    const activeIndex = status === "queued" ? 1 : stageText.includes("final") ? 3 : status === "complete" ? 4 : 2;
+    let activeIndex = 2;
+    if (status === "awaiting_upload") activeIndex = 0;
+    else if (["queued", "submitted", "pending", "runnable", "starting"].includes(status)) activeIndex = 1;
+    else if (stageText.includes("final") || stageText.includes("render")) activeIndex = 3;
+    else if (status === "complete") activeIndex = 4;
     const definitions = [
       ["Upload received", "The source clip is stored in the private job prefix."],
       [
@@ -708,6 +916,7 @@
     try {
       const response = await api(`/jobs/${jobId}`, { method: "GET" });
       state.job = response.job;
+      upsertRecentJob(state.job);
       if (state.job.status === "complete") {
         await loadReviewArtifacts();
       } else if (state.job.status === "needs_team_colors") {
@@ -729,10 +938,13 @@
         if (!silent) render();
         return false;
       }
-      if (!silent) {
-        state.message = { type: "error", text: "CourtVision could not refresh the job. It will try again." };
-        render();
-      }
+      state.message = {
+        type: "error",
+        text: state.job?.status === "complete"
+          ? "CourtVision could not reopen that result. Refresh Recent analyses and try again."
+          : "CourtVision could not refresh the job. It will try again.",
+      };
+      if (!silent) render();
       return true;
     }
   }
@@ -749,6 +961,8 @@
   }
 
   function renderTeamColors() {
+    const team1Color = state.teamColors.team1Color;
+    const team2Color = state.teamColors.team2Color;
     app.innerHTML = `
       <div class="app-shell">
         ${topbar()}
@@ -767,7 +981,7 @@
                 <div class="drop-zone-inner">
                   <div class="drop-symbol">${icon("evidence")}</div>
                   <h2>Confirm the two jersey colors</h2>
-                  <p>Automatic color analysis and FashionCLIP could not classify every player reliably. Adding one color for each team is the best way to finish this clip accurately.</p>
+                  <p>Choose each team's primary jersey fabric color. Black and very dark jerseys are supported; avoid sampling a shadow or the court background.</p>
                 </div>
               </div>
             </section>
@@ -775,8 +989,8 @@
               <h2 class="panel-title"><span>Team cue</span><span class="timecode">Recommended</span></h2>
               <form id="color-form" class="color-form">
                 <div class="color-fields">
-                  <div class="field"><label class="field-label" for="team-1-color">Team one</label><input class="color-input" id="team-1-color" name="team1Color" type="color" value="#F4F5F7" /></div>
-                  <div class="field"><label class="field-label" for="team-2-color">Team two</label><input class="color-input" id="team-2-color" name="team2Color" type="color" value="#1E55D6" /></div>
+                  <div class="field"><label class="field-label" for="team-1-color">Team one</label><input class="color-input" id="team-1-color" name="team1Color" type="color" value="${team1Color}" /></div>
+                  <div class="field"><label class="field-label" for="team-2-color">Team two</label><input class="color-input" id="team-2-color" name="team2Color" type="color" value="${team2Color}" /></div>
                 </div>
                 <p class="uncertainty-warning" role="note"><strong>If you skip this step:</strong> unresolved players will remain green and marked Unknown. Team possession, pass, and interception totals may be inaccurate.</p>
                 <div class="form-actions">
@@ -800,6 +1014,7 @@
     const data = new FormData(event.currentTarget);
     const team1Color = String(data.get("team1Color")).toUpperCase();
     const team2Color = String(data.get("team2Color")).toUpperCase();
+    state.teamColors = { team1Color, team2Color };
     if (team1Color === team2Color) {
       state.message = { type: "error", text: "Choose two distinct primary jersey colors." };
       render();
@@ -826,6 +1041,13 @@
   }
 
   function renderFailure() {
+    const canChangeTeamColors = Boolean(state.job?.canChangeTeamColors) || isTeamColorFailure();
+    const primaryAction = canChangeTeamColors
+      ? `<button class="button button-primary" id="change-team-colors" type="button">${icon("refresh")}<span>Change team colors</span></button>`
+      : `<button class="button button-primary" id="retry-job" type="button">${icon("refresh")}<span>Retry analysis</span></button>`;
+    const recoveryCopy = canChangeTeamColors
+      ? "The uploaded clip is still private and ready. Choose the jersey colors again to re-run this same clip—no new upload is required."
+      : "The uploaded clip remains private until its deletion deadline. Retrying reuses the same bounded source.";
     app.innerHTML = `
       <div class="app-shell">
         ${topbar()}
@@ -835,14 +1057,14 @@
               <h1 id="failure-title">This run stopped before review.</h1>
               <p>${escapeHtml(state.job?.errorMessage || "CourtVision could not complete the bounded analysis job.")}</p>
               <div class="form-actions">
-                <button class="button button-primary" id="retry-job" type="button">${icon("refresh")}<span>Retry analysis</span></button>
+                ${primaryAction}
                 <button class="button button-secondary" id="new-upload" type="button">Choose another clip</button>
               </div>
             </section>
             <aside class="processing-sheet">
-              <h2 class="panel-title"><span>Recovery</span><span>Beta</span></h2>
-              <p>The uploaded clip remains private until its deletion deadline. Retrying reuses the same bounded source.</p>
-              <p class="field-hint">If the failure repeats, choose another clip and include the processing failure in your beta feedback.</p>
+              <h2 class="panel-title"><span>Recovery</span><span>Status</span></h2>
+              <p>${recoveryCopy}</p>
+              <p class="field-hint">${canChangeTeamColors ? "Pure black is a valid jersey choice. Select the fabric color, then continue with the saved upload." : "If the failure repeats, choose another clip and include the processing failure in your report."}</p>
             </aside>
           </div>
         </main>
@@ -851,7 +1073,20 @@
     `;
     bindGlobalActions();
     app.querySelector("#new-upload").addEventListener("click", resetJob);
-    app.querySelector("#retry-job").addEventListener("click", retryJob);
+    if (canChangeTeamColors) app.querySelector("#change-team-colors").addEventListener("click", changeTeamColors);
+    else app.querySelector("#retry-job").addEventListener("click", retryJob);
+  }
+
+  function isTeamColorFailure() {
+    const error = String(state.job?.errorMessage || "").toLowerCase();
+    return error.includes("invalid team-color configuration") || error.includes("team jersey colors must");
+  }
+
+  function changeTeamColors() {
+    state.message = null;
+    state.view = "colors";
+    render();
+    requestAnimationFrame(() => app.querySelector("#colors-title")?.focus());
   }
 
   async function retryJob() {
@@ -880,7 +1115,7 @@
     app.innerHTML = `
       <div class="app-shell review-shell">
         ${topbar(true)}
-        <main class="review-view view" aria-label="CourtVision beta review workspace">
+        <main class="review-view view" aria-label="CourtVision analysis review workspace">
           <div class="review-desk">
             <section class="replay-column" aria-label="Annotated replay and tactical court">
               <div class="video-monitor">
@@ -905,6 +1140,7 @@
               </div>
               ${timelineMarkup(events, duration)}
               ${evidenceMarkup(selected, analysis)}
+              ${gameSummaryMarkup(analysis)}
             </section>
             <aside class="rundown-rail" aria-labelledby="rundown-title">
               <header class="rundown-header">
@@ -916,8 +1152,9 @@
               </header>
               ${eventListMarkup(events, selected)}
               <footer class="rundown-footer">
+                ${gameSummaryLinkMarkup(analysis)}
                 ${events.length ? '<div class="timeline-legend" aria-label="Cue states"><span><i class="legend-shape"></i>Candidate</span><span><i class="legend-shape unknown"></i>Unknown</span></div>' : ""}
-                <p>${escapeHtml(analysis.disclaimer || "Experimental beta analysis. Review every result against the source play.")}</p>
+                <p>${escapeHtml(analysis.disclaimer || "Experimental analysis. Review every result against the source play.")}</p>
               </footer>
             </aside>
           </div>
@@ -940,7 +1177,7 @@
           <div class="brand-lockup">
             <a class="brand" href="./" aria-label="CourtVision home">CourtVision</a>
             <span class="brand-divider" aria-hidden="true"></span>
-            <span class="status-chip">Beta analysis</span>
+            <span class="status-chip">Experimental analysis</span>
           </div>
           <div class="topbar-center">${icon("clock")} <span>Preprocessed sample analysis</span></div>
           <nav class="topbar-actions" aria-label="Demo actions">
@@ -956,11 +1193,11 @@
       : `${config.resultRetentionHours}-hour ${config.localRuntime ? "local session" : "retention"}`;
     const canDownload = review && state.downloads?.videoUrl;
     return `
-      <header class="topbar">
+      <header class="topbar${review ? " topbar-review" : ""}">
         <div class="brand-lockup">
           <a class="brand" href="./" aria-label="CourtVision home">CourtVision</a>
           <span class="brand-divider" aria-hidden="true"></span>
-          <span class="status-chip">${config.publicPreview ? "Public preview" : config.localRuntime ? "Local analysis" : "Beta analysis"}</span>
+          <span class="status-chip">${config.publicPreview ? "Public preview" : config.localRuntime ? "Local analysis" : "Experimental analysis"}</span>
         </div>
         <div class="topbar-center">
           ${icon("clock")}
@@ -970,6 +1207,7 @@
           </span>
         </div>
         <nav class="topbar-actions" aria-label="Session actions">
+          ${appViewTabsMarkup()}
           ${review ? `<button class="button button-secondary new-analysis" id="new-analysis" type="button" aria-label="Analyze another clip">${icon("upload")}<span>Analyze another clip</span></button>` : ""}
           ${
             canDownload
@@ -979,7 +1217,7 @@
           ${review ? `<button class="button button-secondary" id="report-issue" type="button">${icon("flag")}<span>Report issue</span></button>` : ""}
           ${
             config.publicPreview
-              ? `<a class="button button-secondary" href="demo.html?v=official-preview-2">${icon("play")}<span>View sample</span></a>`
+              ? `<a class="button button-secondary" href="demo?v=summary-demo-1">${icon("play")}<span>View sample</span></a>`
               : config.localRuntime
                 ? ""
                 : `<button class="button button-quiet" id="sign-out" type="button">${icon("signout")}<span>Sign out</span></button>`
@@ -1001,13 +1239,25 @@
     `;
   }
 
+  function appViewTabsMarkup() {
+    if (config.publicPreview || config.localRuntime || permanentDemo) return "";
+    const profileActive = state.view === "profile";
+    return `
+      <span class="topbar-view-tabs" aria-label="Account views">
+        <button class="topbar-view-tab" type="button" data-app-view="upload" ${profileActive ? "" : 'aria-current="page"'}>${icon("video")}<span>Analyze</span></button>
+        <button class="topbar-view-tab" type="button" data-app-view="profile" ${profileActive ? 'aria-current="page"' : ""}>${icon("profile")}<span>Profile</span></button>
+        ${state.session?.isAdmin ? `<a class="topbar-view-tab" href="admin">${icon("users")}<span>Admin</span></a>` : ""}
+      </span>
+    `;
+  }
+
   function capacityNoticeMarkup() {
     if (!config.publicPreview || config.analysisAvailable) return "";
     return `
       <aside class="capacity-notice" aria-labelledby="capacity-title">
         <span class="capacity-marker" aria-hidden="true"></span>
         <div><strong id="capacity-title">Analysis capacity pending</strong><span>The upload desk is open for preview. GPU processing is awaiting approval, so selected videos remain on this device.</span></div>
-        <a href="demo.html?v=official-preview-2">View working sample</a>
+        <a href="demo?v=summary-demo-1">View working sample</a>
       </aside>
     `;
   }
@@ -1025,6 +1275,42 @@
         state.job = response.job;
       }
       state.view = "processing";
+    } catch (error) {
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function requestPasswordReset(event) {
+    const body = authValues(event);
+    if (!body) return;
+    state.busy = true;
+    state.message = null;
+    renderAuth();
+    try {
+      const result = demoMode ? { message: "Local preview: use any six-digit reset code." } : await api("/auth/forgot-password", { method: "POST", body, publicRequest: true });
+      state.authStep = "reset";
+      state.message = { type: "success", text: result.message };
+    } catch (error) {
+      state.message = { type: "error", text: error.message };
+    } finally {
+      state.busy = false;
+      render();
+    }
+  }
+
+  async function confirmPasswordReset(event) {
+    const body = authValues(event, { code: true, password: true });
+    if (!body) return;
+    state.busy = true;
+    state.message = null;
+    renderAuth();
+    try {
+      if (!demoMode) await api("/auth/confirm-password", { method: "POST", body, publicRequest: true });
+      state.authStep = "signin";
+      state.message = { type: "success", text: "Password updated. Sign in with your new password." };
     } catch (error) {
       state.message = { type: "error", text: error.message };
     } finally {
@@ -1122,6 +1408,50 @@
     `;
   }
 
+  function gameSummaryMarkup(analysis) {
+    const report = analysis.gameSummary;
+    if (!report || report.status === "disabled") return "";
+    if (report.status !== "complete") {
+      return '<section class="game-summary" id="openai-clip-summary" tabindex="-1" aria-labelledby="game-summary-title"><h2 id="game-summary-title">OpenAI clip summary</h2><p>OpenAI summary unavailable for this run. You can still review the video and event rundown.</p></section>';
+    }
+    const evidence = report.evidence;
+    const v2 = evidence?.schemaVersion === "2.0";
+    const factList = v2 ? [evidence.coverage, evidence.possession, ...evidence.possession.segments, ...evidence.tracks, ...evidence.events, ...evidence.sequences] : (Array.isArray(evidence) ? evidence : []);
+    const facts = new Map(factList.map((fact) => [fact.id, fact]));
+    const referenceIds = (ids) => [...new Set((ids || []).flatMap((id) => {
+      const fact = facts.get(id);
+      return fact?.relation === "temporal_adjacency_only" ? fact.evidenceIds : [id];
+    }))];
+    const references = (ids) => referenceIds(ids).map((id) => {
+      const fact = facts.get(id);
+      if (!fact) return "";
+      return Number.isFinite(fact.timeSeconds)
+        ? `<button type="button" class="summary-replay button button-quiet" data-summary-seek="${Number.isFinite(fact.replayStartSeconds) ? fact.replayStartSeconds : fact.timeSeconds}">Replay ${formatTime(Math.round(fact.timeSeconds * 10) / 10)} ${escapeHtml((fact.type || "possession").replaceAll("_", " "))} ${fact.status === "unknown" ? "unknown" : fact.status || ""}</button>`
+        : fact.id === "coverage" ? "Analyzed clip duration" : "Clip observation totals";
+    }).filter(Boolean).join(" · ");
+    return `<section class="game-summary" id="openai-clip-summary" tabindex="-1" aria-labelledby="game-summary-title">
+      <h2 id="game-summary-title">AI clip summary</h2>
+      <p class="field-hint">Generated from experimental observations in this clip. Verify against the replay; this is not a full-game report.</p>
+      <p>${escapeHtml(report.summary)}</p>
+      ${(report.tacticalInsights || []).length ? "<h3>Key moments to review</h3>" : ""}
+      ${(report.tacticalInsights || []).map((item) => `<div class="tactical-insight">
+        <p>${escapeHtml(item.claim || item.observation)}</p>
+        ${item.caveat || item.reviewSuggestion ? `<p>${escapeHtml(item.caveat || item.reviewSuggestion)}</p>` : ""}
+        <p class="field-hint">Evidence: ${references(item.evidenceIds)}</p>
+      </div>`).join("")}
+      <details class="summary-details"><summary>Coverage and limitations</summary>
+      ${v2 ? `<h3>Coverage</h3><p>${evidence.coverage.usableFrameCount} of ${evidence.coverage.frameCount} frames contain usable player observations. ${evidence.coverage.unknownPossessionFrames} frames have unknown team possession. Court calibration supports ${evidence.coverage.calibratedFrameCount} frames.</p>` : ""}
+      ${(report.limitations || []).length ? `<h3>Limits of this review</h3><ul>${report.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+      </details>
+    </section>`;
+  }
+
+  function gameSummaryLinkMarkup(analysis) {
+    const report = analysis.gameSummary;
+    if (!report || report.status === "disabled") return "";
+    return `<a class="summary-jump" href="#openai-clip-summary">${icon("evidence")}<span>${report.status === "complete" ? "OpenAI clip summary" : "Summary status"}</span>${icon("arrow")}</a>`;
+  }
+
   function evidenceMarkup(event, analysis) {
     const unavailable = tacticalUnavailableCount(analysis);
     return `
@@ -1200,7 +1530,7 @@
       <dialog id="report-dialog" aria-labelledby="report-title">
         <form id="report-form" method="dialog">
           <header class="dialog-header">
-            <div><h2 id="report-title">Report a beta failure</h2><p class="field-hint">The report is attached to this job and timecode, not the retained video after deletion.</p></div>
+            <div><h2 id="report-title">Report an analysis failure</h2><p class="field-hint">The report is attached to this job and timecode, not the retained video after deletion.</p></div>
             <button class="button button-quiet" id="close-report" type="button" aria-label="Close report dialog">${icon("close")}</button>
           </header>
           <div class="dialog-body form-stack">
@@ -1252,6 +1582,14 @@
     });
     app.querySelectorAll("[data-event-id]").forEach((button) => {
       button.addEventListener("click", () => selectEvent(button.dataset.eventId, video));
+    });
+    app.querySelectorAll("[data-summary-seek]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.currentTime = clamp(Number(button.dataset.summarySeek), 0, duration);
+        if (video) video.currentTime = state.currentTime;
+        updateCourtAndTimeline();
+        video?.scrollIntoView({ block: "center", behavior: "auto" });
+      });
     });
     const inspectorTabs = Array.from(app.querySelectorAll(".inspector-tab"));
     inspectorTabs.forEach((button, index) => {
@@ -1446,7 +1784,7 @@
       }
       dialog.close();
       form.reset();
-      showToast("Failure report saved for beta review.");
+      showToast("Failure report saved for review.");
     } catch (error) {
       showToast(error.message, true);
     } finally {
@@ -1457,6 +1795,30 @@
   function bindGlobalActions() {
     const signOut = app.querySelector("#sign-out");
     if (signOut) signOut.addEventListener("click", signOutUser);
+    app.querySelectorAll("[data-app-view]").forEach((control) =>
+      control.addEventListener("click", () => switchAppView(control.dataset.appView)),
+    );
+  }
+
+  async function switchAppView(view) {
+    if (state.busy || !["upload", "profile"].includes(view)) return;
+    if (view === "profile") {
+      clearPoll();
+      state.view = "profile";
+      renderProfile();
+      await loadRecentJobs(true);
+      if (state.view === "profile") renderProfile();
+      return;
+    }
+    clearPoll();
+    window.localStorage.removeItem(activeJobKey);
+    state.job = null;
+    state.analysis = null;
+    state.downloads = null;
+    state.teamColors = { ...defaultTeamColors };
+    state.message = null;
+    state.view = "upload";
+    renderUpload();
   }
 
   async function signOutUser() {
@@ -1471,13 +1833,15 @@
     state.job = null;
     state.analysis = null;
     state.downloads = null;
+    state.teamColors = { ...defaultTeamColors };
     state.view = "auth";
-    state.authStep = "email";
+    state.authStep = "signin";
     render();
   }
 
   function resetJob() {
     clearPoll();
+    upsertRecentJob(state.job);
     window.localStorage.removeItem(activeJobKey);
     state.job = null;
     state.analysis = null;
@@ -1487,7 +1851,8 @@
     state.selectedEventId = null;
     state.currentTime = 0;
     state.inspectorTab = "court";
-    state.message = { type: "success", text: "Ready for another clip. The previous result remains stored until its expiry." };
+    state.teamColors = { ...defaultTeamColors };
+    state.message = { type: "success", text: "Ready for another clip. You can reopen the previous result under Recent analyses until it expires." };
     state.view = "upload";
     render();
   }
@@ -1502,7 +1867,7 @@
     const response = await fetch(`${config.apiBaseUrl}${path}`, {
       method,
       headers,
-      credentials: "same-origin",
+      credentials: "include",
       cache: "no-store",
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
@@ -1521,7 +1886,7 @@
         state.session = null;
         state.csrfToken = null;
         state.view = "auth";
-        state.authStep = "email";
+        state.authStep = "signin";
         state.message = {
           type: "error",
           text: "Your sign-in expired. Sign in again to recover the retained analysis session.",

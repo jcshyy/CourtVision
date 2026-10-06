@@ -17,6 +17,12 @@ BALL_ADAPTIVE_CACHE_VERSION = "v2_gated_predicted_hand_rim_conf050"
 BALL_DETECTOR_BACKENDS = ("yolo", "wasb", "hybrid")
 WASB_INTEGRATION_VERSION = "wasb_hrnet_step1_v1"
 SOURCE_AWARE_HYBRID_VERSION = "wasb_hrnet_step1_source_aware_v2"
+EBARD_BALL_CACHE_VERSION = "v7_ebard_shared_scene"
+EBARD_HYBRID_CACHE_VERSION = "v7_ebard_wasb_shared_scene"
+EBARD_ADAPTIVE_CACHE_VERSION = "v3_ebard_shared_scene"
+EBARD_ADAPTIVE_HYBRID_CACHE_VERSION = "v3_ebard_wasb_shared_scene"
+BALL_CLASS_ALIASES = {"ball", "basketball"}
+HOOP_CLASS_ALIASES = {"hoop", "rim"}
 
 
 class BallTracker:
@@ -28,6 +34,8 @@ class BallTracker:
         *,
         detector_backend="yolo",
         wasb_model_path=WASB_BALL_DETECTOR_PATH,
+        semantic_model=None,
+        semantic_detector_backend="current",
     ):
         if detector_backend not in BALL_DETECTOR_BACKENDS:
             raise ValueError(
@@ -35,8 +43,9 @@ class BallTracker:
                 f"expected one of {BALL_DETECTOR_BACKENDS}"
             )
         self.detector_backend = detector_backend
+        self.semantic_detector_backend = semantic_detector_backend
         self.model = (
-            YOLO(model_path)
+            (semantic_model or YOLO(model_path))
             if detector_backend in ("yolo", "hybrid")
             else None
         )
@@ -48,6 +57,14 @@ class BallTracker:
 
     @property
     def cache_version(self):
+        if self.semantic_detector_backend == "ebard":
+            return (
+                EBARD_HYBRID_CACHE_VERSION
+                if self.detector_backend == "hybrid"
+                else EBARD_BALL_CACHE_VERSION
+                if self.detector_backend == "yolo"
+                else f"{BALL_TRACKING_CACHE_VERSION}_{self.detector_backend}"
+            )
         if self.detector_backend == "yolo":
             return BALL_TRACKING_CACHE_VERSION
         if self.detector_backend == "hybrid":
@@ -62,6 +79,14 @@ class BallTracker:
 
     @property
     def adaptive_cache_version(self):
+        if self.semantic_detector_backend == "ebard":
+            return (
+                EBARD_ADAPTIVE_HYBRID_CACHE_VERSION
+                if self.detector_backend == "hybrid"
+                else EBARD_ADAPTIVE_CACHE_VERSION
+                if self.detector_backend == "yolo"
+                else f"{BALL_ADAPTIVE_CACHE_VERSION}_{self.detector_backend}"
+            )
         if self.detector_backend == "yolo":
             return BALL_ADAPTIVE_CACHE_VERSION
         if self.detector_backend == "hybrid":
@@ -97,6 +122,8 @@ class BallTracker:
         read_from_cache=False,
         cache_path=None,
         player_tracks=None,
+        detections=None,
+        detections_provider=None,
     ):
         tracks = load_cache(cache_path, enabled=read_from_cache) if cache_path else None
         if tracks is not None and len(tracks) == len(frames):
@@ -106,10 +133,22 @@ class BallTracker:
         semantic_candidate_frames = [[] for _ in frames]
         rim_frames = [[] for _ in frames]
         if self.model is not None:
-            detections = self.detect_frames(frames)
+            if detections is None:
+                detections = (
+                    detections_provider()
+                    if detections_provider is not None
+                    else self.detect_frames(frames)
+                )
+            if len(detections) != len(frames):
+                raise ValueError("Ball detections and video frames must align")
             for frame_index, detection in enumerate(detections):
                 candidate_frames[frame_index] = [
-                    {**item, "detection_source": "full_frame"}
+                    {
+                        **item,
+                        "detection_source": (
+                            f"{self.semantic_detector_backend}_full_frame"
+                        ),
+                    }
                     for item in _named_detections(detection, "Ball")
                 ]
                 semantic_candidate_frames[frame_index] = [
@@ -667,11 +706,18 @@ class BallTracker:
 
 def _named_detections(result, class_name):
     class_names = getattr(result, "names", {})
+    aliases = (
+        BALL_CLASS_ALIASES
+        if class_name.lower() in BALL_CLASS_ALIASES
+        else HOOP_CLASS_ALIASES
+        if class_name.lower() in HOOP_CLASS_ALIASES
+        else {class_name.lower()}
+    )
     target_id = next(
         (
             class_id
             for class_id, name in class_names.items()
-            if str(name).lower() == class_name.lower()
+            if str(name).strip().lower() in aliases
         ),
         None,
     )

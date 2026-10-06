@@ -115,6 +115,16 @@ class LocalDemoTests(unittest.TestCase):
         analysis.close()
         video.close()
 
+    def test_recent_jobs_lists_retained_jobs(self):
+        job_id = self.create_job()
+
+        response = self.client.get("/api/jobs")
+
+        self.assertEqual(response.status_code, 200)
+        jobs = response.get_json()["jobs"]
+        self.assertEqual([job["id"] for job in jobs], [job_id])
+        self.assertEqual(jobs[0]["filename"], "clip.mp4")
+
     def test_team_color_retry_uses_the_same_uploaded_job(self):
         attempts = []
 

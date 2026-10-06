@@ -7,22 +7,44 @@ from .ball_holder_state import BallHolderStateModel, HolderFrameState
 from .pass_interception import (
     PassAndInterceptionDetector,
     PassInterceptionDetector,
+    build_event_team_hints,
     events_from_arrays,
+    merge_corroborated_pass_events,
     summarize_events,
 )
+from .possession_timeline import (
+    PossessionTimeline,
+    PossessionTimelineBuilder,
+    build_team_possession,
+)
+from .shot_rebound import (
+    ShotReboundDetector,
+    ShotReboundTimeline,
+    reconcile_shot_events,
+)
 from .speed_distance import SpeedAndDistanceCalculator
+from .event_lifecycle import finalize_ball_events
 from .tactical_view import TacticalViewConverter
 
 __all__ = [
+    "build_team_possession",
     "BallAcquisitionDetector",
     "BallHolderStateModel",
     "HolderFrameState",
     "PassAndInterceptionDetector",
     "PassInterceptionDetector",
+    "PossessionTimeline",
+    "PossessionTimelineBuilder",
+    "ShotReboundDetector",
+    "ShotReboundTimeline",
     "SpeedAndDistanceCalculator",
     "TacticalViewConverter",
+    "build_event_team_hints",
     "clean_acquisition_timeline",
     "events_from_arrays",
+    "finalize_ball_events",
+    "merge_corroborated_pass_events",
+    "reconcile_shot_events",
     "summarize_events",
     "summarize_acquisition_segments",
 ]

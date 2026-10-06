@@ -1,0 +1,308 @@
+{
+  "benchmark": "MultiSports deterministic independent basketball pilot v1",
+  "split": "validation",
+  "metric": "temporal event point-to-action-interval F1; not official spatial tube mAP",
+  "tolerance_seconds": 0.25,
+  "video_count": 12,
+  "processed_video_count": 12,
+  "missing_videos": [],
+  "coverage": 1.0,
+  "micro": {
+    "tp": 19,
+    "fp": 20,
+    "fn": 39,
+    "precision": 0.4872,
+    "recall": 0.3276,
+    "f1": 0.3918
+  },
+  "by_class": {
+    "interception": {
+      "tp": 1,
+      "fp": 1,
+      "fn": 1,
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1": 0.5
+    },
+    "pass": {
+      "tp": 9,
+      "fp": 7,
+      "fn": 28,
+      "precision": 0.5625,
+      "recall": 0.2432,
+      "f1": 0.3396
+    },
+    "shot_attempt": {
+      "tp": 8,
+      "fp": 11,
+      "fn": 8,
+      "precision": 0.4211,
+      "recall": 0.5,
+      "f1": 0.4571
+    },
+    "throw_in": {
+      "tp": 1,
+      "fp": 1,
+      "fn": 2,
+      "precision": 0.5,
+      "recall": 0.3333,
+      "f1": 0.4
+    }
+  },
+  "confusion": {
+    "interception": {
+      "missed": 1,
+      "interception": 1
+    },
+    "no_event": {
+      "pass": 7,
+      "shot_attempt": 8,
+      "interception": 1
+    },
+    "pass": {
+      "missed": 24,
+      "pass": 9,
+      "shot_attempt": 3,
+      "throw_in": 1
+    },
+    "shot_attempt": {
+      "shot_attempt": 8,
+      "missed": 8
+    },
+    "throw_in": {
+      "throw_in": 1,
+      "missed": 2
+    }
+  },
+  "duplicate_predictions": 1,
+  "duplicate_rate": 0.0256,
+  "per_video": [
+    {
+      "video_id": "basketball/v_4LXTUim5anY_c009",
+      "truth": 2,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 1,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 1,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "basketball/v_4LXTUim5anY_c012",
+      "truth": 11,
+      "predicted": 9,
+      "tp": 6,
+      "fp": 3,
+      "fn": 5,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 3,
+          "prediction_index": 1,
+          "interval_distance_seconds": 0.12
+        },
+        {
+          "truth_index": 4,
+          "prediction_index": 4,
+          "interval_distance_seconds": 0.0
+        },
+        {
+          "truth_index": 5,
+          "prediction_index": 3,
+          "interval_distance_seconds": 0.16
+        },
+        {
+          "truth_index": 7,
+          "prediction_index": 8,
+          "interval_distance_seconds": 0.0
+        },
+        {
+          "truth_index": 9,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        },
+        {
+          "truth_index": 10,
+          "prediction_index": 6,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "basketball/v_DC3D_JZQUqQ_c003",
+      "truth": 3,
+      "predicted": 1,
+      "tp": 0,
+      "fp": 1,
+      "fn": 3,
+      "duplicate_predictions": 0,
+      "matches": []
+    },
+    {
+      "video_id": "basketball/v_DC3D_JZQUqQ_c007",
+      "truth": 3,
+      "predicted": 3,
+      "tp": 0,
+      "fp": 3,
+      "fn": 3,
+      "duplicate_predictions": 0,
+      "matches": []
+    },
+    {
+      "video_id": "basketball/v_I-tZTTBt3rc_c002",
+      "truth": 11,
+      "predicted": 6,
+      "tp": 3,
+      "fp": 3,
+      "fn": 8,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 4,
+          "prediction_index": 1,
+          "interval_distance_seconds": 0.08
+        },
+        {
+          "truth_index": 8,
+          "prediction_index": 3,
+          "interval_distance_seconds": 0.0
+        },
+        {
+          "truth_index": 9,
+          "prediction_index": 5,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "basketball/v_I-tZTTBt3rc_c010",
+      "truth": 4,
+      "predicted": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 3,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 3,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "basketball/v_It_vvQR6RPM_c002",
+      "truth": 4,
+      "predicted": 3,
+      "tp": 1,
+      "fp": 2,
+      "fn": 3,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "basketball/v_It_vvQR6RPM_c009",
+      "truth": 6,
+      "predicted": 3,
+      "tp": 2,
+      "fp": 1,
+      "fn": 4,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        },
+        {
+          "truth_index": 4,
+          "prediction_index": 1,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "basketball/v_SHFVKZ6HJc8_c603",
+      "truth": 4,
+      "predicted": 4,
+      "tp": 2,
+      "fp": 2,
+      "fn": 2,
+      "duplicate_predictions": 1,
+      "matches": [
+        {
+          "truth_index": 0,
+          "prediction_index": 3,
+          "interval_distance_seconds": 0.0
+        },
+        {
+          "truth_index": 3,
+          "prediction_index": 1,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    },
+    {
+      "video_id": "basketball/v_hDBjIvCw7Kk_c002",
+      "truth": 3,
+      "predicted": 2,
+      "tp": 1,
+      "fp": 1,
+      "fn": 2,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 2,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.12
+        }
+      ]
+    },
+    {
+      "video_id": "basketball/v_iO0QqaR5E24_c005",
+      "truth": 0,
+      "predicted": 2,
+      "tp": 0,
+      "fp": 2,
+      "fn": 0,
+      "duplicate_predictions": 0,
+      "matches": []
+    },
+    {
+      "video_id": "basketball/v_kguAFIlDI4E_c012",
+      "truth": 7,
+      "predicted": 4,
+      "tp": 2,
+      "fp": 2,
+      "fn": 5,
+      "duplicate_predictions": 0,
+      "matches": [
+        {
+          "truth_index": 2,
+          "prediction_index": 2,
+          "interval_distance_seconds": 0.0
+        },
+        {
+          "truth_index": 4,
+          "prediction_index": 0,
+          "interval_distance_seconds": 0.0
+        }
+      ]
+    }
+  ],
+  "protocol_sha256": "7e9549d08cb213614e429f415ca690c94a96c3ac82f1b67a293c27430e0156da",
+  "official_split_video_count": 147,
+  "scope": "Independent-dataset pilot, not full split or guaranteed pretraining-disjoint evaluation"
+}

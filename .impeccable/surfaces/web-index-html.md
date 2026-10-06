@@ -7,7 +7,7 @@ related_targets: ["web/landing.css","web/landing.js","web/demo.html","web/app.ht
 
 # CourtVision public landing page
 
-- **Scope and mode:** Persuade surface for coaches, analysts, and video researchers evaluating whether the private experimental beta is relevant.
+- **Scope and mode:** Persuade surface for coaches, analysts, and video researchers evaluating the public experimental preview.
 - **Visitor understanding and action:** Understand that CourtVision analyzes short basketball clips into an annotated replay, tactical court, possession estimates, and timecoded pass/interception candidates; open the public upload-preview desk or inspect the permanent fully interactive sample.
 - **Proof:** A visible Analyze video action, a large live synthetic interface demonstration, an explicit capacity-status band, a 00:00–00:30 cue ruler, and three supported capability bands: Annotated Replay, Tactical Court View, and Evidence & Unknowns.
 - **Direction:** Supported-Capabilities Live Film Room in the established Replay Rundown world. Approved comp: `.impeccable/mocks/landing-supported-capabilities.png`.

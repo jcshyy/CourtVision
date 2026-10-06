@@ -73,7 +73,7 @@ class FlaskApiTests(unittest.TestCase):
 
     def test_invalid_json_uses_shared_error_contract(self):
         response = self.client.post(
-            "/api/auth/request-code",
+            "/api/auth/sign-up",
             data="{",
             content_type="application/json",
         )

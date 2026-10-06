@@ -1,0 +1,239 @@
+{
+  "analysis_dir": "output_videos",
+  "benchmark": "benchmarks/shot_sequences_v1",
+  "by_class": {
+    "defensive_rebound": {
+      "f1": 0.3333,
+      "precision": 1.0,
+      "predicted": 1,
+      "recall": 0.2,
+      "tp": 1,
+      "truth": 5
+    },
+    "made": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "predicted": 0,
+      "recall": 0.0,
+      "tp": 0,
+      "truth": 1
+    },
+    "missed": {
+      "f1": 0.7692,
+      "precision": 1.0,
+      "predicted": 5,
+      "recall": 0.625,
+      "tp": 5,
+      "truth": 8
+    },
+    "offensive_rebound": {
+      "f1": 0.6667,
+      "precision": 1.0,
+      "predicted": 1,
+      "recall": 0.5,
+      "tp": 1,
+      "truth": 2
+    },
+    "rebound_any": {
+      "f1": 0.6667,
+      "precision": 0.8,
+      "predicted": 5,
+      "recall": 0.5714,
+      "tp": 4,
+      "truth": 7
+    },
+    "shot_attempt": {
+      "f1": 1.0,
+      "precision": 1.0,
+      "predicted": 9,
+      "recall": 1.0,
+      "tp": 9,
+      "truth": 9
+    }
+  },
+  "micro_event": {
+    "f1": 0.7547,
+    "precision": 0.9524,
+    "predicted": 21,
+    "recall": 0.625,
+    "tp": 20,
+    "truth": 32
+  },
+  "missing_videos": [
+    "bkn_vs_hou_0022300469_377",
+    "bkn_vs_hou_0022300469_382",
+    "bos_vs_ind_0022300507_351",
+    "cha_vs_ind_0022401104_1",
+    "cha_vs_ind_0022401104_29",
+    "cha_vs_ind_0022401104_5",
+    "cha_vs_ind_0022401104_9",
+    "det_vs_okc_0022401108_16",
+    "det_vs_okc_0022401108_28",
+    "mem_vs_det_0022401129_25",
+    "mia_vs_bos_0022401106_24",
+    "mia_vs_bos_0022401106_8",
+    "min_vs_bkn_0022401113_29"
+  ],
+  "per_video": [
+    {
+      "analysis": "output_videos/bard_bkn_hou_366_ebard_wasb_analysis.json",
+      "predicted": {
+        "defensive_rebound": 1,
+        "missed": 2,
+        "rebound_any": 2,
+        "shot_attempt": 3
+      },
+      "true_positive": {
+        "defensive_rebound": 1,
+        "made": 0,
+        "missed": 2,
+        "rebound_any": 1,
+        "shot_attempt": 3
+      },
+      "truth": {
+        "defensive_rebound": 1,
+        "made": 1,
+        "missed": 2,
+        "rebound_any": 1,
+        "shot_attempt": 3
+      },
+      "video_id": "bard_bkn_hou_366"
+    },
+    {
+      "analysis": "output_videos/bard_bos_ind_366_ebard_wasb_analysis.json",
+      "predicted": {
+        "missed": 1,
+        "rebound_any": 1,
+        "shot_attempt": 1
+      },
+      "true_positive": {
+        "defensive_rebound": 0,
+        "missed": 1,
+        "rebound_any": 1,
+        "shot_attempt": 1
+      },
+      "truth": {
+        "defensive_rebound": 1,
+        "missed": 1,
+        "rebound_any": 1,
+        "shot_attempt": 1
+      },
+      "video_id": "bard_bos_ind_366"
+    },
+    {
+      "analysis": "output_videos/bard_det_okc_24_ebard_wasb_analysis.json",
+      "predicted": {
+        "missed": 1,
+        "offensive_rebound": 1,
+        "rebound_any": 1,
+        "shot_attempt": 2
+      },
+      "true_positive": {
+        "defensive_rebound": 0,
+        "missed": 1,
+        "offensive_rebound": 1,
+        "rebound_any": 1,
+        "shot_attempt": 2
+      },
+      "truth": {
+        "defensive_rebound": 1,
+        "missed": 2,
+        "offensive_rebound": 1,
+        "rebound_any": 2,
+        "shot_attempt": 2
+      },
+      "video_id": "bard_det_okc_24"
+    },
+    {
+      "analysis": "output_videos/bard_gsw_mem_9_ebard_wasb_analysis.json",
+      "predicted": {
+        "missed": 1,
+        "rebound_any": 1,
+        "shot_attempt": 1
+      },
+      "true_positive": {
+        "defensive_rebound": 0,
+        "missed": 1,
+        "rebound_any": 1,
+        "shot_attempt": 1
+      },
+      "truth": {
+        "defensive_rebound": 1,
+        "missed": 1,
+        "rebound_any": 1,
+        "shot_attempt": 1
+      },
+      "video_id": "bard_gsw_mem_9"
+    },
+    {
+      "analysis": "output_videos/bard_gsw_mem_17_ebard_wasb_analysis.json",
+      "predicted": {
+        "shot_attempt": 1
+      },
+      "true_positive": {
+        "defensive_rebound": 0,
+        "missed": 0,
+        "rebound_any": 0,
+        "shot_attempt": 1
+      },
+      "truth": {
+        "defensive_rebound": 1,
+        "missed": 1,
+        "rebound_any": 1,
+        "shot_attempt": 1
+      },
+      "video_id": "bard_gsw_mem_17"
+    },
+    {
+      "analysis": "output_videos/bard_gsw_mem_21_ebard_wasb_analysis.json",
+      "predicted": {
+        "shot_attempt": 1
+      },
+      "true_positive": {
+        "missed": 0,
+        "offensive_rebound": 0,
+        "rebound_any": 0,
+        "shot_attempt": 1
+      },
+      "truth": {
+        "missed": 1,
+        "offensive_rebound": 1,
+        "rebound_any": 1,
+        "shot_attempt": 1
+      },
+      "video_id": "bard_gsw_mem_21"
+    }
+  ],
+  "scored_sequence_count": 9,
+  "scored_video_count": 6,
+  "scoring_note": "BARD labels are ordered clip-level actions without timestamps. F1 uses per-clip event-class multisets; style coverage is an ordinal proxy and is not presented as temporal event F1.",
+  "shot_style_ordinal_coverage": {
+    "blocked_shot": {
+      "ordinal_covered": 1,
+      "ordinal_recall_proxy": 1.0,
+      "truth": 1
+    },
+    "close_range_or_midrange": {
+      "ordinal_covered": 2,
+      "ordinal_recall_proxy": 1.0,
+      "truth": 2
+    },
+    "jump_shot": {
+      "ordinal_covered": 4,
+      "ordinal_recall_proxy": 1.0,
+      "truth": 4
+    },
+    "layup": {
+      "ordinal_covered": 1,
+      "ordinal_recall_proxy": 1.0,
+      "truth": 1
+    },
+    "putback": {
+      "ordinal_covered": 1,
+      "ordinal_recall_proxy": 1.0,
+      "truth": 1
+    }
+  },
+  "split": "all",
+  "unscored_predicted_dead_balls": 0
+}
