@@ -784,11 +784,12 @@ def main():
         holder_states=holder_states,
         max_gap_seconds=args.team_possession_max_gap_seconds,
         shot_release_frames=[
-            event.get("release_frame", event["frame_index"])
+            event.get("evidence", {}).get("release_frame", event["frame_index"])
             for event in events
             if event["type"] == "shot_attempt"
         ],
         discontinuity_frames=scene_discontinuity_frames,
+        extension_acquisition=fused_ball_acquisition,
     )
     print(
         "Detected events: "

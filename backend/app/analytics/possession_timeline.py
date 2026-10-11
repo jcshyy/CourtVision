@@ -376,6 +376,7 @@ def build_team_possession(
     max_gap_seconds=TEAM_POSSESSION_MAX_GAP_SECONDS,
     shot_release_frames=(),
     discontinuity_frames=None,
+    extension_acquisition=None,
 ):
     """Per-frame team possession, keeping a team in control through its own passes.
 
@@ -383,10 +384,21 @@ def build_team_possession(
     run of holderless frames between two such frames is ``"team_gap_bridged"``
     only when both holders belong to the same team, the gap is short, and the
     gap contains no scene cut, shot release, or opposite-team ball candidate.
+
+    ``extension_acquisition`` (the combined E-BARD + WASB holder sequence) may
+    lengthen a confirmed holder run: a run of frames where it holds the same
+    player as an adjacent ``ball_acquisition`` frame becomes ``"fused_extension"``.
+    It can never start a possession, change team, or cross a scene cut.
+
     This is a presentation layer: event detection keeps using holder-level
-    acquisitions and never consumes bridged frames.
+    acquisitions and never consumes bridged or extended frames.
     """
     frame_count = len(ball_acquisition)
+    discontinuities = _normalize_discontinuities(discontinuity_frames, frame_count)
+    releases = {int(frame) for frame in shot_release_frames}
+    ball_acquisition, sources = _extend_confirmed_holders(
+        ball_acquisition, extension_acquisition, discontinuities | releases
+    )
     holder_teams = []
     for frame_index, holder_id in enumerate(ball_acquisition):
         assignments = (
@@ -400,12 +412,10 @@ def build_team_possession(
         holder_teams.append(team_id if team_id in (1, 2) else None)
 
     possession = [
-        {"team_id": team_id, "source": "holder" if team_id is not None else None}
-        for team_id in holder_teams
+        {"team_id": team_id, "source": source if team_id is not None else None}
+        for team_id, source in zip(holder_teams, sources)
     ]
     max_gap_frames = max(0, round(float(max_gap_seconds) * float(fps)))
-    discontinuities = _normalize_discontinuities(discontinuity_frames, frame_count)
-    releases = {int(frame) for frame in shot_release_frames}
     holder_frames = [
         frame_index
         for frame_index, holder_id in enumerate(ball_acquisition)
@@ -427,6 +437,46 @@ def build_team_possession(
         for frame_index in range(left + 1, right):
             possession[frame_index] = {"team_id": team_id, "source": "team_gap_bridged"}
     return possession
+
+
+def _extend_confirmed_holders(acquisition, extension, boundaries):
+    """Fill holderless runs where ``extension`` keeps an adjacent confirmed holder.
+
+    A run never crosses a boundary frame (scene cut or shot release).
+    """
+    merged = list(acquisition)
+    sources = ["holder"] * len(merged)
+    if extension is None:
+        return merged, sources
+
+    def held(sequence, index):
+        if not 0 <= index < len(sequence):
+            return None
+        holder_id = sequence[index]
+        return None if holder_id is None or holder_id == -1 else holder_id
+
+    index = 0
+    while index < len(merged):
+        player = held(extension, index)
+        if held(acquisition, index) is not None or player is None:
+            index += 1
+            continue
+        end = index
+        while (
+            end + 1 < len(merged)
+            and held(acquisition, end + 1) is None
+            and held(extension, end + 1) == player
+            and end + 1 not in boundaries
+        ):
+            end += 1
+        anchored_left = held(acquisition, index - 1) == player and index not in boundaries
+        anchored_right = held(acquisition, end + 1) == player and end + 1 not in boundaries
+        if anchored_left or anchored_right:
+            for frame_index in range(index, end + 1):
+                merged[frame_index] = player
+                sources[frame_index] = "fused_extension"
+        index = end + 1
+    return merged, sources
 
 
 def _opposite_team_candidate(holder_states, player_assignment, start, stop, team_id):

@@ -33,3 +33,9 @@ benchmarks/ebard_detection/data/
 tmp/
 *.err.log
 *.out.log
+
+# Local agent, hook, skill and design-tool config
+.agents/
+.github/hooks/
+.github/skills/
+.impeccable/

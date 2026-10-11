@@ -67,6 +67,40 @@ class TeamPossessionTests(unittest.TestCase):
 
         self.assertEqual([frame["team_id"] for frame in result], [None, None, 1, 1, None])
 
+    def test_combined_track_extends_adjacent_confirmed_holder(self):
+        result = self.build(
+            [7, 7, -1, -1, -1, -1],
+            extension_acquisition=[7, 7, 7, 7, -1, -1],
+        )
+
+        self.assertEqual(
+            [frame["source"] for frame in result],
+            ["holder", "holder", "fused_extension", "fused_extension", None, None],
+        )
+        self.assertEqual([frame["team_id"] for frame in result][:4], [1] * 4)
+
+    def test_combined_track_cannot_start_switch_or_cross_cuts(self):
+        cases = {
+            "no adjacent confirmed holder": ([-1, -1, -1, 7], [9, 9, -1, 7], {}),
+            "different player than anchor": ([7, -1, -1, -1], [7, 9, 9, -1], {}),
+            "scene cut at run start": ([7, -1, -1, -1], [7, 7, 7, -1], {"discontinuity_frames": [1]}),
+            "shot release at run start": ([7, -1, -1, -1], [7, 7, 7, -1], {"shot_release_frames": [1]}),
+        }
+        for name, (acquisition, extension, kwargs) in cases.items():
+            with self.subTest(name):
+                result = self.build(acquisition, extension_acquisition=extension, **kwargs)
+                self.assertNotIn("fused_extension", [frame["source"] for frame in result])
+
+    def test_extension_lets_same_team_bridge_reach_the_next_holder(self):
+        # Extension shrinks the gap to 1 s, which the bridge then fills.
+        acquisition = [7] + [-1] * 14 + [8]
+        extension = [7] * 5 + [-1] * 11
+        without = self.build(acquisition)
+        with_extension = self.build(acquisition, extension_acquisition=extension)
+
+        self.assertIsNone(without[7]["team_id"])
+        self.assertEqual([frame["team_id"] for frame in with_extension], [1] * 16)
+
     def test_manifest_publishes_team_possession_and_source(self):
         acquisition = [7, -1, 8]
         assignments = _assignments(3, self.TEAMS)
