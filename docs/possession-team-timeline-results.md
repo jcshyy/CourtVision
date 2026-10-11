@@ -112,3 +112,43 @@ the replay after the fix produced identical results on these clips.
 
 Remaining controlled-frame misses: 42, of which 22 involve a holder whose team
 is unknown and 11 sit between holders on opposite teams.
+
+## Step 3 — "ball seen, no holder" inspection (2026-10-10)
+
+The plan expected 12–18 misses where the ball is seen but no holder is
+assigned. Of the 42 remaining misses only about 9 carry a holder-model reason
+of that kind (`candidate_building`, `candidate_switch_building`,
+`ambiguous_candidates`), and none is `no_credible_candidate`, so the
+distance-threshold change was not made.
+
+Three presentation-layer rules were simulated on the Step 2 replay:
+
+| Rule | Correct | Side effects | Outcome |
+| --- | ---: | --- | --- |
+| Back-fill the candidate frames before a holder is confirmed | +1 | +4 `shot`, +1 `dead` | Rejected |
+| Keep the team while the candidate is a teammate | 0 | +1 `loose` | Rejected |
+| Ignore an opposite-team candidate when the same player holds again within 0.2 s | +2 | none | Implemented |
+
+Implemented rule: `TEAM_POSSESSION_FLICKER_SECONDS = 0.2`. A wider limit
+(about 0.3 s) gains one more controlled frame but also names a team on a
+`loose` frame and on 20 unlabelled frames.
+
+Replay `same_holder_flicker` against Step 2:
+
+| Measure | Step 2 | Step 3 |
+| --- | ---: | ---: |
+| Controlled frames with the correct team (of 121) | 79 | **81** |
+| Wrong team on controlled frames | 0 | 0 |
+| Team on `shot` / `dead` / `in_flight` / `loose` frames | 4 / 1 / 13 / 7 | 4 / 1 / 13 / 7 |
+| Pass/steal F1 | 0.7143 | 0.7143 |
+| Shot-window F1 | 0.875 | 0.875 |
+
+Events and possession diagnostics are identical for all 11 clips; three
+frames changed in total (`video_2` 140, `spursknicks2` 75, `spursknicksclip`
+140).
+
+Remaining controlled-frame misses: 40. 22 involve a holder whose team is
+unknown (mostly `spursknicksclip` track 4), 11 sit between opposite-team
+holders — 8 of them `video_3` frames 202–210, where the pipeline's shot
+release (frame 201) precedes the labelled end of control — and 6 are clip
+starts.

@@ -365,6 +365,8 @@ def _normalize_discontinuities(discontinuity_frames, frame_count):
 # 1.5, 2.5 and 4.0 s gave identical results on the development clips;
 # keep the most conservative.
 TEAM_POSSESSION_MAX_GAP_SECONDS = 1.5
+# A defender cannot take the ball and lose it back to the same player this fast.
+TEAM_POSSESSION_FLICKER_SECONDS = 0.2
 
 
 def build_team_possession(
@@ -384,6 +386,8 @@ def build_team_possession(
     run of holderless frames between two such frames is ``"team_gap_bridged"``
     only when both holders belong to the same team, the gap is short, and the
     gap contains no scene cut, shot release, or opposite-team ball candidate.
+    An opposite-team candidate is ignored when the same player holds the ball
+    again within ``TEAM_POSSESSION_FLICKER_SECONDS``.
 
     ``extension_acquisition`` (the combined E-BARD + WASB holder sequence) may
     lengthen a confirmed holder run: a run of frames where it holds the same
@@ -416,6 +420,7 @@ def build_team_possession(
         for team_id, source in zip(holder_teams, sources)
     ]
     max_gap_frames = max(0, round(float(max_gap_seconds) * float(fps)))
+    flicker_frames = round(TEAM_POSSESSION_FLICKER_SECONDS * float(fps))
     holder_frames = [
         frame_index
         for frame_index, holder_id in enumerate(ball_acquisition)
@@ -430,8 +435,15 @@ def build_team_possession(
             continue
         if any(left <= frame <= right for frame in releases):
             continue
-        if holder_states is not None and _opposite_team_candidate(
-            holder_states, player_assignment, left + 1, right, team_id
+        same_holder_flicker = (
+            ball_acquisition[left] == ball_acquisition[right] and gap <= flicker_frames
+        )
+        if (
+            not same_holder_flicker
+            and holder_states is not None
+            and _opposite_team_candidate(
+                holder_states, player_assignment, left + 1, right, team_id
+            )
         ):
             continue
         for frame_index in range(left + 1, right):

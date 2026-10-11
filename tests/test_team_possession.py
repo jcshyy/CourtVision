@@ -62,6 +62,15 @@ class TeamPossessionTests(unittest.TestCase):
 
         self.assertEqual([frame["team_id"] for frame in result], [1, 1, 1, 1])
 
+    def test_opposite_candidate_ignored_only_when_same_holder_returns_quickly(self):
+        # fps 10: the flicker limit is two frames.
+        blocked = {"candidate_id": 9}
+        quick = self.build([7, -1, -1, 7], holder_states=[{}, blocked, {}, {}])
+        slow = self.build([7, -1, -1, -1, 7], holder_states=[{}, blocked, {}, {}, {}])
+
+        self.assertEqual([frame["team_id"] for frame in quick], [1, 1, 1, 1])
+        self.assertEqual([frame["team_id"] for frame in slow], [1, None, None, None, 1])
+
     def test_holderless_clip_edges_stay_unknown(self):
         result = self.build([-1, -1, 7, 7, -1])
 
