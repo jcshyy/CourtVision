@@ -35,6 +35,7 @@ class BallHolderStateModel:
         minimum_gap_ball_confidence=0.65,
         recover_confirmed_run_starts=False,
         bridge_confirmed_holder_gaps=False,
+        occlusion_bridge_frames=0,
     ):
         self.confirmation_frames = max(1, int(confirmation_frames))
         self.max_missing_frames = max(0, int(max_missing_frames))
@@ -44,6 +45,7 @@ class BallHolderStateModel:
         self.minimum_gap_ball_confidence = float(minimum_gap_ball_confidence)
         self.recover_confirmed_run_starts = bool(recover_confirmed_run_starts)
         self.bridge_confirmed_holder_gaps = bool(bridge_confirmed_holder_gaps)
+        self.occlusion_bridge_frames = max(0, int(occlusion_bridge_frames))
 
     def process(self, player_tracks, ball_tracks):
         if len(player_tracks) != len(ball_tracks):
@@ -292,6 +294,12 @@ class BallHolderStateModel:
             states = _bridge_short_same_holder_gaps(
                 states,
                 maximum_gap=self.max_missing_frames,
+            )
+        if self.occlusion_bridge_frames:
+            states = _bridge_occluded_same_holder_gaps(
+                states,
+                player_tracks,
+                maximum_gap=self.occlusion_bridge_frames,
             )
         return states
 
@@ -555,6 +563,66 @@ def _bridge_short_same_holder_gaps(states, *, maximum_gap):
                             4,
                         ),
                         "reason": "same_holder_gap_bridged",
+                        "frames_since_confirmed": offset,
+                    })
+        left = max(left + 1, right)
+    return bridged
+
+
+def _bridge_occluded_same_holder_gaps(states, player_tracks, *, maximum_gap):
+    """Keep one holder through a longer gap where the ball was never seen.
+
+    Offline-only: the same player must be the confirmed holder on both sides,
+    the ball must be missing or interpolated (never observed elsewhere) with no
+    competing candidate, and the holder's track must persist throughout. A gap
+    that never shows the ball cannot contain evidence of a pass or steal.
+    """
+    bridged = [dict(state) for state in states]
+    maximum_gap = max(0, int(maximum_gap))
+    if maximum_gap == 0:
+        return bridged
+    occluded_reasons = {
+        "ball_missing",
+        "pending_candidate_ball_missing",
+        "interpolated_ball_not_confirmable",
+    }
+    left = 0
+    while left < len(bridged):
+        holder_id = bridged[left].get("holder_id")
+        if holder_id is None:
+            left += 1
+            continue
+        right = left + 1
+        while right < len(bridged) and bridged[right].get("holder_id") is None:
+            right += 1
+        gap = right - left - 1
+        if (
+            0 < gap <= maximum_gap
+            and right < len(bridged)
+            and bridged[right].get("holder_id") == holder_id
+        ):
+            middle_indices = range(left + 1, right)
+            if all(
+                bridged[index].get("reason") in occluded_reasons
+                and bridged[index].get("candidate_id") in (None, holder_id)
+                and index < len(player_tracks)
+                and holder_id in player_tracks[index]
+                for index in middle_indices
+            ):
+                boundary_confidence = min(
+                    float(bridged[left].get("confidence", 0.0)),
+                    float(bridged[right].get("confidence", 0.0)),
+                )
+                for offset, index in enumerate(middle_indices, start=1):
+                    bridged[index].update({
+                        "holder_id": holder_id,
+                        "state": "confirmed",
+                        "confidence": round(
+                            boundary_confidence
+                            * max(0.5, 1.0 - offset / (gap + 1)),
+                            4,
+                        ),
+                        "reason": "occluded_holder_gap_bridged",
                         "frames_since_confirmed": offset,
                     })
         left = max(left + 1, right)

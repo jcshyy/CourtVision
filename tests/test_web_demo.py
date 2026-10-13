@@ -1,11 +1,10 @@
 import json
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from backend.app import game_summary
 from backend.app.trusted_evidence import build_trusted_evidence_v2
 from backend.app.utils import probe_video
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = ROOT / "web"
@@ -48,6 +47,7 @@ class WebDemoTests(unittest.TestCase):
                 for event in analysis["events"]
             )
         )
+
         report = analysis["gameSummary"]
         self.assertEqual(report["status"], "complete")
         self.assertEqual(report["scope"], "analyzed_clip")
@@ -60,10 +60,8 @@ class WebDemoTests(unittest.TestCase):
         self.assertEqual(game_summary._validate(generated, expected_evidence), generated)
 
         archived = json.loads(
-            (
-                ROOT
-                / "benchmarks/demo_history/2026-09-13/courtvision-demo-analysis.json"
-            ).read_text(encoding="utf-8")
+            (ROOT / "benchmarks/demo_history/2026-09-13/courtvision-demo-analysis.json")
+            .read_text(encoding="utf-8")
         )
         self.assertNotIn("gameSummary", archived)
         self.assertNotEqual(archived, analysis)
@@ -79,12 +77,11 @@ class WebDemoTests(unittest.TestCase):
         self.assertNotIn("Preprocessed experimental output", landing)
         self.assertNotIn("Synthetic interface demo", landing)
         self.assertIn(
-            "demo.html?embedded=1&amp;v=summary-demo-1", landing
+            "demo?embedded=1&amp;v=summary-demo-1", landing
         )
         self.assertIn("app.js?v=summary-demo-1", demo)
         self.assertIn(
-            'videoUrl: "assets/courtvision-demo-updated.mp4?v=summary-20260913"',
-            client,
+            'videoUrl: "assets/courtvision-demo-updated.mp4?v=summary-20260913"', client
         )
         self.assertIn("${tacticalDockMarkup(analysis)}", client)
         self.assertIn("${summaryDockMarkup(analysis)}", client)
@@ -109,10 +106,7 @@ class WebDemoTests(unittest.TestCase):
         self.assertIn("maxWidth: 1280", client)
         self.assertIn("analysis.court?.mirrorXFrameRanges", client)
         self.assertNotIn('permanentDemo ? "" : tacticalDockMarkup(analysis)', client)
-        self.assertIn(
-            'analysisUrl: "assets/courtvision-demo-analysis.json?v=summary-20260913"',
-            client,
-        )
+        self.assertIn('analysisUrl: "assets/courtvision-demo-analysis.json?v=summary-20260913"', client)
 
     def test_landing_exposes_live_public_analysis_entry(self):
         root = Path(__file__).resolve().parents[1]

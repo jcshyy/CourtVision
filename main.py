@@ -2,6 +2,7 @@ import argparse
 import json
 from pathlib import Path
 
+from backend.app.analytics.possession_timeline import TEAM_POSSESSION_MAX_GAP_SECONDS
 from backend.app.analytics import (
     BallAcquisitionDetector,
     PassInterceptionDetector,
@@ -11,6 +12,7 @@ from backend.app.analytics import (
     SpeedAndDistanceCalculator,
     TacticalViewConverter,
     build_event_team_hints,
+    build_team_possession,
     finalize_ball_events,
 )
 from backend.app.cache_paths import cache_path, default_job_output_path, video_cache_dir
@@ -172,6 +174,15 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--team-possession-max-gap-seconds",
+        type=float,
+        default=TEAM_POSSESSION_MAX_GAP_SECONDS,
+        help=(
+            "Longest holderless gap kept as one team's possession when the "
+            "same team holds the ball on both sides (for example, a pass)."
+        ),
+    )
+    parser.add_argument(
         "--shot-minimum-rise",
         type=float,
         default=0.07,
@@ -255,6 +266,7 @@ def write_analysis_manifest(
     player_distances_per_frame=None,
     discontinuity_frames=None,
     player_tracks=None,
+    team_possession=None,
 ):
     """Write the evidence used by the web review surface.
 
@@ -278,9 +290,15 @@ def write_analysis_manifest(
             and ball_acquisition[frame_index] != -1
             else None
         )
-        possession_team_id = _json_safe(assignments.get(holder_id))
+        if team_possession is not None and frame_index < len(team_possession):
+            possession_team_id = team_possession[frame_index]["team_id"]
+            possession_source = team_possession[frame_index]["source"]
+        else:
+            possession_team_id = _json_safe(assignments.get(holder_id))
+            possession_source = "holder"
         if possession_team_id not in (1, 2):
             possession_team_id = None
+            possession_source = None
         players = []
         for player_id, position in tactical_positions.items():
             team_id = _json_safe(assignments.get(player_id))
@@ -309,6 +327,7 @@ def write_analysis_manifest(
                 "frameIndex": frame_index,
                 "timeSeconds": round(frame_index / fps, 3),
                 "possessionTeamId": possession_team_id,
+                "possessionSource": possession_source,
                 "courtCalibrated": calibrated,
                 "players": players,
             }
@@ -757,6 +776,21 @@ def main():
         court_keypoints=court_keypoints_per_frame,
         discontinuity_frames=scene_discontinuity_frames,
     )
+    # Team possession is presentation only; events above never consume it.
+    team_possession = build_team_possession(
+        ball_acquisition,
+        player_assignment,
+        fps=output_fps,
+        holder_states=holder_states,
+        max_gap_seconds=args.team_possession_max_gap_seconds,
+        shot_release_frames=[
+            event.get("evidence", {}).get("release_frame", event["frame_index"])
+            for event in events
+            if event["type"] == "shot_attempt"
+        ],
+        discontinuity_frames=scene_discontinuity_frames,
+        extension_acquisition=fused_ball_acquisition,
+    )
     print(
         "Detected events: "
         f"{sum(event['type'] == 'pass' for event in events)} passes, "
@@ -855,6 +889,7 @@ def main():
                 "fused": fused_possession_timeline.to_dict(),
             },
             shot_rebound_timeline=shot_rebound_timeline,
+            team_possession=team_possession,
             player_distances_per_frame=player_distances_per_frame,
             discontinuity_frames=sorted(set(scene_discontinuity_frames) | set(tactical_view_converter.last_diagnostics.get("temporal_discontinuity", []))),
             player_tracks=player_tracks,
@@ -914,8 +949,7 @@ def main():
     )
     output_video_frames = team_ball_control_drawer.draw(
         output_video_frames,
-        player_assignment,
-        ball_acquisition,
+        [frame["team_id"] or -1 for frame in team_possession],
     )
     save_video(output_video_frames, output_path, fps=output_fps)
     print(f"Saved annotated video to {output_path}")

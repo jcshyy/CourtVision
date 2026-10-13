@@ -12,7 +12,11 @@ from .pass_interception import (
     merge_corroborated_pass_events,
     summarize_events,
 )
-from .possession_timeline import PossessionTimeline, PossessionTimelineBuilder
+from .possession_timeline import (
+    PossessionTimeline,
+    PossessionTimelineBuilder,
+    build_team_possession,
+)
 from .shot_rebound import (
     ShotReboundDetector,
     ShotReboundTimeline,
@@ -23,6 +27,7 @@ from .event_lifecycle import finalize_ball_events
 from .tactical_view import TacticalViewConverter
 
 __all__ = [
+    "build_team_possession",
     "BallAcquisitionDetector",
     "BallHolderStateModel",
     "HolderFrameState",

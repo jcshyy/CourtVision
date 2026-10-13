@@ -32333,7 +32333,7 @@
         "fps": 30.0,
         "algorithms": {
           "evidence": "2.0",
-          "possession": "semantic_contiguous_v2",
+          "possession": "semantic_contiguous_team_gap_v3",
           "movement": "pipeline_distance_filtered_v2",
           "events": "candidate_allowlist_v2",
           "review": "replay_review_v1_gap_5s"

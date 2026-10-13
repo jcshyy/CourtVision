@@ -69,7 +69,7 @@
             <span class="admin-gate-mark">${icon("users")}</span>
             <h1 id="gate-title">${signedOut ? "Sign in first." : "Private access only."}</h1>
             <p>${escapeHtml(state.error.message)}</p>
-            <a class="button button-primary" href="app.html">${icon("arrow")}<span>${signedOut ? "Go to sign in" : "Return to analysis"}</span></a>
+            <a class="button button-primary" href="app">${icon("arrow")}<span>${signedOut ? "Go to sign in" : "Return to analysis"}</span></a>
           </section>
         </main>`;
       return;
@@ -83,7 +83,7 @@
           <div class="brand-lockup"><a class="brand" href="./">CourtVision</a><span class="brand-divider" aria-hidden="true"></span><span class="status-chip">Private admin</span></div>
           <div class="topbar-center"><span>Signed in as <strong>${escapeHtml(state.session.email)}</strong></span></div>
           <nav class="topbar-actions" aria-label="Admin actions">
-            <a class="button button-secondary" href="app.html">${icon("arrow")}<span>Analysis desk</span></a>
+            <a class="button button-secondary" href="app">${icon("arrow")}<span>Analysis desk</span></a>
             <button class="button button-quiet" id="admin-sign-out" type="button">${icon("signout")}<span>Sign out</span></button>
           </nav>
         </header>
@@ -168,7 +168,7 @@
 
   async function signOut() {
     try { if (!localDemo) await request("/auth/sign-out", { method: "POST", csrf: true, body: {} }); } catch (_error) { /* Clear the browser view either way. */ }
-    window.location.assign("app.html");
+    window.location.assign("app");
   }
 
   function presentOverview(overview) {

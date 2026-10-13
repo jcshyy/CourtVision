@@ -2,7 +2,7 @@
   "use strict";
 
   const configuredAppUrl = String(window.COURTVISION_CONFIG?.appUrl || "").trim();
-  const appUrl = configuredAppUrl || "app.html";
+  const appUrl = configuredAppUrl || "app";
 
   document.querySelectorAll("[data-analyze-link]").forEach((link) => {
     link.href = appUrl;

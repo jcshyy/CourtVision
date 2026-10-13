@@ -421,6 +421,7 @@
         state.view = "upload";
       }
     } catch (error) {
+      if (error.code === "confirmation_required") state.authStep = "confirm";
       state.message = { type: "error", text: error.message };
     } finally {
       state.busy = false;
@@ -1216,7 +1217,7 @@
           ${review ? `<button class="button button-secondary" id="report-issue" type="button">${icon("flag")}<span>Report issue</span></button>` : ""}
           ${
             config.publicPreview
-              ? `<a class="button button-secondary" href="demo.html?v=summary-demo-1">${icon("play")}<span>View sample</span></a>`
+              ? `<a class="button button-secondary" href="demo?v=summary-demo-1">${icon("play")}<span>View sample</span></a>`
               : config.localRuntime
                 ? ""
                 : `<button class="button button-quiet" id="sign-out" type="button">${icon("signout")}<span>Sign out</span></button>`
@@ -1245,7 +1246,7 @@
       <span class="topbar-view-tabs" aria-label="Account views">
         <button class="topbar-view-tab" type="button" data-app-view="upload" ${profileActive ? "" : 'aria-current="page"'}>${icon("video")}<span>Analyze</span></button>
         <button class="topbar-view-tab" type="button" data-app-view="profile" ${profileActive ? 'aria-current="page"' : ""}>${icon("profile")}<span>Profile</span></button>
-        ${state.session?.isAdmin ? `<a class="topbar-view-tab" href="admin.html">${icon("users")}<span>Admin</span></a>` : ""}
+        ${state.session?.isAdmin ? `<a class="topbar-view-tab" href="admin">${icon("users")}<span>Admin</span></a>` : ""}
       </span>
     `;
   }
@@ -1256,7 +1257,7 @@
       <aside class="capacity-notice" aria-labelledby="capacity-title">
         <span class="capacity-marker" aria-hidden="true"></span>
         <div><strong id="capacity-title">Analysis capacity pending</strong><span>The upload desk is open for preview. GPU processing is awaiting approval, so selected videos remain on this device.</span></div>
-        <a href="demo.html?v=summary-demo-1">View working sample</a>
+        <a href="demo?v=summary-demo-1">View working sample</a>
       </aside>
     `;
   }
@@ -1275,7 +1276,6 @@
       }
       state.view = "processing";
     } catch (error) {
-      if (error.code === "confirmation_required") state.authStep = "confirm";
       state.message = { type: "error", text: error.message };
     } finally {
       state.busy = false;
@@ -1803,6 +1803,7 @@
   async function switchAppView(view) {
     if (state.busy || !["upload", "profile"].includes(view)) return;
     if (view === "profile") {
+      clearPoll();
       state.view = "profile";
       renderProfile();
       await loadRecentJobs(true);
