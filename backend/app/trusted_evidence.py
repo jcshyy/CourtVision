@@ -671,6 +671,12 @@ def build_trusted_evidence_v2(analysis):
     # Short or provisional control runs remain unknown, even with a holder label.
     possession_counts[1] = sum(s["supportFrames"] for s in segments if s["teamId"] == 1)
     possession_counts[2] = sum(s["supportFrames"] for s in segments if s["teamId"] == 2)
+    # A team keeps possession during its own passes. Count a bridged gap only
+    # when qualifying holder segments of that same team sit on both sides.
+    for team_id, frame_count in _anchored_team_gap_frames(
+        indexed, holder_frames, segments
+    ).items():
+        possession_counts[team_id] += frame_count
     known = possession_counts[1] + possession_counts[2]
     possession_counts[None] = eligible - known
     package = {
@@ -710,7 +716,7 @@ def build_trusted_evidence_v2(analysis):
             "fps": fps,
             "algorithms": {
                 "evidence": VERSION,
-                "possession": "semantic_contiguous_v2",
+                "possession": "semantic_contiguous_team_gap_v3",
                 "movement": "pipeline_distance_filtered_v2",
                 "events": "candidate_allowlist_v2",
             },
@@ -753,6 +759,45 @@ def build_trusted_evidence_v2(analysis):
 
 
 MAX_SEQUENCE_GAP_SECONDS = 5.0
+
+
+def _anchored_team_gap_frames(indexed, holder_frames, segments):
+    """Count manifest team-gap frames bounded by same-team qualifying segments."""
+    team_at = {}
+    for segment in segments:
+        for index in range(segment["startFrame"], segment["endFrame"] + 1):
+            team_at[index] = segment["teamId"]
+    counts = Counter()
+    run = []
+    for index in sorted(indexed):
+        frame = indexed[index]
+        bridged = (
+            frame.get("possessionSource") == "team_gap_bridged"
+            and team(frame.get("possessionTeamId")) is not None
+            and index in holder_frames
+            and index not in team_at
+        )
+        if bridged and (not run or (index == run[-1] + 1 and _same_team(indexed, run[0], index))):
+            run.append(index)
+            continue
+        _credit_anchored_run(run, indexed, team_at, counts)
+        run = [index] if bridged else []
+    _credit_anchored_run(run, indexed, team_at, counts)
+    return counts
+
+
+def _same_team(indexed, first, second):
+    return team(indexed[first].get("possessionTeamId")) == team(
+        indexed[second].get("possessionTeamId")
+    )
+
+
+def _credit_anchored_run(run, indexed, team_at, counts):
+    if not run:
+        return
+    team_id = team(indexed[run[0]].get("possessionTeamId"))
+    if team_at.get(run[0] - 1) == team_id and team_at.get(run[-1] + 1) == team_id:
+        counts[team_id] += len(run)
 
 
 def _pass_shot_segment(first, second, segments):

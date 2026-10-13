@@ -478,6 +478,51 @@ class BallAcquisitionTests(unittest.TestCase):
 
         self.assertIsNone(result[1]["holder_id"])
 
+    @staticmethod
+    def _occlusion_states(middle):
+        held = {"holder_id": 7, "state": "confirmed", "confidence": 0.8,
+                "candidate_id": 7, "reason": "holder_reinforced"}
+        return [dict(held), *middle, dict(held)]
+
+    def test_long_occlusion_keeps_same_holder(self):
+        from backend.app.analytics.ball_holder_state import (
+            _bridge_occluded_same_holder_gaps,
+        )
+        missing = {"holder_id": None, "state": "unknown", "confidence": 0.0,
+                   "candidate_id": None, "reason": "ball_missing"}
+        states = self._occlusion_states([dict(missing) for _ in range(10)])
+        players = [{7: {"bbox": [0, 0, 10, 10]}}] * len(states)
+
+        result = _bridge_occluded_same_holder_gaps(states, players, maximum_gap=30)
+
+        self.assertEqual([state["holder_id"] for state in result], [7] * 12)
+        self.assertEqual(result[5]["reason"], "occluded_holder_gap_bridged")
+
+    def test_occlusion_bridge_rejects_seen_ball_competitor_lost_track_or_long_gap(self):
+        from backend.app.analytics.ball_holder_state import (
+            _bridge_occluded_same_holder_gaps,
+        )
+        missing = {"holder_id": None, "state": "unknown", "confidence": 0.0,
+                   "candidate_id": None, "reason": "ball_missing"}
+        seen_elsewhere = {"holder_id": None, "state": "loose", "confidence": 0.3,
+                          "candidate_id": None, "reason": "no_credible_candidate"}
+        competitor = {"holder_id": None, "state": "loose", "confidence": 0.5,
+                      "candidate_id": 8, "reason": "interpolated_ball_not_confirmable"}
+        cases = {
+            "ball observed away from players": ([missing, seen_elsewhere, missing], None),
+            "competing candidate": ([missing, competitor, missing], None),
+            "holder track missing": ([missing, missing, missing], 2),
+            "gap longer than limit": ([missing] * 5, None),
+        }
+        for name, (middle, drop_track_at) in cases.items():
+            with self.subTest(name):
+                states = self._occlusion_states([dict(state) for state in middle])
+                players = [{7: {"bbox": [0, 0, 10, 10]}} for _ in states]
+                if drop_track_at is not None:
+                    players[drop_track_at] = {}
+                result = _bridge_occluded_same_holder_gaps(states, players, maximum_gap=4)
+                self.assertTrue(all(state["holder_id"] is None for state in result[1:-1]))
+
     def test_missing_ball_breaks_confirmation_run(self):
         detector = BallAcquisitionDetector()
         detector.min_frames = 3

@@ -13,6 +13,9 @@ class BallAquisitionDetector:
         self.possession_threshold = 50
         self.min_frames = max(1, math.ceil(fps * minimum_possession_seconds))
         self.state_confirmation_frames = max(2, round(fps * 0.1))
+        # A ball hidden in hands or behind a body commonly disappears for
+        # well over the 0.1 s short-gap bridge.
+        self.occlusion_bridge_frames = max(1, round(fps * 1.0))
         self.containment_threshold = 0.8
 
     def get_key_basketball_player_assignment_points(self, player_bbox, ball_center):
@@ -119,6 +122,7 @@ class BallAquisitionDetector:
             maximum_distance=self.possession_threshold,
             recover_confirmed_run_starts=True,
             bridge_confirmed_holder_gaps=True,
+            occlusion_bridge_frames=self.occlusion_bridge_frames,
         )
         return model.process(player_tracks, ball_tracks)
 

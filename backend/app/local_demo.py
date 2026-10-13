@@ -392,6 +392,9 @@ def create_app(*, data_root=None, pipeline_runner=None, run_jobs_inline=False):
 
     @app.get("/<path:asset_path>")
     def static_asset(asset_path):
+        # Mirror GitHub Pages: "/app" serves "app.html".
+        if not Path(asset_path).suffix and (WEB_ROOT / f"{asset_path}.html").is_file():
+            asset_path = f"{asset_path}.html"
         return send_from_directory(WEB_ROOT, asset_path)
 
     @app.errorhandler(ApiError)

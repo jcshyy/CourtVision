@@ -31,6 +31,7 @@ The current implementation combines a Python batch pipeline with a web control p
 - Detects and tracks basketball players and the ball from video.
 - Assigns teams from multi-frame jersey evidence and permits assignments to remain unknown when evidence is weak.
 - Estimates ball possession and publishes pass, interception, and shot-attempt candidates; these outputs remain experimental and are not verified game statistics.
+- Optionally generates OpenAI clip summaries and evidence-linked tactical review suggestions after AWS Batch processing; requires a server-side API key and never represents a short clip as a full-game report.
 - Detects court keypoints, projects player locations onto a tactical court, and estimates player speed and distance.
 - Renders an annotated output video and preserves bounded-job processing options for clip duration, frame rate, and width.
 - Requires local model weights that are excluded from the repository.

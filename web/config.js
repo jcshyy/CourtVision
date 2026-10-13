@@ -1,6 +1,6 @@
 window.COURTVISION_CONFIG = Object.freeze({
   apiBaseUrl: "https://api.courtvision.video/api",
-  appUrl: "app.html",
+  appUrl: "app",
   authConnected: true,
   publicPreview: false,
   analysisAvailable: true,

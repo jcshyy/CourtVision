@@ -96,6 +96,30 @@ class TrustedEvidenceTests(unittest.TestCase):
         self.assertEqual(p["possession"]["team1Share"], 0.5)
         self.assertEqual(p["possession"]["segments"][0]["supportFrames"], 10)
 
+    @staticmethod
+    def _team_gap_fixture(right_holder_frames):
+        a = fixture()
+        holders = set(range(0, 5)) | set(right_holder_frames)
+        a["diagnostics"]["possessionTimeline"]["semantic"]["frames"] = [
+            {"frame_index": i, "holder_id": 1 if i in holders else None,
+             "state": "controlled" if i in holders else "unknown"}
+            for i in range(20)
+        ]
+        for i in range(5, 9):
+            a["frames"][i].update(possessionTeamId=1, possessionSource="team_gap_bridged")
+        return a
+
+    def test_anchored_same_team_gap_counts_as_team_possession(self):
+        p = build(self._team_gap_fixture(range(9, 14)))
+        self.assertEqual(p["possession"]["team1Frames"], 5 + 4 + 5)
+        self.assertEqual(p["possession"]["eligibleFrames"], 20)
+        self.assertEqual(p["provenance"]["algorithms"]["possession"], "semantic_contiguous_team_gap_v3")
+
+    def test_unanchored_team_gap_stays_unknown(self):
+        # The right-hand holder run is shorter than MIN_SUPPORT, so it is not a segment.
+        p = build(self._team_gap_fixture(range(9, 11)))
+        self.assertEqual(p["possession"]["team1Frames"], 5)
+
     def test_discontinuities_break_windows_and_segments(self):
         a = fixture()
         a["measurements"] = {"discontinuityFrames": list(range(1, 20, 3))}
@@ -199,7 +223,8 @@ class TrustedEvidenceTests(unittest.TestCase):
         p = build(
             json.loads(
                 Path(
-                    "benchmarks/demo_history/2026-09-13/courtvision-demo-analysis.json"
+                    "benchmarks/demo_history/2026-09-13/"
+                    "courtvision-demo-analysis.json"
                 ).read_text()
             )
         )

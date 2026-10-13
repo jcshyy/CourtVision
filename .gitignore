@@ -12,7 +12,6 @@ output_videos/
 holdout_sources/
 holdout_videos/
 runs/
-tmp/
 benchmarks/courtvision_nba_detection_v1/data/
 benchmarks/courtvision_nba_detection_v1/training_yolo/
 benchmarks/ebard_team_attribution/data/
@@ -25,3 +24,18 @@ benchmarks/ebard_detection/data/
 
 *.pt
 !backend/models/.gitkeep
+
+# Local tooling, scratch data and deployment working copies
+.tools/
+.deploy-tools/
+.deploy-*/
+.codex/
+tmp/
+*.err.log
+*.out.log
+
+# Local agent, hook, skill and design-tool config
+.agents/
+.github/hooks/
+.github/skills/
+.impeccable/
